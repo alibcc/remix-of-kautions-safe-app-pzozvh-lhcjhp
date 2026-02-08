@@ -32,6 +32,8 @@ export default function HomeScreen() {
 
   useEffect(() => {
     console.log('HomeScreen: Checking user authentication');
+    
+    // CRITICAL FIX: Only fetch reports if user exists
     if (!user) {
       console.log('HomeScreen: No user found, staying in loading state');
       setLoading(false);
@@ -43,6 +45,7 @@ export default function HomeScreen() {
   }, [user]);
 
   const loadReports = async () => {
+    // CRITICAL FIX: Guard against null user
     if (!user) {
       console.log('HomeScreen: Cannot load reports - no user');
       setLoading(false);
@@ -53,12 +56,12 @@ export default function HomeScreen() {
     try {
       console.log('HomeScreen: Fetching reports from Supabase for user:', user.id);
       
-      // Fetch reports with status 'ACTIVE' or 'PENDING'
+      // Fetch reports with status 'IN PROGRESS', 'ACTIVE', or 'PENDING'
       const { data, error } = await supabase
         .from('reports')
         .select('*')
         .eq('user_id', user.id)
-        .in('status', ['ACTIVE', 'PENDING'])
+        .in('status', ['IN PROGRESS', 'ACTIVE', 'PENDING'])
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -109,7 +112,7 @@ export default function HomeScreen() {
 
   const getStatusColor = (status: string) => {
     const upperStatus = status.toUpperCase();
-    if (upperStatus === 'ACTIVE' || upperStatus === 'PENDING') {
+    if (upperStatus === 'IN PROGRESS' || upperStatus === 'ACTIVE' || upperStatus === 'PENDING') {
       return '#FFA500';
     }
     if (upperStatus === 'COMPLETED') {
@@ -123,7 +126,7 @@ export default function HomeScreen() {
 
   const getStatusText = (status: string) => {
     const upperStatus = status.toUpperCase();
-    if (upperStatus === 'ACTIVE' || upperStatus === 'PENDING') {
+    if (upperStatus === 'IN PROGRESS' || upperStatus === 'ACTIVE' || upperStatus === 'PENDING') {
       return 'In Progress';
     }
     if (upperStatus === 'COMPLETED') {

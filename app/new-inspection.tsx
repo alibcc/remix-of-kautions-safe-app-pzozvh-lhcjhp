@@ -78,30 +78,28 @@ export default function NewInspectionScreen() {
       console.log('Authenticated user ID:', user.id);
 
       // Map inspection type to German database values
-      let mappedInspectionType = inspectionType;
+      let mappedInspectionType = 'Einzug'; // Default to 'Einzug'
+      
       if (inspectionType === 'Move In') {
         mappedInspectionType = 'Einzug';
       } else if (inspectionType === 'Move Out') {
         mappedInspectionType = 'Auszug';
-      } else if (!inspectionType) {
-        // Fallback to default if empty
-        mappedInspectionType = 'Einzug';
       }
 
       console.log('Mapped inspection type:', inspectionType, '->', mappedInspectionType);
 
-      // Insert into 'reports' table with status set to 'ACTIVE'
+      // CRITICAL FIX: Use .select('id').single() to get the new report ID before navigating
       const { data: reportData, error: reportError } = await supabase
         .from('reports')
         .insert([
           {
             address: propertyAddress,
             inspection_type: mappedInspectionType,
-            status: 'ACTIVE',
+            status: 'IN PROGRESS', // Auto-set status to 'IN PROGRESS'
             user_id: user.id,
           }
         ])
-        .select()
+        .select('id')
         .single();
 
       if (reportError) {
@@ -120,14 +118,14 @@ export default function NewInspectionScreen() {
         return;
       }
 
-      if (!reportData) {
+      if (!reportData || !reportData.id) {
         console.error('No data returned from Supabase insert');
         showAlert('Error', 'Failed to create report: No data returned', 'error');
         setLoading(false);
         return;
       }
 
-      console.log('Report created successfully with ACTIVE status:', reportData);
+      console.log('Report created successfully with IN PROGRESS status. Report ID:', reportData.id);
 
       // Handle participants if landlord or tenant names are provided
       if (landlordName.trim() || tenantName.trim()) {
@@ -163,7 +161,7 @@ export default function NewInspectionScreen() {
         }
       }
 
-      // Navigate to Inspection Overview with the new report ID
+      // CRITICAL FIX: Only navigate after we have the report ID
       console.log('Navigating to inspection overview for report ID:', reportData.id);
       router.replace(`/inspection/${reportData.id}`);
     } catch (err: any) {

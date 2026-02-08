@@ -68,6 +68,7 @@ export default function InspectionDetailScreen() {
   const { id } = useLocalSearchParams();
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true); // CRITICAL FIX: 1-second loading state
   
   // Room modal state
   const [showAddRoomModal, setShowAddRoomModal] = useState(false);
@@ -101,9 +102,17 @@ export default function InspectionDetailScreen() {
     setAlertVisible(true);
   };
 
+  // CRITICAL FIX: Add 1-second loading state to give Supabase time to index new reports
   useEffect(() => {
     console.log('InspectionDetailScreen mounted for inspection:', id);
-    loadInspection();
+    
+    const timer = setTimeout(() => {
+      console.log('Initial loading delay complete, fetching inspection data');
+      setInitialLoading(false);
+      loadInspection();
+    }, 1000); // 1-second delay
+
+    return () => clearTimeout(timer);
   }, [id]);
 
   const loadInspection = async () => {
@@ -283,7 +292,8 @@ export default function InspectionDetailScreen() {
     return type;
   };
 
-  if (loading) {
+  // CRITICAL FIX: Show loading during initial 1-second delay
+  if (initialLoading || loading) {
     return (
       <>
         <Stack.Screen
@@ -296,6 +306,7 @@ export default function InspectionDetailScreen() {
         />
         <View style={[commonStyles.container, styles.centerContent]}>
           <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Loading inspection...</Text>
         </View>
       </>
     );
@@ -684,6 +695,11 @@ const styles = StyleSheet.create({
   centerContent: {
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    marginTop: 12,
   },
   errorText: {
     fontSize: 16,
