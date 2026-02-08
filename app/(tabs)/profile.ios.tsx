@@ -1,3 +1,6 @@
 
-// iOS version uses the same implementation as base
-export { default } from './profile';
+// iOS-specific profile screen - re-exports from base file
+// IMPORTANT: Use explicit .tsx extension to avoid circular dependency
+import ProfileScreen from './profile.tsx';
+
+export default ProfileScreen;

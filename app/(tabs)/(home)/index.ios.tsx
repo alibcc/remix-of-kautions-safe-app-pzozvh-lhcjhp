@@ -1,3 +1,6 @@
 
-// iOS version uses the same implementation as base
-export { default } from './index';
+// iOS-specific home screen - re-exports from base file
+// IMPORTANT: Use explicit .tsx extension to avoid circular dependency
+import HomeScreen from './index.tsx';
+
+export default HomeScreen;
