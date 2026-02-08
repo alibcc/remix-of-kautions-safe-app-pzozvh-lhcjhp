@@ -111,11 +111,27 @@ export default function RoomDetailScreen() {
   const [alertMessage, setAlertMessage] = useState('');
   const [alertType, setAlertType] = useState<'info' | 'error' | 'success'>('info');
   
+  // Lightbox state for full-screen image viewing
+  const [lightboxVisible, setLightboxVisible] = useState(false);
+  const [lightboxImageUrl, setLightboxImageUrl] = useState<string>('');
+  
   const showAlert = (title: string, message: string, type: 'info' | 'error' | 'success' = 'info') => {
     setAlertTitle(title);
     setAlertMessage(message);
     setAlertType(type);
     setAlertVisible(true);
+  };
+
+  const openLightbox = (imageUrl: string) => {
+    console.log('Opening lightbox for image:', imageUrl);
+    setLightboxImageUrl(imageUrl);
+    setLightboxVisible(true);
+  };
+
+  const closeLightbox = () => {
+    console.log('Closing lightbox');
+    setLightboxVisible(false);
+    setLightboxImageUrl('');
   };
 
   // Fetch room details and items
@@ -658,23 +674,19 @@ export default function RoomDetailScreen() {
                           <Text style={styles.evidenceTitle}>Evidence Gallery</Text>
                           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoScroll}>
                             {itemPhotos.map((photo) => {
-                              const photoDate = new Date(photo.timestamp_verified).toLocaleString();
-                              const gpsText = photo.gps_coords 
-                                ? `${photo.gps_coords.latitude.toFixed(6)}, ${photo.gps_coords.longitude.toFixed(6)}`
-                                : 'No GPS';
-                              
                               return (
-                                <View key={photo.id} style={styles.photoCard}>
+                                <TouchableOpacity
+                                  key={photo.id}
+                                  style={styles.thumbnailContainer}
+                                  onPress={() => openLightbox(photo.storage_url)}
+                                  activeOpacity={0.7}
+                                >
                                   <Image
                                     source={resolveImageSource(photo.storage_url)}
-                                    style={styles.photoImage}
+                                    style={styles.thumbnail}
                                     resizeMode="cover"
                                   />
-                                  <View style={styles.photoInfo}>
-                                    <Text style={styles.photoTimestamp}>{photoDate}</Text>
-                                    <Text style={styles.photoGps}>{gpsText}</Text>
-                                  </View>
-                                </View>
+                                </TouchableOpacity>
                               );
                             })}
                           </ScrollView>
@@ -872,6 +884,34 @@ export default function RoomDetailScreen() {
           type="danger"
         />
 
+        {/* Full-Screen Lightbox Modal */}
+        <Modal
+          visible={lightboxVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={closeLightbox}
+        >
+          <View style={styles.lightboxOverlay}>
+            <TouchableOpacity
+              style={styles.lightboxCloseButton}
+              onPress={closeLightbox}
+              activeOpacity={0.8}
+            >
+              <IconSymbol
+                ios_icon_name="xmark.circle.fill"
+                android_material_icon_name="close"
+                size={36}
+                color="#FFFFFF"
+              />
+            </TouchableOpacity>
+            <Image
+              source={resolveImageSource(lightboxImageUrl)}
+              style={styles.lightboxImage}
+              resizeMode="contain"
+            />
+          </View>
+        </Modal>
+
         <AlertModal
           visible={alertVisible}
           title={alertTitle}
@@ -1036,28 +1076,33 @@ const styles = StyleSheet.create({
   photoScroll: {
     marginHorizontal: -4,
   },
-  photoCard: {
+  thumbnailContainer: {
     marginHorizontal: 4,
-    width: 120,
   },
-  photoImage: {
-    width: 120,
-    height: 120,
+  thumbnail: {
+    width: 100,
+    height: 100,
     borderRadius: 8,
     backgroundColor: colors.background,
+    borderWidth: 2,
+    borderColor: colors.border,
   },
-  photoInfo: {
-    marginTop: 6,
+  lightboxOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  photoTimestamp: {
-    fontSize: 10,
-    color: colors.text,
-    fontWeight: '500',
+  lightboxCloseButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    padding: 8,
   },
-  photoGps: {
-    fontSize: 9,
-    color: colors.textSecondary,
-    marginTop: 2,
+  lightboxImage: {
+    width: '100%',
+    height: '100%',
   },
   modalOverlay: {
     flex: 1,

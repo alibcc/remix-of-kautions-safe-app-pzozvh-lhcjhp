@@ -14,6 +14,7 @@ import { Stack, useRouter } from "expo-router";
 import { IconSymbol } from "@/components/IconSymbol";
 import { colors, commonStyles } from "@/styles/commonStyles";
 import { supabase } from "@/app/integrations/supabase/client";
+import { AlertModal, ConfirmModal } from "@/components/ui/Modal";
 
 interface Report {
   id: string;
@@ -21,6 +22,7 @@ interface Report {
   inspection_type: string;
   status: string;
   created_at: string;
+  roomCount?: number;
 }
 
 export default function HomeScreen() {
@@ -29,6 +31,24 @@ export default function HomeScreen() {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Delete confirmation state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [reportToDelete, setReportToDelete] = useState<Report | null>(null);
+  const [deletingReport, setDeletingReport] = useState(false);
+  
+  // Alert modal
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState('');
+  const [alertMessage, setAlertMessage] = useState('');
+  const [alertType, setAlertType] = useState<'info' | 'error' | 'success'>('info');
+  
+  const showAlert = (title: string, message: string, type: 'info' | 'error' | 'success' = 'info') => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertType(type);
+    setAlertVisible(true);
+  };
 
   // CRITICAL FIX: Use useCallback to memoize fetchReports
   const fetchReports = useCallback(async () => {
@@ -80,7 +100,25 @@ export default function HomeScreen() {
         setReports([]);
       } else {
         console.log('HomeScreen: Loaded reports:', data?.length || 0);
-        setReports(data || []);
+        
+        // Fetch room count for each report
+        const reportsWithRoomCount = await Promise.all(
+          (data || []).map(async (report) => {
+            const { count, error: countError } = await supabase
+              .from('rooms')
+              .select('*', { count: 'exact', head: true })
+              .eq('report_id', report.id);
+            
+            if (countError) {
+              console.error(`Error fetching room count for report ${report.id}:`, countError);
+              return { ...report, roomCount: 0 };
+            }
+            
+            return { ...report, roomCount: count || 0 };
+          })
+        );
+        
+        setReports(reportsWithRoomCount);
       }
     } catch (error: any) {
       console.error('HomeScreen: Unexpected error loading reports:', error);
@@ -119,6 +157,47 @@ export default function HomeScreen() {
   const handleOpenInspection = (id: string) => {
     console.log('HomeScreen: User tapped inspection:', id);
     router.push(`/inspection/${id}`);
+  };
+
+  const handleDeleteReport = (report: Report) => {
+    console.log('HomeScreen: User tapped delete button for report:', report.id);
+    setReportToDelete(report);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteReport = async () => {
+    if (!reportToDelete) return;
+
+    console.log('HomeScreen: Deleting report:', reportToDelete.id);
+    setDeletingReport(true);
+
+    try {
+      // Delete the report from Supabase
+      const { error: deleteError } = await supabase
+        .from('reports')
+        .delete()
+        .eq('id', reportToDelete.id);
+
+      if (deleteError) {
+        console.error('HomeScreen: Error deleting report:', deleteError);
+        showAlert('Error', `Failed to delete inspection: ${deleteError.message}`, 'error');
+        return;
+      }
+
+      console.log('HomeScreen: Report deleted successfully');
+      showAlert('Success', 'Inspection deleted successfully', 'success');
+
+      // Refresh the reports list
+      await fetchReports();
+
+      setShowDeleteConfirm(false);
+      setReportToDelete(null);
+    } catch (error: any) {
+      console.error('HomeScreen: Unexpected error deleting report:', error);
+      showAlert('Error', `Failed to delete inspection: ${error.message}`, 'error');
+    } finally {
+      setDeletingReport(false);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -242,49 +321,98 @@ export default function HomeScreen() {
               const statusText = getStatusText(report.status);
               const typeText = getTypeText(report.inspection_type);
               const formattedDate = formatDate(report.created_at);
+              const roomCountText = `${report.roomCount || 0} Room${report.roomCount === 1 ? '' : 's'}`;
 
               return (
-                <TouchableOpacity
-                  key={report.id}
-                  style={styles.inspectionCard}
-                  onPress={() => handleOpenInspection(report.id)}
-                >
-                  <View style={styles.inspectionHeader}>
-                    <Text style={styles.inspectionAddress}>
-                      {report.address}
-                    </Text>
-                    <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
-                      <Text style={styles.statusText}>{statusText}</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.inspectionDetails}>
-                    <View style={styles.detailRow}>
-                      <IconSymbol
-                        ios_icon_name="calendar"
-                        android_material_icon_name="calendar-today"
-                        size={16}
-                        color="#666"
-                      />
-                      <Text style={styles.detailText}>{formattedDate}</Text>
+                <View key={report.id} style={styles.inspectionCardWrapper}>
+                  <TouchableOpacity
+                    style={styles.inspectionCard}
+                    onPress={() => handleOpenInspection(report.id)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.inspectionHeader}>
+                      <Text style={styles.inspectionAddress}>
+                        {report.address}
+                      </Text>
+                      <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
+                        <Text style={styles.statusText}>{statusText}</Text>
+                      </View>
                     </View>
 
-                    <View style={styles.detailRow}>
-                      <IconSymbol
-                        ios_icon_name="house"
-                        android_material_icon_name="home"
-                        size={16}
-                        color="#666"
-                      />
-                      <Text style={styles.detailText}>{typeText}</Text>
+                    <View style={styles.inspectionDetails}>
+                      <View style={styles.detailRow}>
+                        <IconSymbol
+                          ios_icon_name="calendar"
+                          android_material_icon_name="calendar-today"
+                          size={16}
+                          color="#666"
+                        />
+                        <Text style={styles.detailText}>{formattedDate}</Text>
+                      </View>
+
+                      <View style={styles.detailRow}>
+                        <IconSymbol
+                          ios_icon_name="house"
+                          android_material_icon_name="home"
+                          size={16}
+                          color="#666"
+                        />
+                        <Text style={styles.detailText}>{typeText}</Text>
+                      </View>
+
+                      <View style={styles.detailRow}>
+                        <IconSymbol
+                          ios_icon_name="door.left.hand.open"
+                          android_material_icon_name="meeting-room"
+                          size={16}
+                          color="#666"
+                        />
+                        <Text style={styles.detailText}>{roomCountText}</Text>
+                      </View>
                     </View>
-                  </View>
-                </TouchableOpacity>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => handleDeleteReport(report)}
+                    activeOpacity={0.7}
+                  >
+                    <IconSymbol
+                      ios_icon_name="trash"
+                      android_material_icon_name="delete"
+                      size={20}
+                      color={colors.error}
+                    />
+                  </TouchableOpacity>
+                </View>
               );
             })}
           </View>
         )}
       </ScrollView>
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        visible={showDeleteConfirm}
+        title="Delete Inspection"
+        message={`Are you sure you want to delete the inspection for "${reportToDelete?.address}"? This will permanently delete all rooms, items, and photos. This action cannot be undone.`}
+        confirmText={deletingReport ? "Deleting..." : "Delete"}
+        cancelText="Cancel"
+        onConfirm={confirmDeleteReport}
+        onCancel={() => {
+          setShowDeleteConfirm(false);
+          setReportToDelete(null);
+        }}
+        type="danger"
+      />
+
+      <AlertModal
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        type={alertType}
+        onClose={() => setAlertVisible(false)}
+      />
     </View>
   );
 }
@@ -357,10 +485,25 @@ const styles = StyleSheet.create({
   inspectionsList: {
     gap: 16,
   },
+  inspectionCardWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   inspectionCard: {
+    flex: 1,
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
+    ...commonStyles.shadow,
+  },
+  deleteButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
     ...commonStyles.shadow,
   },
   inspectionHeader: {

@@ -343,6 +343,13 @@ export default function InspectionDetailScreen() {
       const participants = participantsData || [];
       console.log('Participants:', participants.length);
 
+      // Extract landlord and tenant names
+      const landlordParticipant = participants.find((p: Participant) => p.role === 'Landlord');
+      const tenantParticipant = participants.find((p: Participant) => p.role === 'Tenant');
+      
+      const landlordName = landlordParticipant?.name || '';
+      const tenantName = tenantParticipant?.name || '';
+
       // Fetch all rooms with their items and photos
       const roomsWithData = await Promise.all(
         rooms.map(async (room) => {
@@ -382,41 +389,30 @@ export default function InspectionDetailScreen() {
 
       console.log('All data fetched successfully');
 
-      // Prepare payload for CraftMyPDF
+      // CRITICAL: Construct payload EXACTLY as specified
       const pdfPayload = {
         template_id: '5c477b23ea34170c',
         data: {
-          report: {
-            id: report.id,
-            address: report.address,
-            inspection_type: report.inspection_type,
-            status: report.status,
-            created_at: report.created_at,
-          },
-          participants: participants.map((p: Participant) => ({
-            name: p.name,
-            role: p.role,
-          })),
-          rooms: roomsWithData.map((room) => ({
+          address: report.address,
+          landlord: landlordName,
+          tenant: tenantName,
+          rooms_list: roomsWithData.map((room) => ({
             name_de: room.name_de,
-            name_en: room.name_en,
             items: room.room_items.map((item: RoomItem & { photos: Photo[] }) => ({
-              item_name_de: item.item_name_de,
-              item_name_en: item.item_name_en,
-              condition_status: item.condition_status,
+              item_name: item.item_name_de,
+              status: item.condition_status,
               notes: item.notes || '',
-              requires_repair: item.requires_repair,
               photos: item.photos.map((photo: Photo) => ({
                 url: photo.storage_url,
                 gps_coords: photo.gps_coords,
-                timestamp: photo.timestamp_verified,
+                timestamp_verified: photo.timestamp_verified,
               })),
             })),
           })),
         },
       };
 
-      console.log('Sending request to CraftMyPDF API');
+      console.log('Sending request to CraftMyPDF API with payload:', JSON.stringify(pdfPayload, null, 2));
 
       // Call CraftMyPDF API
       const response = await fetch('https://api.craftmypdf.com/v1/create', {
@@ -429,9 +425,31 @@ export default function InspectionDetailScreen() {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('CraftMyPDF API error:', errorText);
-        throw new Error(`PDF generation failed: ${response.status} ${errorText}`);
+        // CRITICAL: Parse and show specific error from CraftMyPDF API
+        let errorMessage = `PDF generation failed with status ${response.status}`;
+        
+        try {
+          const errorData = await response.json();
+          console.error('CraftMyPDF API error response:', errorData);
+          
+          // Extract specific error message
+          if (errorData.message) {
+            errorMessage = errorData.message;
+          } else if (errorData.error) {
+            errorMessage = errorData.error;
+          } else if (errorData.errors && Array.isArray(errorData.errors)) {
+            errorMessage = errorData.errors.join(', ');
+          }
+        } catch (parseError) {
+          // If JSON parsing fails, try to get text
+          const errorText = await response.text();
+          console.error('CraftMyPDF API error text:', errorText);
+          if (errorText) {
+            errorMessage = errorText;
+          }
+        }
+        
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
@@ -458,7 +476,8 @@ export default function InspectionDetailScreen() {
       }
     } catch (error: any) {
       console.error('Error generating PDF:', error);
-      showAlert('Error', `Failed to generate PDF: ${error.message}`, 'error');
+      // Show the specific error message from CraftMyPDF API
+      showAlert('PDF Generation Error', error.message || 'Failed to generate PDF. Please check your Template ID and try again.', 'error');
     } finally {
       setGeneratingPDF(false);
     }
