@@ -13,40 +13,67 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Stack, useRouter } from "expo-router";
 import { IconSymbol } from "@/components/IconSymbol";
 import { colors, commonStyles } from "@/styles/commonStyles";
-import { authenticatedGet } from "@/utils/api";
+import { supabase } from "@/app/integrations/supabase/client";
 
-interface Inspection {
+interface Report {
   id: string;
-  propertyAddress: string;
-  inspectionType: string;
+  address: string;
+  inspection_type: string;
   status: string;
-  createdAt: string;
-  roomCount: number;
-  meterCount: number;
+  created_at: string;
 }
 
 export default function HomeScreen() {
   const { user } = useAuth();
   const router = useRouter();
-  const [inspections, setInspections] = useState<Inspection[]>([]);
+  const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    if (user) {
-      console.log('HomeScreen: User is authenticated, loading inspections');
-      loadInspections();
+    console.log('HomeScreen: Checking user authentication');
+    if (!user) {
+      console.log('HomeScreen: No user found, staying in loading state');
+      setLoading(false);
+      return;
     }
+    
+    console.log('HomeScreen: User is authenticated, loading reports');
+    loadReports();
   }, [user]);
 
-  const loadInspections = async () => {
+  const loadReports = async () => {
+    if (!user) {
+      console.log('HomeScreen: Cannot load reports - no user');
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
     try {
-      console.log('HomeScreen: Fetching inspections from API');
-      const data = await authenticatedGet<Inspection[]>('/api/inspections');
-      console.log('HomeScreen: Loaded inspections:', data.length);
-      setInspections(data);
-    } catch (error) {
-      console.error('HomeScreen: Failed to load inspections:', error);
+      console.log('HomeScreen: Fetching reports from Supabase for user:', user.id);
+      
+      const { data, error } = await supabase
+        .from('reports')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('HomeScreen: Supabase error fetching reports:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        });
+        setReports([]);
+      } else {
+        console.log('HomeScreen: Loaded reports:', data?.length || 0);
+        setReports(data || []);
+      }
+    } catch (error: any) {
+      console.error('HomeScreen: Unexpected error loading reports:', error);
+      setReports([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -56,7 +83,7 @@ export default function HomeScreen() {
   const handleRefresh = () => {
     console.log('HomeScreen: User pulled to refresh');
     setRefreshing(true);
-    loadInspections();
+    loadReports();
   };
 
   const handleCreateInspection = () => {
@@ -79,6 +106,7 @@ export default function HomeScreen() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case 'pending':
       case 'draft':
         return '#FFA500';
       case 'completed':
@@ -92,6 +120,8 @@ export default function HomeScreen() {
 
   const getStatusText = (status: string) => {
     switch (status) {
+      case 'pending':
+        return 'Pending';
       case 'draft':
         return 'Draft';
       case 'completed':
@@ -105,6 +135,10 @@ export default function HomeScreen() {
 
   const getTypeText = (type: string) => {
     switch (type) {
+      case 'Einzug':
+        return 'Move In';
+      case 'Auszug':
+        return 'Move Out';
       case 'move_in':
         return 'Move In';
       case 'move_out':
@@ -119,6 +153,15 @@ export default function HomeScreen() {
       <View style={styles.loadingContainer}>
         <Stack.Screen options={{ title: 'Inspections' }} />
         <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (!user) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Stack.Screen options={{ title: 'Inspections' }} />
+        <Text style={styles.errorText}>Please log in to view inspections</Text>
       </View>
     );
   }
@@ -150,7 +193,7 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {inspections.length === 0 ? (
+        {reports.length === 0 ? (
           <View style={styles.emptyState}>
             <IconSymbol
               ios_icon_name="doc.text"
@@ -165,21 +208,21 @@ export default function HomeScreen() {
           </View>
         ) : (
           <View style={styles.inspectionsList}>
-            {inspections.map((inspection) => {
-              const statusColor = getStatusColor(inspection.status);
-              const statusText = getStatusText(inspection.status);
-              const typeText = getTypeText(inspection.inspectionType);
-              const formattedDate = formatDate(inspection.createdAt);
+            {reports.map((report) => {
+              const statusColor = getStatusColor(report.status);
+              const statusText = getStatusText(report.status);
+              const typeText = getTypeText(report.inspection_type);
+              const formattedDate = formatDate(report.created_at);
 
               return (
                 <TouchableOpacity
-                  key={inspection.id}
+                  key={report.id}
                   style={styles.inspectionCard}
-                  onPress={() => handleOpenInspection(inspection.id)}
+                  onPress={() => handleOpenInspection(report.id)}
                 >
                   <View style={styles.inspectionHeader}>
                     <Text style={styles.inspectionAddress}>
-                      {inspection.propertyAddress}
+                      {report.address}
                     </Text>
                     <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
                       <Text style={styles.statusText}>{statusText}</Text>
@@ -207,30 +250,6 @@ export default function HomeScreen() {
                       <Text style={styles.detailText}>{typeText}</Text>
                     </View>
                   </View>
-
-                  <View style={styles.inspectionFooter}>
-                    <View style={styles.countBadge}>
-                      <IconSymbol
-                        ios_icon_name="door.left.hand.open"
-                        android_material_icon_name="meeting-room"
-                        size={16}
-                        color="#666"
-                      />
-                      <Text style={styles.countText}>{inspection.roomCount}</Text>
-                      <Text style={styles.countLabel}>rooms</Text>
-                    </View>
-
-                    <View style={styles.countBadge}>
-                      <IconSymbol
-                        ios_icon_name="gauge"
-                        android_material_icon_name="speed"
-                        size={16}
-                        color="#666"
-                      />
-                      <Text style={styles.countText}>{inspection.meterCount}</Text>
-                      <Text style={styles.countLabel}>meters</Text>
-                    </View>
-                  </View>
                 </TouchableOpacity>
               );
             })}
@@ -251,6 +270,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: colors.background,
+  },
+  errorText: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 16,
   },
   scrollView: {
     flex: 1,
@@ -334,7 +359,6 @@ const styles = StyleSheet.create({
   },
   inspectionDetails: {
     gap: 8,
-    marginBottom: 12,
   },
   detailRow: {
     flexDirection: 'row',
@@ -342,27 +366,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   detailText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  inspectionFooter: {
-    flexDirection: 'row',
-    gap: 16,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-  },
-  countBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  countText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  countLabel: {
     fontSize: 14,
     color: '#666',
   },

@@ -18,7 +18,7 @@ import { AlertModal } from "@/components/ui/Modal";
 export default function NewInspectionScreen() {
   const router = useRouter();
   const [propertyAddress, setPropertyAddress] = useState('');
-  const [inspectionType, setInspectionType] = useState<'move_in' | 'move_out'>('move_in');
+  const [inspectionType, setInspectionType] = useState<'Move In' | 'Move Out'>('Move In');
   const [landlordName, setLandlordName] = useState('');
   const [tenantName, setTenantName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -77,13 +77,26 @@ export default function NewInspectionScreen() {
 
       console.log('Authenticated user ID:', user.id);
 
-      // Insert into 'reports' table (renamed from 'inspections')
+      // Map inspection type to German database values
+      let mappedInspectionType = inspectionType;
+      if (inspectionType === 'Move In') {
+        mappedInspectionType = 'Einzug';
+      } else if (inspectionType === 'Move Out') {
+        mappedInspectionType = 'Auszug';
+      } else if (!inspectionType) {
+        // Fallback to default if empty
+        mappedInspectionType = 'Einzug';
+      }
+
+      console.log('Mapped inspection type:', inspectionType, '->', mappedInspectionType);
+
+      // Insert into 'reports' table
       const { data: reportData, error: reportError } = await supabase
         .from('reports')
         .insert([
           {
             address: propertyAddress,
-            inspection_type: inspectionType,
+            inspection_type: mappedInspectionType,
             status: 'pending',
             user_id: user.id,
           }
@@ -100,7 +113,7 @@ export default function NewInspectionScreen() {
         });
         showAlert(
           'Database Error', 
-          `Failed to create report: ${reportError.message}\n\nDetails: ${reportError.details || 'None'}\n\nHint: ${reportError.hint || 'None'}`,
+          `Failed to create report: ${reportError.message}`,
           'error'
         );
         setLoading(false);
@@ -203,23 +216,23 @@ export default function NewInspectionScreen() {
                 <TouchableOpacity
                   style={[
                     styles.typeButton,
-                    inspectionType === 'move_in' && styles.typeButtonActive,
+                    inspectionType === 'Move In' && styles.typeButtonActive,
                   ]}
                   onPress={() => {
                     console.log('User selected Move In inspection type');
-                    setInspectionType('move_in');
+                    setInspectionType('Move In');
                   }}
                 >
                   <IconSymbol
                     ios_icon_name="arrow.down.circle"
                     android_material_icon_name="arrow-downward"
                     size={24}
-                    color={inspectionType === 'move_in' ? '#FFFFFF' : colors.primary}
+                    color={inspectionType === 'Move In' ? '#FFFFFF' : colors.primary}
                   />
                   <Text
                     style={[
                       styles.typeButtonText,
-                      inspectionType === 'move_in' && styles.typeButtonTextActive,
+                      inspectionType === 'Move In' && styles.typeButtonTextActive,
                     ]}
                   >
                     Move In
@@ -229,23 +242,23 @@ export default function NewInspectionScreen() {
                 <TouchableOpacity
                   style={[
                     styles.typeButton,
-                    inspectionType === 'move_out' && styles.typeButtonActive,
+                    inspectionType === 'Move Out' && styles.typeButtonActive,
                   ]}
                   onPress={() => {
                     console.log('User selected Move Out inspection type');
-                    setInspectionType('move_out');
+                    setInspectionType('Move Out');
                   }}
                 >
                   <IconSymbol
                     ios_icon_name="arrow.up.circle"
                     android_material_icon_name="arrow-upward"
                     size={24}
-                    color={inspectionType === 'move_out' ? '#FFFFFF' : colors.primary}
+                    color={inspectionType === 'Move Out' ? '#FFFFFF' : colors.primary}
                   />
                   <Text
                     style={[
                       styles.typeButtonText,
-                      inspectionType === 'move_out' && styles.typeButtonTextActive,
+                      inspectionType === 'Move Out' && styles.typeButtonTextActive,
                     ]}
                   >
                     Move Out
