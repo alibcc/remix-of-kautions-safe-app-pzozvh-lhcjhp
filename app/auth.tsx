@@ -13,11 +13,13 @@ import {
 } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { AlertModal } from "@/components/ui/Modal";
+import { useRouter } from "expo-router";
 
 type Mode = "signin" | "signup";
 
 export default function AuthScreen() {
   const { signInWithEmail, signUpWithEmail, signInWithGoogle, signInWithApple } = useAuth();
+  const router = useRouter();
 
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
@@ -46,8 +48,9 @@ export default function AuthScreen() {
       if (mode === "signin") {
         console.log('User attempting email sign in');
         await signInWithEmail(email, password);
-        console.log('Email sign in successful');
-        showAlert("Success", "Signed in successfully!", 'success');
+        console.log('Email sign in successful - navigating to dashboard');
+        // ✅ EXPLICIT NAVIGATION after successful sign in
+        router.replace('/(tabs)/(home)');
       } else {
         console.log('User attempting email sign up');
         await signUpWithEmail(email, password);
@@ -75,7 +78,9 @@ export default function AuthScreen() {
       } else if (provider === "apple") {
         await signInWithApple();
       }
-      console.log(`${provider} sign in initiated`);
+      console.log(`${provider} sign in initiated - navigating to dashboard`);
+      // ✅ EXPLICIT NAVIGATION after successful OAuth sign in
+      router.replace('/(tabs)/(home)');
     } catch (error: any) {
       console.error(`${provider} auth error:`, error);
       showAlert("Error", error.message || "Authentication failed", 'error');

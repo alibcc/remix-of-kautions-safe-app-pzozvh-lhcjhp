@@ -22,7 +22,8 @@ export default function TabLayout() {
 
     console.log('TabLayout: Auth check - User:', user?.email || 'No user', 'In tabs:', inTabsGroup);
 
-    // If user is not authenticated and we're in the tabs group, redirect to auth
+    // ✅ ONLY redirect to auth if user is NOT authenticated and trying to access protected routes
+    // ❌ DO NOT redirect authenticated users away from auth page - let them navigate manually via button click
     if (!user && inTabsGroup) {
       console.log('TabLayout: No user found in protected route, redirecting to /auth');
       router.replace('/auth');
