@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { 
   StyleSheet, 
   View, 
@@ -30,24 +30,11 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    console.log('HomeScreen: Checking user authentication');
-    
-    // CRITICAL FIX: Only fetch reports if user exists
-    if (!user) {
-      console.log('HomeScreen: No user found, staying in loading state');
-      setLoading(false);
-      return;
-    }
-    
-    console.log('HomeScreen: User is authenticated, loading reports');
-    loadReports();
-  }, [user]);
-
-  const loadReports = async () => {
-    // CRITICAL FIX: Guard against null user
-    if (!user) {
-      console.log('HomeScreen: Cannot load reports - no user');
+  // CRITICAL FIX: Use useCallback to memoize fetchReports
+  const fetchReports = useCallback(async () => {
+    // CRITICAL FIX: Only fetch if user exists
+    if (!user || !user.id) {
+      console.log('HomeScreen: No user found, cannot fetch reports');
       setLoading(false);
       setRefreshing(false);
       return;
@@ -56,6 +43,25 @@ export default function HomeScreen() {
     try {
       console.log('HomeScreen: Fetching reports from Supabase for user:', user.id);
       
+      // CRITICAL FIX: Wait for session to be confirmed
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('HomeScreen: Session error:', sessionError);
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
+      if (!sessionData.session) {
+        console.log('HomeScreen: No active session, cannot fetch reports');
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
+      console.log('HomeScreen: Session confirmed, fetching reports');
+
       // Fetch reports with status 'IN PROGRESS', 'ACTIVE', or 'PENDING'
       const { data, error } = await supabase
         .from('reports')
@@ -83,12 +89,26 @@ export default function HomeScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    console.log('HomeScreen: Checking user authentication');
+    
+    // CRITICAL FIX: Only fetch reports if user exists
+    if (!user) {
+      console.log('HomeScreen: No user found, staying in loading state');
+      setLoading(false);
+      return;
+    }
+    
+    console.log('HomeScreen: User is authenticated, loading reports');
+    fetchReports();
+  }, [user, fetchReports]);
 
   const handleRefresh = () => {
     console.log('HomeScreen: User pulled to refresh');
     setRefreshing(true);
-    loadReports();
+    fetchReports();
   };
 
   const handleCreateInspection = () => {

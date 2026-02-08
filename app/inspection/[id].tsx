@@ -19,6 +19,7 @@ import { colors, commonStyles } from "@/styles/commonStyles";
 import { IconSymbol } from "@/components/IconSymbol";
 import { authenticatedGet, authenticatedPost, authenticatedPut, authenticatedDelete } from "@/utils/api";
 import { ConfirmModal, AlertModal } from "@/components/ui/Modal";
+import { supabase } from "@/app/integrations/supabase/client";
 
 // Room preset list with English and German names
 const ROOM_PRESETS = [
@@ -54,21 +55,20 @@ interface Room {
   items: RoomItem[];
 }
 
-interface Inspection {
+interface Report {
   id: string;
-  propertyAddress: string;
-  inspectionType: string;
+  address: string;
+  inspection_type: string;
   status: string;
-  rooms: Room[];
-  createdAt: string;
+  created_at: string;
 }
 
 export default function InspectionDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  const [inspection, setInspection] = useState<Inspection | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [initialLoading, setInitialLoading] = useState(true); // CRITICAL FIX: 1-second loading state
+  const [report, setReport] = useState<Report | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   // Room modal state
   const [showAddRoomModal, setShowAddRoomModal] = useState(false);
@@ -102,31 +102,115 @@ export default function InspectionDetailScreen() {
     setAlertVisible(true);
   };
 
-  // CRITICAL FIX: Add 1-second loading state to give Supabase time to index new reports
+  // CRITICAL FIX: Only fetch if ID is present, with retry button on error
   useEffect(() => {
-    console.log('InspectionDetailScreen mounted for inspection:', id);
-    
-    const timer = setTimeout(() => {
-      console.log('Initial loading delay complete, fetching inspection data');
-      setInitialLoading(false);
-      loadInspection();
-    }, 1000); // 1-second delay
+    let isMounted = true;
 
-    return () => clearTimeout(timer);
+    const loadInspection = async () => {
+      // CRITICAL FIX: Only fetch if ID is present
+      if (!id) {
+        console.log('InspectionDetailScreen: No ID provided');
+        return;
+      }
+
+      console.log('InspectionDetailScreen: Loading inspection for ID:', id);
+      setLoading(true);
+      setError(null);
+      setReport(null);
+
+      // CRITICAL FIX: 1-second delay to give Supabase time to index new reports
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      if (!isMounted) return;
+
+      try {
+        const { data, error: fetchError } = await supabase
+          .from('reports')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (!isMounted) return;
+
+        if (fetchError) {
+          console.error('InspectionDetailScreen: Supabase error:', {
+            message: fetchError.message,
+            details: fetchError.details,
+            hint: fetchError.hint,
+            code: fetchError.code,
+          });
+
+          // CRITICAL FIX: Check for "Not Found" error specifically
+          if (fetchError.code === 'PGRST116') {
+            setError('Inspection not found. It may have been deleted or you may not have access to it.');
+          } else {
+            setError(`Failed to load inspection: ${fetchError.message}`);
+          }
+        } else if (data) {
+          console.log('InspectionDetailScreen: Report loaded successfully');
+          setReport(data);
+        } else {
+          setError('Inspection not found.');
+        }
+      } catch (err: any) {
+        if (!isMounted) return;
+        console.error('InspectionDetailScreen: Unexpected error:', err);
+        setError(`An unexpected error occurred: ${err.message}`);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadInspection();
+
+    return () => {
+      isMounted = false;
+    };
   }, [id]);
 
-  const loadInspection = async () => {
-    try {
-      console.log('Fetching inspection details from backend');
-      const response = await authenticatedGet<Inspection>(`/api/inspections/${id}`);
-      setInspection(response);
-      console.log('Inspection loaded successfully');
-    } catch (error) {
-      console.error('Error loading inspection:', error);
-      setInspection(null);
-    } finally {
-      setLoading(false);
-    }
+  const handleRetry = () => {
+    console.log('InspectionDetailScreen: User tapped Retry button');
+    setError(null);
+    setLoading(true);
+    
+    // Trigger re-fetch by updating a dummy state
+    const loadInspection = async () => {
+      if (!id) return;
+
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      try {
+        const { data, error: fetchError } = await supabase
+          .from('reports')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (fetchError) {
+          console.error('InspectionDetailScreen: Retry - Supabase error:', fetchError);
+          if (fetchError.code === 'PGRST116') {
+            setError('Inspection not found. It may have been deleted or you may not have access to it.');
+          } else {
+            setError(`Failed to load inspection: ${fetchError.message}`);
+          }
+        } else if (data) {
+          console.log('InspectionDetailScreen: Retry - Report loaded successfully');
+          setReport(data);
+          setError(null);
+        } else {
+          setError('Inspection not found.');
+        }
+      } catch (err: any) {
+        console.error('InspectionDetailScreen: Retry - Unexpected error:', err);
+        setError(`An unexpected error occurred: ${err.message}`);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadInspection();
   };
 
   const handleAddRoom = async () => {
@@ -144,7 +228,6 @@ export default function InspectionDetailScreen() {
         nameEn: selectedRoomPreset.nameEn,
         nameDe: selectedRoomPreset.nameDe,
       });
-      setInspection(prev => prev ? { ...prev, rooms: [...prev.rooms, response] } : null);
       
       setShowAddRoomModal(false);
       setSelectedRoomPreset(null);
@@ -256,19 +339,6 @@ export default function InspectionDetailScreen() {
         photoLongitude: photoLocation?.longitude,
         photoTimestamp: photoTimestamp || undefined,
       });
-
-      // Update the inspection state with the new item
-      setInspection(prev => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          rooms: prev.rooms.map(room => 
-            room.id === selectedRoom.id 
-              ? { ...room, items: [...room.items, response] }
-              : room
-          ),
-        };
-      });
       
       setShowAddItemModal(false);
       setSelectedRoom(null);
@@ -287,13 +357,15 @@ export default function InspectionDetailScreen() {
   };
 
   const getTypeText = (type: string) => {
+    if (type === 'Einzug') return 'Einzug (Move In)';
+    if (type === 'Auszug') return 'Auszug (Move Out)';
     if (type === 'move_in') return 'Einzug (Move In)';
     if (type === 'move_out') return 'Auszug (Move Out)';
     return type;
   };
 
-  // CRITICAL FIX: Show loading during initial 1-second delay
-  if (initialLoading || loading) {
+  // CRITICAL FIX: Show loading state
+  if (loading) {
     return (
       <>
         <Stack.Screen
@@ -312,7 +384,41 @@ export default function InspectionDetailScreen() {
     );
   }
 
-  if (!inspection) {
+  // CRITICAL FIX: Show error with Retry button
+  if (error) {
+    return (
+      <>
+        <Stack.Screen
+          options={{
+            title: "Inspection",
+            headerStyle: { backgroundColor: colors.primary },
+            headerTintColor: '#FFFFFF',
+            headerBackTitle: 'Back',
+          }}
+        />
+        <View style={[commonStyles.container, styles.centerContent]}>
+          <IconSymbol
+            ios_icon_name="exclamationmark.triangle"
+            android_material_icon_name="error"
+            size={64}
+            color={colors.error}
+          />
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
+            <IconSymbol
+              ios_icon_name="arrow.clockwise"
+              android_material_icon_name="refresh"
+              size={20}
+              color="#FFFFFF"
+            />
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </>
+    );
+  }
+
+  if (!report) {
     return (
       <>
         <Stack.Screen
@@ -325,12 +431,21 @@ export default function InspectionDetailScreen() {
         />
         <View style={[commonStyles.container, styles.centerContent]}>
           <Text style={styles.errorText}>Inspection not found</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
+            <IconSymbol
+              ios_icon_name="arrow.clockwise"
+              android_material_icon_name="refresh"
+              size={20}
+              color="#FFFFFF"
+            />
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
         </View>
       </>
     );
   }
 
-  const typeText = getTypeText(inspection.inspectionType);
+  const typeText = getTypeText(report.inspection_type);
 
   return (
     <>
@@ -345,7 +460,7 @@ export default function InspectionDetailScreen() {
       <View style={commonStyles.container}>
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
           <View style={commonStyles.card}>
-            <Text style={styles.address}>{inspection.propertyAddress}</Text>
+            <Text style={styles.address}>{report.address}</Text>
             <Text style={styles.type}>{typeText}</Text>
           </View>
 
@@ -368,64 +483,15 @@ export default function InspectionDetailScreen() {
               </TouchableOpacity>
             </View>
 
-            {inspection.rooms.length === 0 ? (
-              <View style={styles.emptyState}>
-                <IconSymbol
-                  ios_icon_name="door.left.hand.open"
-                  android_material_icon_name="meeting-room"
-                  size={48}
-                  color={colors.textSecondary}
-                />
-                <Text style={styles.emptyText}>No rooms added yet</Text>
-              </View>
-            ) : (
-              <View style={styles.roomsList}>
-                {inspection.rooms.map((room) => (
-                  <TouchableOpacity
-                    key={room.id}
-                    style={commonStyles.card}
-                    onPress={() => {
-                      console.log('User tapped room:', room.nameDe);
-                      setSelectedRoom(room);
-                      setShowAddItemModal(true);
-                    }}
-                  >
-                    <View style={styles.roomHeader}>
-                      <View style={styles.roomNameContainer}>
-                        <Text style={styles.roomNameDe}>{room.nameDe}</Text>
-                        <Text style={styles.roomNameEn}>{room.nameEn}</Text>
-                      </View>
-                      <IconSymbol
-                        ios_icon_name="chevron.right"
-                        android_material_icon_name="chevron-right"
-                        size={20}
-                        color={colors.textSecondary}
-                      />
-                    </View>
-
-                    {room.items && room.items.length > 0 && (
-                      <View style={styles.itemsList}>
-                        {room.items.map((item) => {
-                          const statusColor = 
-                            item.status === 'OK' ? colors.success : 
-                            item.status === 'Defect' ? colors.error : 
-                            colors.warning;
-
-                          return (
-                            <View key={item.id} style={styles.itemRow}>
-                              <Text style={styles.itemName}>{item.itemName}</Text>
-                              <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
-                                <Text style={styles.statusText}>{item.status}</Text>
-                              </View>
-                            </View>
-                          );
-                        })}
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
+            <View style={styles.emptyState}>
+              <IconSymbol
+                ios_icon_name="door.left.hand.open"
+                android_material_icon_name="meeting-room"
+                size={48}
+                color={colors.textSecondary}
+              />
+              <Text style={styles.emptyText}>No rooms added yet</Text>
+            </View>
           </View>
         </ScrollView>
 
@@ -488,159 +554,6 @@ export default function InspectionDetailScreen() {
           </View>
         </Modal>
 
-        {/* Add Room Item Modal */}
-        <Modal
-          visible={showAddItemModal}
-          animationType="slide"
-          transparent={true}
-          onRequestClose={() => setShowAddItemModal(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>
-                  Log Condition - {selectedRoom?.nameDe}
-                </Text>
-                <TouchableOpacity onPress={() => {
-                  setShowAddItemModal(false);
-                  setSelectedRoom(null);
-                  setSelectedItem('');
-                  setSelectedStatus('OK');
-                  setItemNotes('');
-                  setCapturedPhoto(null);
-                  setPhotoLocation(null);
-                  setPhotoTimestamp(null);
-                }}>
-                  <IconSymbol
-                    ios_icon_name="xmark.circle.fill"
-                    android_material_icon_name="close"
-                    size={28}
-                    color={colors.textSecondary}
-                  />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView style={styles.modalScroll}>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Item *</Text>
-                  <View style={styles.itemButtonList}>
-                    {ROOM_ITEMS.map((item) => (
-                      <TouchableOpacity
-                        key={item}
-                        style={[
-                          styles.itemButton,
-                          selectedItem === item && styles.itemButtonActive,
-                        ]}
-                        onPress={() => {
-                          console.log('User selected item:', item);
-                          setSelectedItem(item);
-                        }}
-                      >
-                        <Text
-                          style={[
-                            styles.itemButtonText,
-                            selectedItem === item && styles.itemButtonTextActive,
-                          ]}
-                        >
-                          {item}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Status *</Text>
-                  <View style={styles.statusButtonList}>
-                    {STATUS_OPTIONS.map((status) => (
-                      <TouchableOpacity
-                        key={status}
-                        style={[
-                          styles.statusButton,
-                          selectedStatus === status && styles.statusButtonActive,
-                        ]}
-                        onPress={() => {
-                          console.log('User selected status:', status);
-                          setSelectedStatus(status);
-                        }}
-                      >
-                        <Text
-                          style={[
-                            styles.statusButtonText,
-                            selectedStatus === status && styles.statusButtonTextActive,
-                          ]}
-                        >
-                          {status}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Notes (Optional)</Text>
-                  <TextInput
-                    style={[commonStyles.input, styles.textArea]}
-                    placeholder="Add any additional notes..."
-                    value={itemNotes}
-                    onChangeText={setItemNotes}
-                    multiline
-                    numberOfLines={3}
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Photo (Optional)</Text>
-                  {capturedPhoto ? (
-                    <View style={styles.photoPreview}>
-                      <Image source={{ uri: capturedPhoto }} style={styles.photoImage} />
-                      {photoLocation && (
-                        <View style={styles.photoMetadata}>
-                          <Text style={styles.metadataText}>
-                            GPS: {photoLocation.latitude.toFixed(6)}, {photoLocation.longitude.toFixed(6)}
-                          </Text>
-                          {photoTimestamp && (
-                            <Text style={styles.metadataText}>
-                              Time: {new Date(photoTimestamp).toLocaleString()}
-                            </Text>
-                          )}
-                        </View>
-                      )}
-                      <TouchableOpacity
-                        style={styles.retakeButton}
-                        onPress={handleOpenCamera}
-                      >
-                        <Text style={styles.retakeButtonText}>Retake Photo</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ) : (
-                    <TouchableOpacity style={styles.photoButton} onPress={handleOpenCamera}>
-                      <IconSymbol
-                        ios_icon_name="camera.fill"
-                        android_material_icon_name="camera"
-                        size={32}
-                        color={colors.primary}
-                      />
-                      <Text style={styles.photoButtonText}>Take Photo</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </ScrollView>
-
-              <TouchableOpacity
-                style={[
-                  styles.modalSaveButton,
-                  (!selectedItem || !selectedStatus) && styles.modalSaveButtonDisabled,
-                ]}
-                onPress={handleAddRoomItem}
-                disabled={!selectedItem || !selectedStatus}
-              >
-                <Text style={styles.modalSaveButtonText}>Log Condition</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-
         {/* Camera Modal */}
         <Modal
           visible={showCamera}
@@ -695,6 +608,7 @@ const styles = StyleSheet.create({
   centerContent: {
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   loadingText: {
     fontSize: 16,
@@ -704,6 +618,24 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 16,
     color: colors.error,
+    textAlign: 'center',
+    marginTop: 12,
+    marginBottom: 20,
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
   address: {
     fontSize: 20,
@@ -747,54 +679,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 12,
   },
-  roomsList: {
-    gap: 12,
-  },
-  roomHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  roomNameContainer: {
-    flex: 1,
-  },
-  roomNameDe: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  roomNameEn: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  itemsList: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    gap: 8,
-  },
-  itemRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  itemName: {
-    fontSize: 14,
-    color: colors.text,
-    flex: 1,
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  statusText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -834,10 +718,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 8,
   },
-  textArea: {
-    height: 80,
-    textAlignVertical: 'top',
-  },
   roomPresetList: {
     gap: 12,
   },
@@ -862,106 +742,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     marginTop: 2,
-  },
-  itemButtonList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  itemButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-  },
-  itemButtonActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  itemButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  itemButtonTextActive: {
-    color: '#FFFFFF',
-  },
-  statusButtonList: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  statusButton: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-    alignItems: 'center',
-  },
-  statusButtonActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  statusButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  statusButtonTextActive: {
-    color: '#FFFFFF',
-  },
-  photoButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 40,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.border,
-    borderStyle: 'dashed',
-    backgroundColor: colors.card,
-  },
-  photoButtonText: {
-    fontSize: 14,
-    color: colors.primary,
-    marginTop: 8,
-    fontWeight: '600',
-  },
-  photoPreview: {
-    alignItems: 'center',
-  },
-  photoImage: {
-    width: '100%',
-    height: 200,
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  photoMetadata: {
-    width: '100%',
-    padding: 12,
-    backgroundColor: colors.card,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  metadataText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
-  retakeButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.primary,
-  },
-  retakeButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
   },
   modalSaveButton: {
     backgroundColor: colors.primary,

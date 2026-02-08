@@ -54,7 +54,7 @@ export default function NewInspectionScreen() {
         tenantName 
       });
 
-      // Get current user
+      // CRITICAL FIX: Get current user and verify session
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
       if (userError) {
@@ -78,13 +78,9 @@ export default function NewInspectionScreen() {
       console.log('Authenticated user ID:', user.id);
 
       // Map inspection type to German database values
-      let mappedInspectionType = 'Einzug'; // Default to 'Einzug'
-      
-      if (inspectionType === 'Move In') {
-        mappedInspectionType = 'Einzug';
-      } else if (inspectionType === 'Move Out') {
-        mappedInspectionType = 'Auszug';
-      }
+      const mappedInspectionType = inspectionType === 'Move In' ? 'Einzug' : 
+                                   inspectionType === 'Move Out' ? 'Auszug' : 
+                                   'Einzug'; // Default to 'Einzug'
 
       console.log('Mapped inspection type:', inspectionType, '->', mappedInspectionType);
 
@@ -161,7 +157,7 @@ export default function NewInspectionScreen() {
         }
       }
 
-      // CRITICAL FIX: Only navigate after we have the report ID
+      // CRITICAL FIX: Use router.replace() to prevent back button loops
       console.log('Navigating to inspection overview for report ID:', reportData.id);
       router.replace(`/inspection/${reportData.id}`);
     } catch (err: any) {
@@ -171,6 +167,7 @@ export default function NewInspectionScreen() {
         name: err.name,
       });
       showAlert('Unexpected Error', `An unexpected error occurred: ${err.message}`, 'error');
+    } finally {
       setLoading(false);
     }
   };
