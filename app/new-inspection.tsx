@@ -9,10 +9,11 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { colors, commonStyles } from "@/styles/commonStyles";
 import { IconSymbol } from "@/components/IconSymbol";
-import { authenticatedPost } from "@/utils/api";
+import { supabase } from "@/app/integrations/supabase/client";
 
 export default function NewInspectionScreen() {
   const router = useRouter();
@@ -27,22 +28,89 @@ export default function NewInspectionScreen() {
     
     if (!propertyAddress.trim()) {
       console.log('Validation failed: Property address is required');
+      Alert.alert('Error', 'Please enter a property address');
       return;
     }
 
     setLoading(true);
     try {
-      console.log('Creating new inspection:', { propertyAddress, inspectionType, landlordName, tenantName });
-      const response = await authenticatedPost<{ id: string }>('/api/inspections', { 
+      console.log('Creating new inspection with Supabase:', { 
         propertyAddress, 
         inspectionType, 
-        landlordName: landlordName || undefined, 
-        tenantName: tenantName || undefined 
+        landlordName, 
+        tenantName 
       });
-      console.log('Inspection created successfully:', response.id);
-      router.replace(`/inspection/${response.id}`);
-    } catch (error) {
-      console.error('Error creating inspection:', error);
+
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) {
+        console.error('Supabase auth error:', {
+          message: userError.message,
+          status: userError.status,
+          name: userError.name,
+        });
+        Alert.alert('Authentication Error', `Failed to get user: ${userError.message}`);
+        setLoading(false);
+        return;
+      }
+
+      if (!user) {
+        console.error('No authenticated user found');
+        Alert.alert('Error', 'You must be logged in to create an inspection');
+        setLoading(false);
+        return;
+      }
+
+      console.log('Authenticated user ID:', user.id);
+
+      // Insert inspection into Supabase
+      const { data, error } = await supabase
+        .from('inspections')
+        .insert([
+          {
+            property_address: propertyAddress,
+            inspection_type: inspectionType,
+            landlord_name: landlordName || null,
+            tenant_name: tenantName || null,
+            user_id: user.id,
+            status: 'draft',
+          }
+        ])
+        .select();
+
+      if (error) {
+        // Log the exact Supabase error for debugging
+        console.error('Supabase insert error:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        });
+        Alert.alert(
+          'Database Error', 
+          `Failed to create inspection: ${error.message}\n\nDetails: ${error.details || 'None'}\n\nHint: ${error.hint || 'None'}`
+        );
+        setLoading(false);
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        console.error('No data returned from Supabase insert');
+        Alert.alert('Error', 'Failed to create inspection: No data returned');
+        setLoading(false);
+        return;
+      }
+
+      console.log('Inspection created successfully:', data[0]);
+      router.replace(`/inspection/${data[0].id}`);
+    } catch (err: any) {
+      console.error('Unexpected error creating inspection:', {
+        message: err.message,
+        stack: err.stack,
+        name: err.name,
+      });
+      Alert.alert('Error', `An unexpected error occurred: ${err.message}`);
     } finally {
       setLoading(false);
     }
