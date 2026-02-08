@@ -17,17 +17,21 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 import { colors, commonStyles } from "@/styles/commonStyles";
 import { IconSymbol } from "@/components/IconSymbol";
-import { authenticatedGet, authenticatedPost, authenticatedPut, authenticatedDelete } from "@/utils/api";
 import { ConfirmModal, AlertModal } from "@/components/ui/Modal";
 import { supabase } from "@/app/integrations/supabase/client";
 
-// Room preset list with English and German names
+// EXPANDED Room preset list with English and German names
 const ROOM_PRESETS = [
   { nameEn: 'Living Room', nameDe: 'Wohnzimmer' },
+  { nameEn: 'Bedroom', nameDe: 'Schlafzimmer' },
   { nameEn: 'Kitchen', nameDe: 'Küche' },
   { nameEn: 'Bathroom', nameDe: 'Bad' },
-  { nameEn: 'Bedroom', nameDe: 'Schlafzimmer' },
   { nameEn: 'Hallway', nameDe: 'Flur' },
+  { nameEn: 'Balcony', nameDe: 'Balkon' },
+  { nameEn: 'Basement', nameDe: 'Keller' },
+  { nameEn: 'Guest WC', nameDe: 'Gäste-WC' },
+  { nameEn: 'Storage Room', nameDe: 'Abstellraum' },
+  { nameEn: 'Garden', nameDe: 'Garten' },
 ];
 
 // Room item presets
@@ -50,9 +54,9 @@ interface RoomItem {
 
 interface Room {
   id: string;
-  nameEn: string;
-  nameDe: string;
-  items: RoomItem[];
+  report_id: string;
+  name_en: string;
+  name_de: string;
 }
 
 interface Report {
@@ -67,8 +71,10 @@ export default function InspectionDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const [report, setReport] = useState<Report | null>(null);
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [savingRoom, setSavingRoom] = useState(false);
   
   // Room modal state
   const [showAddRoomModal, setShowAddRoomModal] = useState(false);
@@ -102,12 +108,11 @@ export default function InspectionDetailScreen() {
     setAlertVisible(true);
   };
 
-  // CRITICAL FIX: Only fetch if ID is present, with retry button on error
+  // Fetch report and rooms
   useEffect(() => {
     let isMounted = true;
 
     const loadInspection = async () => {
-      // CRITICAL FIX: Only fetch if ID is present
       if (!id) {
         console.log('InspectionDetailScreen: No ID provided');
         return;
@@ -117,14 +122,16 @@ export default function InspectionDetailScreen() {
       setLoading(true);
       setError(null);
       setReport(null);
+      setRooms([]);
 
-      // CRITICAL FIX: 1-second delay to give Supabase time to index new reports
+      // 1-second delay to give Supabase time to index new reports
       await new Promise(resolve => setTimeout(resolve, 1000));
 
       if (!isMounted) return;
 
       try {
-        const { data, error: fetchError } = await supabase
+        // Fetch report
+        const { data: reportData, error: fetchError } = await supabase
           .from('reports')
           .select('*')
           .eq('id', id)
@@ -140,15 +147,28 @@ export default function InspectionDetailScreen() {
             code: fetchError.code,
           });
 
-          // CRITICAL FIX: Check for "Not Found" error specifically
           if (fetchError.code === 'PGRST116') {
             setError('Inspection not found. It may have been deleted or you may not have access to it.');
           } else {
             setError(`Failed to load inspection: ${fetchError.message}`);
           }
-        } else if (data) {
+        } else if (reportData) {
           console.log('InspectionDetailScreen: Report loaded successfully');
-          setReport(data);
+          setReport(reportData);
+
+          // Fetch rooms for this report
+          const { data: roomsData, error: roomsError } = await supabase
+            .from('rooms')
+            .select('*')
+            .eq('report_id', id)
+            .order('name_de', { ascending: true });
+
+          if (roomsError) {
+            console.error('InspectionDetailScreen: Error loading rooms:', roomsError);
+          } else if (roomsData) {
+            console.log('InspectionDetailScreen: Loaded rooms:', roomsData.length);
+            setRooms(roomsData);
+          }
         } else {
           setError('Inspection not found.');
         }
@@ -175,7 +195,6 @@ export default function InspectionDetailScreen() {
     setError(null);
     setLoading(true);
     
-    // Trigger re-fetch by updating a dummy state
     const loadInspection = async () => {
       if (!id) return;
 
@@ -199,6 +218,20 @@ export default function InspectionDetailScreen() {
           console.log('InspectionDetailScreen: Retry - Report loaded successfully');
           setReport(data);
           setError(null);
+
+          // Fetch rooms
+          const { data: roomsData, error: roomsError } = await supabase
+            .from('rooms')
+            .select('*')
+            .eq('report_id', id)
+            .order('name_de', { ascending: true });
+
+          if (roomsError) {
+            console.error('InspectionDetailScreen: Error loading rooms:', roomsError);
+          } else if (roomsData) {
+            console.log('InspectionDetailScreen: Loaded rooms:', roomsData.length);
+            setRooms(roomsData);
+          }
         } else {
           setError('Inspection not found.');
         }
@@ -222,20 +255,67 @@ export default function InspectionDetailScreen() {
       return;
     }
 
+    if (!id) {
+      console.log('Error: No report ID available');
+      showAlert('Error', 'Report ID is missing', 'error');
+      return;
+    }
+
+    setSavingRoom(true);
+
     try {
-      console.log('Adding room:', selectedRoomPreset);
-      const response = await authenticatedPost<Room>(`/api/inspections/${id}/rooms`, { 
-        nameEn: selectedRoomPreset.nameEn,
-        nameDe: selectedRoomPreset.nameDe,
+      console.log('Adding room to Supabase:', {
+        report_id: id,
+        name_en: selectedRoomPreset.nameEn,
+        name_de: selectedRoomPreset.nameDe,
       });
-      
+
+      // Insert directly into Supabase rooms table
+      const { data: newRoom, error: insertError } = await supabase
+        .from('rooms')
+        .insert([{
+          report_id: id,
+          name_en: selectedRoomPreset.nameEn,
+          name_de: selectedRoomPreset.nameDe,
+        }])
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('Error inserting room:', {
+          message: insertError.message,
+          details: insertError.details,
+          hint: insertError.hint,
+          code: insertError.code,
+        });
+        showAlert('Error', `Failed to add room: ${insertError.message}`, 'error');
+        return;
+      }
+
+      console.log('Room added successfully:', newRoom);
+
+      // Refresh the rooms list
+      const { data: roomsData, error: roomsError } = await supabase
+        .from('rooms')
+        .select('*')
+        .eq('report_id', id)
+        .order('name_de', { ascending: true });
+
+      if (roomsError) {
+        console.error('Error refreshing rooms:', roomsError);
+      } else if (roomsData) {
+        console.log('Rooms list refreshed:', roomsData.length);
+        setRooms(roomsData);
+      }
+
       setShowAddRoomModal(false);
       setSelectedRoomPreset(null);
-      console.log('Room added successfully');
       showAlert('Success', 'Room added successfully', 'success');
-    } catch (error) {
-      console.error('Error adding room:', error);
-      showAlert('Error', 'Failed to add room. Please try again.', 'error');
+    } catch (error: any) {
+      console.error('Unexpected error adding room:', error);
+      showAlert('Error', `Failed to add room: ${error.message}`, 'error');
+    } finally {
+      setSavingRoom(false);
     }
   };
 
@@ -319,43 +399,6 @@ export default function InspectionDetailScreen() {
     }
   };
 
-  const handleAddRoomItem = async () => {
-    console.log('User tapped Add Condition button');
-    
-    if (!selectedRoom || !selectedItem || !selectedStatus) {
-      console.log('Validation failed: All fields are required');
-      showAlert('Validation Error', 'Please fill in all required fields', 'error');
-      return;
-    }
-
-    try {
-      console.log('Adding room item:', { selectedItem, selectedStatus, itemNotes, capturedPhoto, photoLocation, photoTimestamp });
-      const response = await authenticatedPost<RoomItem>(`/api/rooms/${selectedRoom.id}/items`, { 
-        itemName: selectedItem,
-        status: selectedStatus,
-        notes: itemNotes || undefined,
-        photoUrl: capturedPhoto || undefined,
-        photoLatitude: photoLocation?.latitude,
-        photoLongitude: photoLocation?.longitude,
-        photoTimestamp: photoTimestamp || undefined,
-      });
-      
-      setShowAddItemModal(false);
-      setSelectedRoom(null);
-      setSelectedItem('');
-      setSelectedStatus('OK');
-      setItemNotes('');
-      setCapturedPhoto(null);
-      setPhotoLocation(null);
-      setPhotoTimestamp(null);
-      console.log('Room item added successfully');
-      showAlert('Success', 'Condition logged successfully', 'success');
-    } catch (error) {
-      console.error('Error adding room item:', error);
-      showAlert('Error', 'Failed to log condition. Please try again.', 'error');
-    }
-  };
-
   const getTypeText = (type: string) => {
     if (type === 'Einzug') return 'Einzug (Move In)';
     if (type === 'Auszug') return 'Auszug (Move Out)';
@@ -364,7 +407,7 @@ export default function InspectionDetailScreen() {
     return type;
   };
 
-  // CRITICAL FIX: Show loading state
+  // Show loading state
   if (loading) {
     return (
       <>
@@ -384,7 +427,7 @@ export default function InspectionDetailScreen() {
     );
   }
 
-  // CRITICAL FIX: Show error with Retry button
+  // Show error with Retry button
   if (error) {
     return (
       <>
@@ -446,6 +489,7 @@ export default function InspectionDetailScreen() {
   }
 
   const typeText = getTypeText(report.inspection_type);
+  const hasRooms = rooms.length > 0;
 
   return (
     <>
@@ -483,15 +527,38 @@ export default function InspectionDetailScreen() {
               </TouchableOpacity>
             </View>
 
-            <View style={styles.emptyState}>
-              <IconSymbol
-                ios_icon_name="door.left.hand.open"
-                android_material_icon_name="meeting-room"
-                size={48}
-                color={colors.textSecondary}
-              />
-              <Text style={styles.emptyText}>No rooms added yet</Text>
-            </View>
+            {!hasRooms && (
+              <View style={styles.emptyState}>
+                <IconSymbol
+                  ios_icon_name="door.left.hand.open"
+                  android_material_icon_name="meeting-room"
+                  size={48}
+                  color={colors.textSecondary}
+                />
+                <Text style={styles.emptyText}>No rooms added yet</Text>
+              </View>
+            )}
+
+            {hasRooms && (
+              <View style={styles.roomsList}>
+                {rooms.map((room) => (
+                  <View key={room.id} style={styles.roomCard}>
+                    <View style={styles.roomCardHeader}>
+                      <View style={styles.roomCardTitleContainer}>
+                        <Text style={styles.roomCardTitleDe}>{room.name_de}</Text>
+                        <Text style={styles.roomCardTitleEn}>{room.name_en}</Text>
+                      </View>
+                      <IconSymbol
+                        ios_icon_name="chevron.right"
+                        android_material_icon_name="chevron-right"
+                        size={20}
+                        color={colors.textSecondary}
+                      />
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         </ScrollView>
 
@@ -520,22 +587,35 @@ export default function InspectionDetailScreen() {
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Select Room Type *</Text>
                   <View style={styles.roomPresetList}>
-                    {ROOM_PRESETS.map((preset) => (
-                      <TouchableOpacity
-                        key={preset.nameEn}
-                        style={[
-                          styles.presetButton,
-                          selectedRoomPreset?.nameEn === preset.nameEn && styles.presetButtonActive,
-                        ]}
-                        onPress={() => {
-                          console.log('User selected room preset:', preset.nameDe);
-                          setSelectedRoomPreset(preset);
-                        }}
-                      >
-                        <Text style={styles.presetNameDe}>{preset.nameDe}</Text>
-                        <Text style={styles.presetNameEn}>{preset.nameEn}</Text>
-                      </TouchableOpacity>
-                    ))}
+                    {ROOM_PRESETS.map((preset) => {
+                      const isSelected = selectedRoomPreset?.nameEn === preset.nameEn;
+                      return (
+                        <TouchableOpacity
+                          key={preset.nameEn}
+                          style={[
+                            styles.presetButton,
+                            isSelected && styles.presetButtonActive,
+                          ]}
+                          onPress={() => {
+                            console.log('User selected room preset:', preset.nameDe);
+                            setSelectedRoomPreset(preset);
+                          }}
+                        >
+                          <Text style={[
+                            styles.presetNameDe,
+                            isSelected && styles.presetNameDeActive,
+                          ]}>
+                            {preset.nameDe}
+                          </Text>
+                          <Text style={[
+                            styles.presetNameEn,
+                            isSelected && styles.presetNameEnActive,
+                          ]}>
+                            {preset.nameEn}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
                 </View>
               </ScrollView>
@@ -543,12 +623,16 @@ export default function InspectionDetailScreen() {
               <TouchableOpacity
                 style={[
                   styles.modalSaveButton,
-                  !selectedRoomPreset && styles.modalSaveButtonDisabled,
+                  (!selectedRoomPreset || savingRoom) && styles.modalSaveButtonDisabled,
                 ]}
                 onPress={handleAddRoom}
-                disabled={!selectedRoomPreset}
+                disabled={!selectedRoomPreset || savingRoom}
               >
-                <Text style={styles.modalSaveButtonText}>Add Room</Text>
+                {savingRoom ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.modalSaveButtonText}>Add Room</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -679,6 +763,34 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 12,
   },
+  roomsList: {
+    gap: 12,
+  },
+  roomCard: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  roomCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  roomCardTitleContainer: {
+    flex: 1,
+  },
+  roomCardTitleDe: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 2,
+  },
+  roomCardTitleEn: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -738,10 +850,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
   },
+  presetNameDeActive: {
+    color: '#FFFFFF',
+  },
   presetNameEn: {
     fontSize: 14,
     color: colors.textSecondary,
     marginTop: 2,
+  },
+  presetNameEnActive: {
+    color: 'rgba(255, 255, 255, 0.8)',
   },
   modalSaveButton: {
     backgroundColor: colors.primary,
@@ -752,6 +870,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 52,
   },
   modalSaveButtonDisabled: {
     backgroundColor: colors.textSecondary,
