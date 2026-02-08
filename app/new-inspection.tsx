@@ -1,0 +1,338 @@
+
+import { Stack, useRouter } from "expo-router";
+import React, { useState } from "react";
+import {
+  StyleSheet,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+} from "react-native";
+import { colors, commonStyles } from "@/styles/commonStyles";
+import { IconSymbol } from "@/components/IconSymbol";
+import { authenticatedPost } from "@/utils/api";
+
+export default function NewInspectionScreen() {
+  const router = useRouter();
+  const [propertyAddress, setPropertyAddress] = useState('');
+  const [inspectionType, setInspectionType] = useState<'move_in' | 'move_out'>('move_in');
+  const [landlordName, setLandlordName] = useState('');
+  const [tenantName, setTenantName] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleCreate = async () => {
+    console.log('User tapped Create Inspection button');
+    
+    if (!propertyAddress.trim()) {
+      console.log('Validation failed: Property address is required');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      console.log('Creating new inspection:', { propertyAddress, inspectionType, landlordName, tenantName });
+      const response = await authenticatedPost<{ id: string }>('/api/inspections', { 
+        propertyAddress, 
+        inspectionType, 
+        landlordName: landlordName || undefined, 
+        tenantName: tenantName || undefined 
+      });
+      console.log('Inspection created successfully:', response.id);
+      router.replace(`/inspection/${response.id}`);
+    } catch (error) {
+      console.error('Error creating inspection:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancel = () => {
+    console.log('User tapped Cancel button');
+    router.back();
+  };
+
+  return (
+    <>
+      <Stack.Screen
+        options={{
+          title: "New Inspection",
+          headerStyle: { backgroundColor: colors.primary },
+          headerTintColor: '#FFFFFF',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <View style={commonStyles.container}>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Property Details</Text>
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Property Address *</Text>
+              <TextInput
+                style={commonStyles.input}
+                placeholder="e.g., Hauptstraße 123, 10115 Berlin"
+                value={propertyAddress}
+                onChangeText={setPropertyAddress}
+                multiline
+                numberOfLines={2}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Inspection Type *</Text>
+              <View style={styles.typeButtons}>
+                <TouchableOpacity
+                  style={[
+                    styles.typeButton,
+                    inspectionType === 'move_in' && styles.typeButtonActive,
+                  ]}
+                  onPress={() => {
+                    console.log('User selected Move In inspection type');
+                    setInspectionType('move_in');
+                  }}
+                >
+                  <IconSymbol
+                    ios_icon_name="arrow.down.circle"
+                    android_material_icon_name="arrow-downward"
+                    size={24}
+                    color={inspectionType === 'move_in' ? '#FFFFFF' : colors.primary}
+                  />
+                  <Text
+                    style={[
+                      styles.typeButtonText,
+                      inspectionType === 'move_in' && styles.typeButtonTextActive,
+                    ]}
+                  >
+                    Move In
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.typeButton,
+                    inspectionType === 'move_out' && styles.typeButtonActive,
+                  ]}
+                  onPress={() => {
+                    console.log('User selected Move Out inspection type');
+                    setInspectionType('move_out');
+                  }}
+                >
+                  <IconSymbol
+                    ios_icon_name="arrow.up.circle"
+                    android_material_icon_name="arrow-upward"
+                    size={24}
+                    color={inspectionType === 'move_out' ? '#FFFFFF' : colors.primary}
+                  />
+                  <Text
+                    style={[
+                      styles.typeButtonText,
+                      inspectionType === 'move_out' && styles.typeButtonTextActive,
+                    ]}
+                  >
+                    Move Out
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Participants (Optional)</Text>
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Landlord Name</Text>
+              <TextInput
+                style={commonStyles.input}
+                placeholder="e.g., Max Mustermann"
+                value={landlordName}
+                onChangeText={setLandlordName}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Tenant Name</Text>
+              <TextInput
+                style={commonStyles.input}
+                placeholder="e.g., Anna Schmidt"
+                value={tenantName}
+                onChangeText={setTenantName}
+              />
+            </View>
+          </View>
+
+          <View style={styles.infoBox}>
+            <IconSymbol
+              ios_icon_name="info.circle"
+              android_material_icon_name="info"
+              size={20}
+              color={colors.primary}
+            />
+            <Text style={styles.infoText}>
+              You can add rooms, meters, and signatures after creating the inspection.
+            </Text>
+          </View>
+        </ScrollView>
+
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={styles.cancelButton}
+            onPress={handleCancel}
+            disabled={loading}
+          >
+            <Text style={styles.cancelButtonText}>Cancel</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.createButton,
+              (!propertyAddress.trim() || loading) && styles.createButtonDisabled,
+            ]}
+            onPress={handleCreate}
+            disabled={!propertyAddress.trim() || loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <>
+                <IconSymbol
+                  ios_icon_name="checkmark.circle"
+                  android_material_icon_name="check-circle"
+                  size={20}
+                  color="#FFFFFF"
+                />
+                <Text style={styles.createButtonText}>Create Inspection</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+    </>
+  );
+}
+
+const styles = StyleSheet.create({
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 100,
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 16,
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  typeButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  typeButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    backgroundColor: '#FFFFFF',
+  },
+  typeButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  typeButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  typeButtonTextActive: {
+    color: '#FFFFFF',
+  },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    padding: 16,
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    gap: 12,
+    padding: 16,
+    backgroundColor: colors.card,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  createButton: {
+    flex: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    backgroundColor: colors.primary,
+  },
+  createButtonDisabled: {
+    backgroundColor: colors.textSecondary,
+    opacity: 0.5,
+  },
+  createButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+});
