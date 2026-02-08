@@ -53,10 +53,12 @@ export default function HomeScreen() {
     try {
       console.log('HomeScreen: Fetching reports from Supabase for user:', user.id);
       
+      // Fetch reports with status 'ACTIVE' or 'PENDING'
       const { data, error } = await supabase
         .from('reports')
         .select('*')
         .eq('user_id', user.id)
+        .in('status', ['ACTIVE', 'PENDING'])
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -101,51 +103,55 @@ export default function HomeScreen() {
     const day = date.getDate();
     const month = date.toLocaleString('default', { month: 'short' });
     const year = date.getFullYear();
-    return `${day} ${month} ${year}`;
+    const formattedDate = `${day} ${month} ${year}`;
+    return formattedDate;
   };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending':
-      case 'draft':
-        return '#FFA500';
-      case 'completed':
-        return '#4CAF50';
-      case 'exported':
-        return '#2196F3';
-      default:
-        return '#999';
+    const upperStatus = status.toUpperCase();
+    if (upperStatus === 'ACTIVE' || upperStatus === 'PENDING') {
+      return '#FFA500';
     }
+    if (upperStatus === 'COMPLETED') {
+      return '#4CAF50';
+    }
+    if (upperStatus === 'EXPORTED') {
+      return '#2196F3';
+    }
+    return '#999';
   };
 
   const getStatusText = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return 'Pending';
-      case 'draft':
-        return 'Draft';
-      case 'completed':
-        return 'Completed';
-      case 'exported':
-        return 'Exported';
-      default:
-        return status;
+    const upperStatus = status.toUpperCase();
+    if (upperStatus === 'ACTIVE' || upperStatus === 'PENDING') {
+      return 'In Progress';
     }
+    if (upperStatus === 'COMPLETED') {
+      return 'Completed';
+    }
+    if (upperStatus === 'EXPORTED') {
+      return 'Exported';
+    }
+    if (upperStatus === 'DRAFT') {
+      return 'Draft';
+    }
+    return status;
   };
 
   const getTypeText = (type: string) => {
-    switch (type) {
-      case 'Einzug':
-        return 'Move In';
-      case 'Auszug':
-        return 'Move Out';
-      case 'move_in':
-        return 'Move In';
-      case 'move_out':
-        return 'Move Out';
-      default:
-        return type;
+    if (type === 'Einzug') {
+      return 'Move In';
     }
+    if (type === 'Auszug') {
+      return 'Move Out';
+    }
+    if (type === 'move_in') {
+      return 'Move In';
+    }
+    if (type === 'move_out') {
+      return 'Move Out';
+    }
+    return type;
   };
 
   if (loading) {

@@ -90,14 +90,14 @@ export default function NewInspectionScreen() {
 
       console.log('Mapped inspection type:', inspectionType, '->', mappedInspectionType);
 
-      // Insert into 'reports' table
+      // Insert into 'reports' table with status set to 'ACTIVE'
       const { data: reportData, error: reportError } = await supabase
         .from('reports')
         .insert([
           {
             address: propertyAddress,
             inspection_type: mappedInspectionType,
-            status: 'pending',
+            status: 'ACTIVE',
             user_id: user.id,
           }
         ])
@@ -127,7 +127,7 @@ export default function NewInspectionScreen() {
         return;
       }
 
-      console.log('Report created successfully:', reportData);
+      console.log('Report created successfully with ACTIVE status:', reportData);
 
       // Handle participants if landlord or tenant names are provided
       if (landlordName.trim() || tenantName.trim()) {
@@ -164,7 +164,7 @@ export default function NewInspectionScreen() {
       }
 
       // Navigate to Inspection Overview with the new report ID
-      console.log('Navigating to inspection overview:', reportData.id);
+      console.log('Navigating to inspection overview for report ID:', reportData.id);
       router.replace(`/inspection/${reportData.id}`);
     } catch (err: any) {
       console.error('Unexpected error creating report:', {
@@ -173,7 +173,6 @@ export default function NewInspectionScreen() {
         name: err.name,
       });
       showAlert('Unexpected Error', `An unexpected error occurred: ${err.message}`, 'error');
-    } finally {
       setLoading(false);
     }
   };
