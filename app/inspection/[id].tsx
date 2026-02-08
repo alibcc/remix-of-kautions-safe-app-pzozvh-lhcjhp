@@ -9,15 +9,11 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Modal,
-  TextInput,
-  Image,
   Platform,
 } from "react-native";
-import { CameraView, useCameraPermissions } from 'expo-camera';
-import * as Location from 'expo-location';
 import { colors, commonStyles } from "@/styles/commonStyles";
 import { IconSymbol } from "@/components/IconSymbol";
-import { ConfirmModal, AlertModal } from "@/components/ui/Modal";
+import { AlertModal } from "@/components/ui/Modal";
 import { supabase } from "@/app/integrations/supabase/client";
 
 // EXPANDED Room preset list with English and German names
@@ -33,24 +29,6 @@ const ROOM_PRESETS = [
   { nameEn: 'Storage Room', nameDe: 'Abstellraum' },
   { nameEn: 'Garden', nameDe: 'Garten' },
 ];
-
-// Room item presets
-const ROOM_ITEMS = ['Walls', 'Floor', 'Windows', 'Ceiling', 'Doors'];
-
-// Status options
-const STATUS_OPTIONS = ['OK', 'Defect', 'Wear & Tear'];
-
-interface RoomItem {
-  id: string;
-  roomId: string;
-  itemName: string;
-  status: string;
-  notes?: string;
-  photoUrl?: string;
-  photoLatitude?: number;
-  photoLongitude?: number;
-  photoTimestamp?: string;
-}
 
 interface Room {
   id: string;
@@ -79,21 +57,6 @@ export default function InspectionDetailScreen() {
   // Room modal state
   const [showAddRoomModal, setShowAddRoomModal] = useState(false);
   const [selectedRoomPreset, setSelectedRoomPreset] = useState<typeof ROOM_PRESETS[0] | null>(null);
-  
-  // Room item modal state
-  const [showAddItemModal, setShowAddItemModal] = useState(false);
-  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
-  const [selectedItem, setSelectedItem] = useState<string>('');
-  const [selectedStatus, setSelectedStatus] = useState<string>('OK');
-  const [itemNotes, setItemNotes] = useState('');
-  
-  // Camera state
-  const [showCamera, setShowCamera] = useState(false);
-  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
-  const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
-  const [photoLocation, setPhotoLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [photoTimestamp, setPhotoTimestamp] = useState<string | null>(null);
-  const cameraRef = useRef<CameraView>(null);
   
   // Alert modal
   const [alertVisible, setAlertVisible] = useState(false);
@@ -319,84 +282,9 @@ export default function InspectionDetailScreen() {
     }
   };
 
-  const handleOpenCamera = async () => {
-    console.log('User tapped Take Photo button');
-    
-    if (!cameraPermission) {
-      console.log('Camera permission not loaded yet');
-      return;
-    }
-
-    if (!cameraPermission.granted) {
-      console.log('Requesting camera permission');
-      const result = await requestCameraPermission();
-      if (!result.granted) {
-        console.log('Camera permission denied');
-        showAlert('Permission Required', 'Camera permission is required to take photos', 'error');
-        return;
-      }
-    }
-
-    // Request location permission
-    console.log('Requesting location permission');
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      console.log('Location permission denied');
-      showAlert('Permission Required', 'Location permission is required for legal proof', 'error');
-      return;
-    }
-
-    setShowCamera(true);
-  };
-
-  const handleTakePhoto = async () => {
-    console.log('Capturing photo');
-    
-    if (!cameraRef.current) {
-      console.log('Camera ref not available');
-      return;
-    }
-
-    try {
-      // Capture photo
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.8,
-      });
-
-      if (!photo) {
-        console.log('Failed to capture photo');
-        return;
-      }
-
-      console.log('Photo captured:', photo.uri);
-
-      // Get GPS coordinates
-      console.log('Getting GPS coordinates');
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-      });
-
-      const coords = {
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-      };
-
-      // Get current timestamp in ISO 8601 format
-      const timestamp = new Date().toISOString();
-
-      console.log('GPS coordinates:', coords);
-      console.log('Timestamp:', timestamp);
-
-      setCapturedPhoto(photo.uri);
-      setPhotoLocation(coords);
-      setPhotoTimestamp(timestamp);
-      setShowCamera(false);
-
-      showAlert('Success', 'Photo captured with GPS and timestamp', 'success');
-    } catch (error) {
-      console.error('Error capturing photo:', error);
-      showAlert('Error', 'Failed to capture photo. Please try again.', 'error');
-    }
+  const handleOpenRoom = (roomId: string) => {
+    console.log('User tapped room card, navigating to room details:', roomId);
+    router.push(`/inspection/room/${roomId}`);
   };
 
   const getTypeText = (type: string) => {
@@ -542,7 +430,12 @@ export default function InspectionDetailScreen() {
             {hasRooms && (
               <View style={styles.roomsList}>
                 {rooms.map((room) => (
-                  <View key={room.id} style={styles.roomCard}>
+                  <TouchableOpacity
+                    key={room.id}
+                    style={styles.roomCard}
+                    onPress={() => handleOpenRoom(room.id)}
+                    activeOpacity={0.7}
+                  >
                     <View style={styles.roomCardHeader}>
                       <View style={styles.roomCardTitleContainer}>
                         <Text style={styles.roomCardTitleDe}>{room.name_de}</Text>
@@ -555,7 +448,7 @@ export default function InspectionDetailScreen() {
                         color={colors.textSecondary}
                       />
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 ))}
               </View>
             )}
@@ -634,37 +527,6 @@ export default function InspectionDetailScreen() {
                   <Text style={styles.modalSaveButtonText}>Add Room</Text>
                 )}
               </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-
-        {/* Camera Modal */}
-        <Modal
-          visible={showCamera}
-          animationType="slide"
-          transparent={false}
-          onRequestClose={() => setShowCamera(false)}
-        >
-          <View style={styles.cameraContainer}>
-            <CameraView
-              ref={cameraRef}
-              style={styles.camera}
-              facing="back"
-            />
-            <View style={styles.cameraControls}>
-              <TouchableOpacity
-                style={styles.cancelCameraButton}
-                onPress={() => setShowCamera(false)}
-              >
-                <Text style={styles.cancelCameraText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.captureButton}
-                onPress={handleTakePhoto}
-              >
-                <View style={styles.captureButtonInner} />
-              </TouchableOpacity>
-              <View style={styles.cancelCameraButton} />
             </View>
           </View>
         </Modal>
@@ -880,46 +742,5 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '600',
-  },
-  cameraContainer: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  camera: {
-    flex: 1,
-  },
-  cameraControls: {
-    position: 'absolute',
-    bottom: 40,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  cancelCameraButton: {
-    width: 80,
-  },
-  cancelCameraText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  captureButton: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 4,
-    borderColor: 'rgba(255, 255, 255, 0.5)',
-  },
-  captureButtonInner: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#FFFFFF',
   },
 });

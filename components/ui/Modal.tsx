@@ -146,6 +146,17 @@ export function AlertModal({
     }
   };
 
+  const getButtonColor = () => {
+    switch (type) {
+      case 'error':
+        return colors.error;
+      case 'success':
+        return colors.success;
+      default:
+        return colors.primary;
+    }
+  };
+
   return (
     <RNModal
       visible={visible}
@@ -168,7 +179,7 @@ export function AlertModal({
           <Text style={styles.message}>{message}</Text>
 
           <TouchableOpacity
-            style={[styles.button, styles.singleButton]}
+            style={[styles.button, styles.singleButton, { backgroundColor: getButtonColor() }]}
             onPress={onClose}
           >
             <Text style={styles.confirmButtonText}>{buttonText}</Text>
