@@ -124,20 +124,30 @@ export async function authenticatedDelete<T = any>(endpoint: string): Promise<T>
   return response.json();
 }
 
-export async function uploadImage(file: { uri: string; name: string; type: string }): Promise<{ url: string }> {
-  const headers = await getAuthHeaders();
+export async function uploadImage(photoUri: string): Promise<{ url: string }> {
+  const { data: { session } } = await supabase.auth.getSession();
   
+  if (!session?.access_token) {
+    throw new Error('Not authenticated');
+  }
+
+  // Create form data
   const formData = new FormData();
+  
+  // Extract filename from URI
+  const filename = photoUri.split('/').pop() || 'photo.jpg';
+  
+  // Append the file to form data
   formData.append('image', {
-    uri: file.uri,
-    name: file.name,
-    type: file.type,
+    uri: photoUri,
+    name: filename,
+    type: 'image/jpeg',
   } as any);
 
   const response = await fetch(`${API_URL}/api/upload/image`, {
     method: "POST",
     headers: {
-      Authorization: headers.Authorization || "",
+      "Authorization": `Bearer ${session.access_token}`,
     },
     body: formData,
   });

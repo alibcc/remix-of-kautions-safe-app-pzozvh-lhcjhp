@@ -1,6 +1,6 @@
 
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   StyleSheet,
   View,
@@ -13,40 +13,53 @@ import {
   Image,
   Platform,
 } from "react-native";
-import * as ImagePicker from 'expo-image-picker';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as Location from 'expo-location';
 import { colors, commonStyles } from "@/styles/commonStyles";
 import { IconSymbol } from "@/components/IconSymbol";
-import { authenticatedGet, authenticatedPost, authenticatedPut, authenticatedDelete, uploadImage } from "@/utils/api";
+import { authenticatedGet, authenticatedPost, authenticatedPut, authenticatedDelete } from "@/utils/api";
 import { ConfirmModal, AlertModal } from "@/components/ui/Modal";
+
+// Room preset list with English and German names
+const ROOM_PRESETS = [
+  { nameEn: 'Living Room', nameDe: 'Wohnzimmer' },
+  { nameEn: 'Kitchen', nameDe: 'Küche' },
+  { nameEn: 'Bathroom', nameDe: 'Bad' },
+  { nameEn: 'Bedroom', nameDe: 'Schlafzimmer' },
+  { nameEn: 'Hallway', nameDe: 'Flur' },
+];
+
+// Room item presets
+const ROOM_ITEMS = ['Walls', 'Floor', 'Windows', 'Ceiling', 'Doors'];
+
+// Status options
+const STATUS_OPTIONS = ['OK', 'Defect', 'Wear & Tear'];
+
+interface RoomItem {
+  id: string;
+  roomId: string;
+  itemName: string;
+  status: string;
+  notes?: string;
+  photoUrl?: string;
+  photoLatitude?: number;
+  photoLongitude?: number;
+  photoTimestamp?: string;
+}
 
 interface Room {
   id: string;
-  roomName: string;
-  condition: 'ok' | 'defect';
-  defectDescription?: string;
-  defectPhotoUrl?: string;
-  sortOrder: number;
-}
-
-interface Meter {
-  id: string;
-  meterType: string;
-  meterNumber: string;
-  reading: string;
-  photoUrl?: string;
+  nameEn: string;
+  nameDe: string;
+  items: RoomItem[];
 }
 
 interface Inspection {
   id: string;
   propertyAddress: string;
   inspectionType: string;
-  landlordName?: string;
-  tenantName?: string;
-  landlordSignature?: string;
-  tenantSignature?: string;
   status: string;
   rooms: Room[];
-  meters: Meter[];
   createdAt: string;
 }
 
@@ -55,23 +68,25 @@ export default function InspectionDetailScreen() {
   const { id } = useLocalSearchParams();
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  // Room modal state
   const [showAddRoomModal, setShowAddRoomModal] = useState(false);
-  const [showAddMeterModal, setShowAddMeterModal] = useState(false);
-  const [newRoomName, setNewRoomName] = useState('');
-  const [newRoomCondition, setNewRoomCondition] = useState<'ok' | 'defect'>('ok');
-  const [newRoomDescription, setNewRoomDescription] = useState('');
-  const [newRoomPhoto, setNewRoomPhoto] = useState<string | null>(null);
+  const [selectedRoomPreset, setSelectedRoomPreset] = useState<typeof ROOM_PRESETS[0] | null>(null);
   
-  // Meter modal state
-  const [newMeterType, setNewMeterType] = useState<string>('electricity');
-  const [newMeterNumber, setNewMeterNumber] = useState('');
-  const [newMeterReading, setNewMeterReading] = useState('');
-  const [newMeterPhoto, setNewMeterPhoto] = useState<string | null>(null);
+  // Room item modal state
+  const [showAddItemModal, setShowAddItemModal] = useState(false);
+  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+  const [selectedItem, setSelectedItem] = useState<string>('');
+  const [selectedStatus, setSelectedStatus] = useState<string>('OK');
+  const [itemNotes, setItemNotes] = useState('');
   
-  // Delete confirmation modals
-  const [deleteRoomId, setDeleteRoomId] = useState<string | null>(null);
-  const [deleteMeterId, setDeleteMeterId] = useState<string | null>(null);
-  const [deleteInspectionConfirm, setDeleteInspectionConfirm] = useState(false);
+  // Camera state
+  const [showCamera, setShowCamera] = useState(false);
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
+  const [photoLocation, setPhotoLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [photoTimestamp, setPhotoTimestamp] = useState<string | null>(null);
+  const cameraRef = useRef<CameraView>(null);
   
   // Alert modal
   const [alertVisible, setAlertVisible] = useState(false);
@@ -108,173 +123,164 @@ export default function InspectionDetailScreen() {
   const handleAddRoom = async () => {
     console.log('User tapped Add Room button');
     
-    if (!newRoomName.trim()) {
-      console.log('Validation failed: Room name is required');
-      return;
-    }
-
-    if (newRoomCondition === 'defect' && (!newRoomDescription.trim() || !newRoomPhoto)) {
-      console.log('Validation failed: Defect requires description and photo');
+    if (!selectedRoomPreset) {
+      console.log('Validation failed: Room preset is required');
+      showAlert('Validation Error', 'Please select a room type', 'error');
       return;
     }
 
     try {
-      console.log('Adding room:', { newRoomName, newRoomCondition, newRoomDescription, newRoomPhoto });
+      console.log('Adding room:', selectedRoomPreset);
       const response = await authenticatedPost<Room>(`/api/inspections/${id}/rooms`, { 
-        roomName: newRoomName, 
-        condition: newRoomCondition, 
-        defectDescription: newRoomCondition === 'defect' ? newRoomDescription : undefined, 
-        defectPhotoUrl: newRoomCondition === 'defect' ? newRoomPhoto : undefined, 
-        sortOrder: inspection?.rooms.length || 0 
+        nameEn: selectedRoomPreset.nameEn,
+        nameDe: selectedRoomPreset.nameDe,
       });
       setInspection(prev => prev ? { ...prev, rooms: [...prev.rooms, response] } : null);
       
       setShowAddRoomModal(false);
-      setNewRoomName('');
-      setNewRoomCondition('ok');
-      setNewRoomDescription('');
-      setNewRoomPhoto(null);
+      setSelectedRoomPreset(null);
       console.log('Room added successfully');
+      showAlert('Success', 'Room added successfully', 'success');
     } catch (error) {
       console.error('Error adding room:', error);
+      showAlert('Error', 'Failed to add room. Please try again.', 'error');
     }
   };
 
-  const handleTakePhoto = async (forMeter: boolean = false) => {
+  const handleOpenCamera = async () => {
     console.log('User tapped Take Photo button');
     
-    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-    
-    if (!permissionResult.granted) {
-      console.log('Camera permission denied');
-      showAlert('Permission Required', 'Camera permission is required to take photos', 'error');
+    if (!cameraPermission) {
+      console.log('Camera permission not loaded yet');
       return;
     }
 
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      console.log('Photo captured:', result.assets[0].uri);
-      
-      try {
-        // Upload image to backend using the helper function
-        const uploadResponse = await uploadImage(result.assets[0].uri);
-        
-        if (forMeter) {
-          setNewMeterPhoto(uploadResponse.url);
-        } else {
-          setNewRoomPhoto(uploadResponse.url);
-        }
-        console.log('Photo uploaded successfully:', uploadResponse.url);
-      } catch (error) {
-        console.error('Error uploading photo:', error);
-        showAlert('Upload Failed', 'Failed to upload photo. Please try again.', 'error');
-        // Fallback to local URI if upload fails
-        if (forMeter) {
-          setNewMeterPhoto(result.assets[0].uri);
-        } else {
-          setNewRoomPhoto(result.assets[0].uri);
-        }
+    if (!cameraPermission.granted) {
+      console.log('Requesting camera permission');
+      const result = await requestCameraPermission();
+      if (!result.granted) {
+        console.log('Camera permission denied');
+        showAlert('Permission Required', 'Camera permission is required to take photos', 'error');
+        return;
       }
+    }
+
+    // Request location permission
+    console.log('Requesting location permission');
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      console.log('Location permission denied');
+      showAlert('Permission Required', 'Location permission is required for legal proof', 'error');
+      return;
+    }
+
+    setShowCamera(true);
+  };
+
+  const handleTakePhoto = async () => {
+    console.log('Capturing photo');
+    
+    if (!cameraRef.current) {
+      console.log('Camera ref not available');
+      return;
+    }
+
+    try {
+      // Capture photo
+      const photo = await cameraRef.current.takePictureAsync({
+        quality: 0.8,
+      });
+
+      if (!photo) {
+        console.log('Failed to capture photo');
+        return;
+      }
+
+      console.log('Photo captured:', photo.uri);
+
+      // Get GPS coordinates
+      console.log('Getting GPS coordinates');
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+
+      const coords = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      };
+
+      // Get current timestamp in ISO 8601 format
+      const timestamp = new Date().toISOString();
+
+      console.log('GPS coordinates:', coords);
+      console.log('Timestamp:', timestamp);
+
+      setCapturedPhoto(photo.uri);
+      setPhotoLocation(coords);
+      setPhotoTimestamp(timestamp);
+      setShowCamera(false);
+
+      showAlert('Success', 'Photo captured with GPS and timestamp', 'success');
+    } catch (error) {
+      console.error('Error capturing photo:', error);
+      showAlert('Error', 'Failed to capture photo. Please try again.', 'error');
     }
   };
 
-  const handleAddMeter = async () => {
-    console.log('User tapped Add Meter button');
+  const handleAddRoomItem = async () => {
+    console.log('User tapped Add Condition button');
     
-    if (!newMeterType || !newMeterNumber.trim() || !newMeterReading.trim()) {
+    if (!selectedRoom || !selectedItem || !selectedStatus) {
+      console.log('Validation failed: All fields are required');
       showAlert('Validation Error', 'Please fill in all required fields', 'error');
       return;
     }
 
     try {
-      console.log('Adding meter:', { newMeterType, newMeterNumber, newMeterReading, newMeterPhoto });
-      const response = await authenticatedPost<Meter>(`/api/inspections/${id}/meters`, { 
-        meterType: newMeterType, 
-        meterNumber: newMeterNumber, 
-        reading: newMeterReading,
-        photoUrl: newMeterPhoto || undefined
+      console.log('Adding room item:', { selectedItem, selectedStatus, itemNotes, capturedPhoto, photoLocation, photoTimestamp });
+      const response = await authenticatedPost<RoomItem>(`/api/rooms/${selectedRoom.id}/items`, { 
+        itemName: selectedItem,
+        status: selectedStatus,
+        notes: itemNotes || undefined,
+        photoUrl: capturedPhoto || undefined,
+        photoLatitude: photoLocation?.latitude,
+        photoLongitude: photoLocation?.longitude,
+        photoTimestamp: photoTimestamp || undefined,
       });
-      setInspection(prev => prev ? { ...prev, meters: [...prev.meters, response] } : null);
+
+      // Update the inspection state with the new item
+      setInspection(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          rooms: prev.rooms.map(room => 
+            room.id === selectedRoom.id 
+              ? { ...room, items: [...room.items, response] }
+              : room
+          ),
+        };
+      });
       
-      setShowAddMeterModal(false);
-      setNewMeterType('electricity');
-      setNewMeterNumber('');
-      setNewMeterReading('');
-      setNewMeterPhoto(null);
-      console.log('Meter added successfully');
-      showAlert('Success', 'Meter added successfully', 'success');
+      setShowAddItemModal(false);
+      setSelectedRoom(null);
+      setSelectedItem('');
+      setSelectedStatus('OK');
+      setItemNotes('');
+      setCapturedPhoto(null);
+      setPhotoLocation(null);
+      setPhotoTimestamp(null);
+      console.log('Room item added successfully');
+      showAlert('Success', 'Condition logged successfully', 'success');
     } catch (error) {
-      console.error('Error adding meter:', error);
-      showAlert('Error', 'Failed to add meter. Please try again.', 'error');
-    }
-  };
-
-  const handleDeleteRoom = async (roomId: string) => {
-    console.log('Deleting room:', roomId);
-    try {
-      await authenticatedDelete(`/api/rooms/${roomId}`);
-      setInspection(prev => prev ? { ...prev, rooms: prev.rooms.filter(r => r.id !== roomId) } : null);
-      setDeleteRoomId(null);
-      console.log('Room deleted successfully');
-      showAlert('Success', 'Room deleted successfully', 'success');
-    } catch (error) {
-      console.error('Error deleting room:', error);
-      showAlert('Error', 'Failed to delete room. Please try again.', 'error');
-    }
-  };
-
-  const handleDeleteMeter = async (meterId: string) => {
-    console.log('Deleting meter:', meterId);
-    try {
-      await authenticatedDelete(`/api/meters/${meterId}`);
-      setInspection(prev => prev ? { ...prev, meters: prev.meters.filter(m => m.id !== meterId) } : null);
-      setDeleteMeterId(null);
-      console.log('Meter deleted successfully');
-      showAlert('Success', 'Meter deleted successfully', 'success');
-    } catch (error) {
-      console.error('Error deleting meter:', error);
-      showAlert('Error', 'Failed to delete meter. Please try again.', 'error');
-    }
-  };
-
-  const handleDeleteInspection = async () => {
-    console.log('Deleting inspection:', id);
-    try {
-      await authenticatedDelete(`/api/inspections/${id}`);
-      setDeleteInspectionConfirm(false);
-      console.log('Inspection deleted successfully');
-      showAlert('Success', 'Inspection deleted successfully', 'success');
-      setTimeout(() => router.replace('/'), 1000);
-    } catch (error) {
-      console.error('Error deleting inspection:', error);
-      showAlert('Error', 'Failed to delete inspection. Please try again.', 'error');
-    }
-  };
-
-  const handleExportPDF = async () => {
-    console.log('User tapped Export PDF button');
-    
-    try {
-      console.log('Generating PDF for inspection:', id);
-      const response = await authenticatedPost<{ pdfUrl: string }>(`/api/inspections/${id}/generate-pdf`, {});
-      console.log('PDF generated successfully:', response.pdfUrl);
-      
-      // TODO: Open PDF URL in browser or share
-      // Linking.openURL(response.pdfUrl);
-    } catch (error) {
-      console.error('Error generating PDF:', error);
+      console.error('Error adding room item:', error);
+      showAlert('Error', 'Failed to log condition. Please try again.', 'error');
     }
   };
 
   const getTypeText = (type: string) => {
-    if (type === 'move_in') return 'Move In';
-    return 'Move Out';
+    if (type === 'move_in') return 'Einzug (Move In)';
+    if (type === 'move_out') return 'Auszug (Move Out)';
+    return type;
   };
 
   if (loading) {
@@ -319,23 +325,10 @@ export default function InspectionDetailScreen() {
     <>
       <Stack.Screen
         options={{
-          title: "Inspection Details",
+          title: "Inspection Overview",
           headerStyle: { backgroundColor: colors.primary },
           headerTintColor: '#FFFFFF',
           headerBackTitle: 'Back',
-          headerRight: () => (
-            <TouchableOpacity
-              onPress={() => setDeleteInspectionConfirm(true)}
-              style={{ marginRight: 16 }}
-            >
-              <IconSymbol
-                ios_icon_name="trash"
-                android_material_icon_name="delete"
-                size={24}
-                color="#FFFFFF"
-              />
-            </TouchableOpacity>
-          ),
         }}
       />
       <View style={commonStyles.container}>
@@ -343,20 +336,6 @@ export default function InspectionDetailScreen() {
           <View style={commonStyles.card}>
             <Text style={styles.address}>{inspection.propertyAddress}</Text>
             <Text style={styles.type}>{typeText}</Text>
-            
-            {inspection.landlordName && (
-              <View style={styles.participantRow}>
-                <Text style={styles.participantLabel}>Landlord:</Text>
-                <Text style={styles.participantName}>{inspection.landlordName}</Text>
-              </View>
-            )}
-            
-            {inspection.tenantName && (
-              <View style={styles.participantRow}>
-                <Text style={styles.participantLabel}>Tenant:</Text>
-                <Text style={styles.participantName}>{inspection.tenantName}</Text>
-              </View>
-            )}
           </View>
 
           <View style={styles.section}>
@@ -390,131 +369,56 @@ export default function InspectionDetailScreen() {
               </View>
             ) : (
               <View style={styles.roomsList}>
-                {inspection.rooms.map((room) => {
-                  const conditionColor = room.condition === 'ok' ? colors.success : colors.warning;
-                  const conditionText = room.condition === 'ok' ? 'OK' : 'Defect';
-
-                  return (
-                    <View key={room.id} style={commonStyles.card}>
-                      <View style={styles.roomHeader}>
-                        <Text style={styles.roomName}>{room.roomName}</Text>
-                        <View style={styles.roomActions}>
-                          <View style={[styles.conditionBadge, { backgroundColor: conditionColor }]}>
-                            <Text style={styles.conditionText}>{conditionText}</Text>
-                          </View>
-                          <TouchableOpacity
-                            onPress={() => setDeleteRoomId(room.id)}
-                            style={styles.deleteButton}
-                          >
-                            <IconSymbol
-                              ios_icon_name="trash"
-                              android_material_icon_name="delete"
-                              size={20}
-                              color={colors.error}
-                            />
-                          </TouchableOpacity>
-                        </View>
+                {inspection.rooms.map((room) => (
+                  <TouchableOpacity
+                    key={room.id}
+                    style={commonStyles.card}
+                    onPress={() => {
+                      console.log('User tapped room:', room.nameDe);
+                      setSelectedRoom(room);
+                      setShowAddItemModal(true);
+                    }}
+                  >
+                    <View style={styles.roomHeader}>
+                      <View style={styles.roomNameContainer}>
+                        <Text style={styles.roomNameDe}>{room.nameDe}</Text>
+                        <Text style={styles.roomNameEn}>{room.nameEn}</Text>
                       </View>
-
-                      {room.condition === 'defect' && (
-                        <View style={styles.defectDetails}>
-                          {room.defectPhotoUrl && (
-                            <Image
-                              source={{ uri: room.defectPhotoUrl }}
-                              style={styles.defectPhoto}
-                            />
-                          )}
-                          <Text style={styles.defectDescription}>{room.defectDescription}</Text>
-                        </View>
-                      )}
-                    </View>
-                  );
-                })}
-              </View>
-            )}
-          </View>
-
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Meters</Text>
-              <TouchableOpacity
-                style={styles.addButton}
-                onPress={() => {
-                  console.log('User tapped Add Meter button');
-                  setShowAddMeterModal(true);
-                }}
-              >
-                <IconSymbol
-                  ios_icon_name="plus.circle.fill"
-                  android_material_icon_name="add-circle"
-                  size={24}
-                  color={colors.primary}
-                />
-              </TouchableOpacity>
-            </View>
-
-            {inspection.meters.length === 0 ? (
-              <View style={styles.emptyState}>
-                <IconSymbol
-                  ios_icon_name="gauge"
-                  android_material_icon_name="speed"
-                  size={48}
-                  color={colors.textSecondary}
-                />
-                <Text style={styles.emptyText}>No meters added yet</Text>
-              </View>
-            ) : (
-              <View style={styles.metersList}>
-                {inspection.meters.map((meter) => (
-                  <View key={meter.id} style={commonStyles.card}>
-                    <View style={styles.meterHeader}>
-                      <Text style={styles.meterType}>{meter.meterType}</Text>
-                      <TouchableOpacity
-                        onPress={() => setDeleteMeterId(meter.id)}
-                        style={styles.deleteButton}
-                      >
-                        <IconSymbol
-                          ios_icon_name="trash"
-                          android_material_icon_name="delete"
-                          size={20}
-                          color={colors.error}
-                        />
-                      </TouchableOpacity>
-                    </View>
-                    <View style={styles.meterRow}>
-                      <Text style={styles.meterLabel}>Number:</Text>
-                      <Text style={styles.meterValue}>{meter.meterNumber}</Text>
-                    </View>
-                    <View style={styles.meterRow}>
-                      <Text style={styles.meterLabel}>Reading:</Text>
-                      <Text style={styles.meterValue}>{meter.reading}</Text>
-                    </View>
-                    {meter.photoUrl && (
-                      <Image
-                        source={{ uri: meter.photoUrl }}
-                        style={styles.meterPhoto}
+                      <IconSymbol
+                        ios_icon_name="chevron.right"
+                        android_material_icon_name="chevron-right"
+                        size={20}
+                        color={colors.textSecondary}
                       />
+                    </View>
+
+                    {room.items && room.items.length > 0 && (
+                      <View style={styles.itemsList}>
+                        {room.items.map((item) => {
+                          const statusColor = 
+                            item.status === 'OK' ? colors.success : 
+                            item.status === 'Defect' ? colors.error : 
+                            colors.warning;
+
+                          return (
+                            <View key={item.id} style={styles.itemRow}>
+                              <Text style={styles.itemName}>{item.itemName}</Text>
+                              <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
+                                <Text style={styles.statusText}>{item.status}</Text>
+                              </View>
+                            </View>
+                          );
+                        })}
+                      </View>
                     )}
-                  </View>
+                  </TouchableOpacity>
                 ))}
               </View>
             )}
           </View>
-
-          <TouchableOpacity
-            style={styles.exportButton}
-            onPress={handleExportPDF}
-          >
-            <IconSymbol
-              ios_icon_name="doc.text"
-              android_material_icon_name="description"
-              size={24}
-              color="#FFFFFF"
-            />
-            <Text style={styles.exportButtonText}>Export PDF (€8.99)</Text>
-          </TouchableOpacity>
         </ScrollView>
 
+        {/* Add Room Modal */}
         <Modal
           visible={showAddRoomModal}
           animationType="slide"
@@ -537,116 +441,35 @@ export default function InspectionDetailScreen() {
 
               <ScrollView style={styles.modalScroll}>
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Room Name *</Text>
-                  <TextInput
-                    style={commonStyles.input}
-                    placeholder="e.g., Wohnzimmer, Bad, Küche"
-                    value={newRoomName}
-                    onChangeText={setNewRoomName}
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Condition *</Text>
-                  <View style={styles.conditionButtons}>
-                    <TouchableOpacity
-                      style={[
-                        styles.conditionButton,
-                        newRoomCondition === 'ok' && styles.conditionButtonOk,
-                      ]}
-                      onPress={() => {
-                        console.log('User selected OK condition');
-                        setNewRoomCondition('ok');
-                      }}
-                    >
-                      <Text
+                  <Text style={styles.label}>Select Room Type *</Text>
+                  <View style={styles.roomPresetList}>
+                    {ROOM_PRESETS.map((preset) => (
+                      <TouchableOpacity
+                        key={preset.nameEn}
                         style={[
-                          styles.conditionButtonText,
-                          newRoomCondition === 'ok' && styles.conditionButtonTextActive,
+                          styles.presetButton,
+                          selectedRoomPreset?.nameEn === preset.nameEn && styles.presetButtonActive,
                         ]}
+                        onPress={() => {
+                          console.log('User selected room preset:', preset.nameDe);
+                          setSelectedRoomPreset(preset);
+                        }}
                       >
-                        OK
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.conditionButton,
-                        newRoomCondition === 'defect' && styles.conditionButtonDefect,
-                      ]}
-                      onPress={() => {
-                        console.log('User selected Defect condition');
-                        setNewRoomCondition('defect');
-                      }}
-                    >
-                      <Text
-                        style={[
-                          styles.conditionButtonText,
-                          newRoomCondition === 'defect' && styles.conditionButtonTextActive,
-                        ]}
-                      >
-                        Defect
-                      </Text>
-                    </TouchableOpacity>
+                        <Text style={styles.presetNameDe}>{preset.nameDe}</Text>
+                        <Text style={styles.presetNameEn}>{preset.nameEn}</Text>
+                      </TouchableOpacity>
+                    ))}
                   </View>
                 </View>
-
-                {newRoomCondition === 'defect' && (
-                  <>
-                    <View style={styles.inputGroup}>
-                      <Text style={styles.label}>Description *</Text>
-                      <TextInput
-                        style={[commonStyles.input, styles.textArea]}
-                        placeholder="Describe the defect..."
-                        value={newRoomDescription}
-                        onChangeText={setNewRoomDescription}
-                        multiline
-                        numberOfLines={3}
-                      />
-                    </View>
-
-                    <View style={styles.inputGroup}>
-                      <Text style={styles.label}>Photo *</Text>
-                      {newRoomPhoto ? (
-                        <View style={styles.photoPreview}>
-                          <Image source={{ uri: newRoomPhoto }} style={styles.photoImage} />
-                          <TouchableOpacity
-                            style={styles.retakeButton}
-                            onPress={handleTakePhoto}
-                          >
-                            <Text style={styles.retakeButtonText}>Retake Photo</Text>
-                          </TouchableOpacity>
-                        </View>
-                      ) : (
-                        <TouchableOpacity style={styles.photoButton} onPress={handleTakePhoto}>
-                          <IconSymbol
-                            ios_icon_name="camera.fill"
-                            android_material_icon_name="camera"
-                            size={32}
-                            color={colors.primary}
-                          />
-                          <Text style={styles.photoButtonText}>Take Photo</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  </>
-                )}
               </ScrollView>
 
               <TouchableOpacity
                 style={[
                   styles.modalSaveButton,
-                  (!newRoomName.trim() ||
-                    (newRoomCondition === 'defect' &&
-                      (!newRoomDescription.trim() || !newRoomPhoto))) &&
-                    styles.modalSaveButtonDisabled,
+                  !selectedRoomPreset && styles.modalSaveButtonDisabled,
                 ]}
                 onPress={handleAddRoom}
-                disabled={
-                  !newRoomName.trim() ||
-                  (newRoomCondition === 'defect' &&
-                    (!newRoomDescription.trim() || !newRoomPhoto))
-                }
+                disabled={!selectedRoomPreset}
               >
                 <Text style={styles.modalSaveButtonText}>Add Room</Text>
               </TouchableOpacity>
@@ -654,17 +477,29 @@ export default function InspectionDetailScreen() {
           </View>
         </Modal>
 
+        {/* Add Room Item Modal */}
         <Modal
-          visible={showAddMeterModal}
+          visible={showAddItemModal}
           animationType="slide"
           transparent={true}
-          onRequestClose={() => setShowAddMeterModal(false)}
+          onRequestClose={() => setShowAddItemModal(false)}
         >
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Add Meter</Text>
-                <TouchableOpacity onPress={() => setShowAddMeterModal(false)}>
+                <Text style={styles.modalTitle}>
+                  Log Condition - {selectedRoom?.nameDe}
+                </Text>
+                <TouchableOpacity onPress={() => {
+                  setShowAddItemModal(false);
+                  setSelectedRoom(null);
+                  setSelectedItem('');
+                  setSelectedStatus('OK');
+                  setItemNotes('');
+                  setCapturedPhoto(null);
+                  setPhotoLocation(null);
+                  setPhotoTimestamp(null);
+                }}>
                   <IconSymbol
                     ios_icon_name="xmark.circle.fill"
                     android_material_icon_name="close"
@@ -676,27 +511,27 @@ export default function InspectionDetailScreen() {
 
               <ScrollView style={styles.modalScroll}>
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Meter Type *</Text>
-                  <View style={styles.meterTypeButtons}>
-                    {['electricity', 'gas', 'water', 'heating'].map((type) => (
+                  <Text style={styles.label}>Item *</Text>
+                  <View style={styles.itemButtonList}>
+                    {ROOM_ITEMS.map((item) => (
                       <TouchableOpacity
-                        key={type}
+                        key={item}
                         style={[
-                          styles.meterTypeButton,
-                          newMeterType === type && styles.meterTypeButtonActive,
+                          styles.itemButton,
+                          selectedItem === item && styles.itemButtonActive,
                         ]}
                         onPress={() => {
-                          console.log('User selected meter type:', type);
-                          setNewMeterType(type);
+                          console.log('User selected item:', item);
+                          setSelectedItem(item);
                         }}
                       >
                         <Text
                           style={[
-                            styles.meterTypeButtonText,
-                            newMeterType === type && styles.meterTypeButtonTextActive,
+                            styles.itemButtonText,
+                            selectedItem === item && styles.itemButtonTextActive,
                           ]}
                         >
-                          {type.charAt(0).toUpperCase() + type.slice(1)}
+                          {item}
                         </Text>
                       </TouchableOpacity>
                     ))}
@@ -704,40 +539,71 @@ export default function InspectionDetailScreen() {
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Meter Number *</Text>
-                  <TextInput
-                    style={commonStyles.input}
-                    placeholder="e.g., 12345678"
-                    value={newMeterNumber}
-                    onChangeText={setNewMeterNumber}
-                  />
+                  <Text style={styles.label}>Status *</Text>
+                  <View style={styles.statusButtonList}>
+                    {STATUS_OPTIONS.map((status) => (
+                      <TouchableOpacity
+                        key={status}
+                        style={[
+                          styles.statusButton,
+                          selectedStatus === status && styles.statusButtonActive,
+                        ]}
+                        onPress={() => {
+                          console.log('User selected status:', status);
+                          setSelectedStatus(status);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.statusButtonText,
+                            selectedStatus === status && styles.statusButtonTextActive,
+                          ]}
+                        >
+                          {status}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Reading *</Text>
+                  <Text style={styles.label}>Notes (Optional)</Text>
                   <TextInput
-                    style={commonStyles.input}
-                    placeholder="e.g., 1234.56"
-                    value={newMeterReading}
-                    onChangeText={setNewMeterReading}
-                    keyboardType="decimal-pad"
+                    style={[commonStyles.input, styles.textArea]}
+                    placeholder="Add any additional notes..."
+                    value={itemNotes}
+                    onChangeText={setItemNotes}
+                    multiline
+                    numberOfLines={3}
                   />
                 </View>
 
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Photo (Optional)</Text>
-                  {newMeterPhoto ? (
+                  {capturedPhoto ? (
                     <View style={styles.photoPreview}>
-                      <Image source={{ uri: newMeterPhoto }} style={styles.photoImage} />
+                      <Image source={{ uri: capturedPhoto }} style={styles.photoImage} />
+                      {photoLocation && (
+                        <View style={styles.photoMetadata}>
+                          <Text style={styles.metadataText}>
+                            GPS: {photoLocation.latitude.toFixed(6)}, {photoLocation.longitude.toFixed(6)}
+                          </Text>
+                          {photoTimestamp && (
+                            <Text style={styles.metadataText}>
+                              Time: {new Date(photoTimestamp).toLocaleString()}
+                            </Text>
+                          )}
+                        </View>
+                      )}
                       <TouchableOpacity
                         style={styles.retakeButton}
-                        onPress={() => handleTakePhoto(true)}
+                        onPress={handleOpenCamera}
                       >
                         <Text style={styles.retakeButtonText}>Retake Photo</Text>
                       </TouchableOpacity>
                     </View>
                   ) : (
-                    <TouchableOpacity style={styles.photoButton} onPress={() => handleTakePhoto(true)}>
+                    <TouchableOpacity style={styles.photoButton} onPress={handleOpenCamera}>
                       <IconSymbol
                         ios_icon_name="camera.fill"
                         android_material_icon_name="camera"
@@ -753,50 +619,47 @@ export default function InspectionDetailScreen() {
               <TouchableOpacity
                 style={[
                   styles.modalSaveButton,
-                  (!newMeterType || !newMeterNumber.trim() || !newMeterReading.trim()) &&
-                    styles.modalSaveButtonDisabled,
+                  (!selectedItem || !selectedStatus) && styles.modalSaveButtonDisabled,
                 ]}
-                onPress={handleAddMeter}
-                disabled={!newMeterType || !newMeterNumber.trim() || !newMeterReading.trim()}
+                onPress={handleAddRoomItem}
+                disabled={!selectedItem || !selectedStatus}
               >
-                <Text style={styles.modalSaveButtonText}>Add Meter</Text>
+                <Text style={styles.modalSaveButtonText}>Log Condition</Text>
               </TouchableOpacity>
             </View>
           </View>
         </Modal>
 
-        <ConfirmModal
-          visible={!!deleteRoomId}
-          title="Delete Room"
-          message="Are you sure you want to delete this room? This action cannot be undone."
-          confirmText="Delete"
-          cancelText="Cancel"
-          type="danger"
-          onConfirm={() => deleteRoomId && handleDeleteRoom(deleteRoomId)}
-          onCancel={() => setDeleteRoomId(null)}
-        />
-
-        <ConfirmModal
-          visible={!!deleteMeterId}
-          title="Delete Meter"
-          message="Are you sure you want to delete this meter? This action cannot be undone."
-          confirmText="Delete"
-          cancelText="Cancel"
-          type="danger"
-          onConfirm={() => deleteMeterId && handleDeleteMeter(deleteMeterId)}
-          onCancel={() => setDeleteMeterId(null)}
-        />
-
-        <ConfirmModal
-          visible={deleteInspectionConfirm}
-          title="Delete Inspection"
-          message="Are you sure you want to delete this entire inspection? This will delete all rooms, meters, and data. This action cannot be undone."
-          confirmText="Delete"
-          cancelText="Cancel"
-          type="danger"
-          onConfirm={handleDeleteInspection}
-          onCancel={() => setDeleteInspectionConfirm(false)}
-        />
+        {/* Camera Modal */}
+        <Modal
+          visible={showCamera}
+          animationType="slide"
+          transparent={false}
+          onRequestClose={() => setShowCamera(false)}
+        >
+          <View style={styles.cameraContainer}>
+            <CameraView
+              ref={cameraRef}
+              style={styles.camera}
+              facing="back"
+            />
+            <View style={styles.cameraControls}>
+              <TouchableOpacity
+                style={styles.cancelCameraButton}
+                onPress={() => setShowCamera(false)}
+              >
+                <Text style={styles.cancelCameraText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.captureButton}
+                onPress={handleTakePhoto}
+              >
+                <View style={styles.captureButtonInner} />
+              </TouchableOpacity>
+              <View style={styles.cancelCameraButton} />
+            </View>
+          </View>
+        </Modal>
 
         <AlertModal
           visible={alertVisible}
@@ -835,22 +698,6 @@ const styles = StyleSheet.create({
   type: {
     fontSize: 16,
     color: colors.textSecondary,
-    marginBottom: 12,
-  },
-  participantRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  participantLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginRight: 8,
-  },
-  participantName: {
-    fontSize: 14,
-    color: colors.text,
   },
   section: {
     marginTop: 24,
@@ -891,106 +738,45 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
   },
-  roomName: {
+  roomNameContainer: {
+    flex: 1,
+  },
+  roomNameDe: {
     fontSize: 18,
     fontWeight: '600',
     color: colors.text,
-    flex: 1,
   },
-  roomActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  deleteButton: {
-    padding: 4,
-  },
-  conditionBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  conditionText: {
-    color: '#FFFFFF',
+  roomNameEn: {
     fontSize: 14,
-    fontWeight: '600',
+    color: colors.textSecondary,
+    marginTop: 2,
   },
-  defectDetails: {
+  itemsList: {
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: colors.border,
+    gap: 8,
   },
-  defectPhoto: {
-    width: '100%',
-    height: 200,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  defectDescription: {
-    fontSize: 14,
-    color: colors.text,
-    lineHeight: 20,
-  },
-  metersList: {
-    gap: 12,
-  },
-  meterHeader: {
+  itemRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
   },
-  meterType: {
-    fontSize: 16,
-    fontWeight: '600',
+  itemName: {
+    fontSize: 14,
     color: colors.text,
-    textTransform: 'capitalize',
     flex: 1,
   },
-  meterPhoto: {
-    width: '100%',
-    height: 150,
-    borderRadius: 8,
-    marginTop: 12,
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
-  meterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  meterLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginRight: 8,
-    width: 80,
-  },
-  meterValue: {
-    fontSize: 14,
-    color: colors.text,
-  },
-  exportButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    backgroundColor: colors.highlight,
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    marginTop: 32,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  exportButtonText: {
+  statusText: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 12,
     fontWeight: '600',
   },
   modalOverlay: {
@@ -1014,9 +800,10 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   modalTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '700',
     color: colors.text,
+    flex: 1,
   },
   modalScroll: {
     paddingHorizontal: 20,
@@ -1035,34 +822,80 @@ const styles = StyleSheet.create({
     height: 80,
     textAlignVertical: 'top',
   },
-  conditionButtons: {
-    flexDirection: 'row',
+  roomPresetList: {
     gap: 12,
   },
-  conditionButton: {
-    flex: 1,
-    paddingVertical: 14,
+  presetButton: {
+    paddingVertical: 16,
     paddingHorizontal: 16,
     borderRadius: 8,
     borderWidth: 2,
     borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: colors.card,
   },
-  conditionButtonOk: {
-    backgroundColor: colors.success,
-    borderColor: colors.success,
+  presetButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
-  conditionButtonDefect: {
-    backgroundColor: colors.warning,
-    borderColor: colors.warning,
-  },
-  conditionButtonText: {
+  presetNameDe: {
     fontSize: 16,
     fontWeight: '600',
     color: colors.text,
   },
-  conditionButtonTextActive: {
+  presetNameEn: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  itemButtonList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  itemButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+  },
+  itemButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  itemButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  itemButtonTextActive: {
+    color: '#FFFFFF',
+  },
+  statusButtonList: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  statusButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    alignItems: 'center',
+  },
+  statusButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  statusButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  statusButtonTextActive: {
     color: '#FFFFFF',
   },
   photoButton: {
@@ -1089,6 +922,18 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 12,
     marginBottom: 12,
+  },
+  photoMetadata: {
+    width: '100%',
+    padding: 12,
+    backgroundColor: colors.card,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  metadataText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 4,
   },
   retakeButton: {
     paddingVertical: 10,
@@ -1121,32 +966,45 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
-  meterTypeButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  meterTypeButton: {
+  cameraContainer: {
     flex: 1,
-    minWidth: '45%',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: colors.border,
+    backgroundColor: '#000',
+  },
+  camera: {
+    flex: 1,
+  },
+  cameraControls: {
+    position: 'absolute',
+    bottom: 40,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 40,
   },
-  meterTypeButtonActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+  cancelCameraButton: {
+    width: 80,
   },
-  meterTypeButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  meterTypeButtonTextActive: {
+  cancelCameraText: {
     color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  captureButton: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 4,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+  },
+  captureButtonInner: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FFFFFF',
   },
 });
