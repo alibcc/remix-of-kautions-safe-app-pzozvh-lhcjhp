@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Modal,
   Platform,
+  Linking,
 } from "react-native";
 import { colors, commonStyles } from "@/styles/commonStyles";
 import { IconSymbol } from "@/components/IconSymbol";
@@ -45,6 +46,34 @@ interface Report {
   created_at: string;
 }
 
+interface Participant {
+  id: string;
+  report_id: string;
+  role: string;
+  name: string;
+}
+
+interface RoomItem {
+  id: string;
+  room_id: string;
+  item_name_en: string;
+  item_name_de: string;
+  condition_status: string;
+  notes?: string;
+  requires_repair: boolean;
+}
+
+interface Photo {
+  id: string;
+  item_id: string;
+  storage_url: string;
+  gps_coords: {
+    latitude: number;
+    longitude: number;
+  } | null;
+  timestamp_verified: string;
+}
+
 export default function InspectionDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
@@ -53,6 +82,7 @@ export default function InspectionDetailScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savingRoom, setSavingRoom] = useState(false);
+  const [generatingPDF, setGeneratingPDF] = useState(false);
   
   // Room modal state
   const [showAddRoomModal, setShowAddRoomModal] = useState(false);
@@ -287,6 +317,153 @@ export default function InspectionDetailScreen() {
     router.push(`/inspection/room/${roomId}`);
   };
 
+  const handleGeneratePDF = async () => {
+    console.log('User tapped Generate PDF Report button');
+    
+    if (!id || !report) {
+      showAlert('Error', 'Report data is not available', 'error');
+      return;
+    }
+
+    setGeneratingPDF(true);
+
+    try {
+      console.log('Fetching all data for PDF generation');
+
+      // Fetch participants
+      const { data: participantsData, error: participantsError } = await supabase
+        .from('participants')
+        .select('*')
+        .eq('report_id', id);
+
+      if (participantsError) {
+        console.error('Error fetching participants:', participantsError);
+      }
+
+      const participants = participantsData || [];
+      console.log('Participants:', participants.length);
+
+      // Fetch all rooms with their items and photos
+      const roomsWithData = await Promise.all(
+        rooms.map(async (room) => {
+          // Fetch room items
+          const { data: itemsData, error: itemsError } = await supabase
+            .from('room_items')
+            .select('*')
+            .eq('room_id', room.id);
+
+          if (itemsError) {
+            console.error(`Error fetching items for room ${room.id}:`, itemsError);
+            return { ...room, room_items: [] };
+          }
+
+          const items = itemsData || [];
+
+          // Fetch photos for each item
+          const itemsWithPhotos = await Promise.all(
+            items.map(async (item) => {
+              const { data: photosData, error: photosError } = await supabase
+                .from('photos')
+                .select('*')
+                .eq('item_id', item.id);
+
+              if (photosError) {
+                console.error(`Error fetching photos for item ${item.id}:`, photosError);
+                return { ...item, photos: [] };
+              }
+
+              return { ...item, photos: photosData || [] };
+            })
+          );
+
+          return { ...room, room_items: itemsWithPhotos };
+        })
+      );
+
+      console.log('All data fetched successfully');
+
+      // Prepare payload for CraftMyPDF
+      const pdfPayload = {
+        template_id: '5c477b23ea34170c',
+        data: {
+          report: {
+            id: report.id,
+            address: report.address,
+            inspection_type: report.inspection_type,
+            status: report.status,
+            created_at: report.created_at,
+          },
+          participants: participants.map((p: Participant) => ({
+            name: p.name,
+            role: p.role,
+          })),
+          rooms: roomsWithData.map((room) => ({
+            name_de: room.name_de,
+            name_en: room.name_en,
+            items: room.room_items.map((item: RoomItem & { photos: Photo[] }) => ({
+              item_name_de: item.item_name_de,
+              item_name_en: item.item_name_en,
+              condition_status: item.condition_status,
+              notes: item.notes || '',
+              requires_repair: item.requires_repair,
+              photos: item.photos.map((photo: Photo) => ({
+                url: photo.storage_url,
+                gps_coords: photo.gps_coords,
+                timestamp: photo.timestamp_verified,
+              })),
+            })),
+          })),
+        },
+      };
+
+      console.log('Sending request to CraftMyPDF API');
+
+      // Call CraftMyPDF API
+      const response = await fetch('https://api.craftmypdf.com/v1/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-KEY': '9cf6Mjg1MjM6Mjg2ODQ6a3ZWUDBhZ2lGUE9CU1UzdA==',
+        },
+        body: JSON.stringify(pdfPayload),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('CraftMyPDF API error:', errorText);
+        throw new Error(`PDF generation failed: ${response.status} ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log('PDF generated successfully:', result);
+
+      // Extract PDF URL from response
+      const pdfUrl = result.file || result.url || result.pdf_url;
+
+      if (!pdfUrl) {
+        console.error('No PDF URL in response:', result);
+        throw new Error('PDF URL not found in response');
+      }
+
+      console.log('Opening PDF URL:', pdfUrl);
+
+      // Open the PDF URL
+      const canOpen = await Linking.canOpenURL(pdfUrl);
+      if (canOpen) {
+        await Linking.openURL(pdfUrl);
+        showAlert('Success', 'PDF generated successfully! Opening now...', 'success');
+      } else {
+        console.error('Cannot open URL:', pdfUrl);
+        showAlert('Error', 'Cannot open PDF URL. Please check your device settings.', 'error');
+      }
+    } catch (error: any) {
+      console.error('Error generating PDF:', error);
+      showAlert('Error', `Failed to generate PDF: ${error.message}`, 'error');
+    } finally {
+      setGeneratingPDF(false);
+    }
+  };
+
   const getTypeText = (type: string) => {
     if (type === 'Einzug') return 'Einzug (Move In)';
     if (type === 'Auszug') return 'Auszug (Move Out)';
@@ -395,6 +572,30 @@ export default function InspectionDetailScreen() {
             <Text style={styles.address}>{report.address}</Text>
             <Text style={styles.type}>{typeText}</Text>
           </View>
+
+          {/* PDF Generation Button */}
+          <TouchableOpacity
+            style={[styles.pdfButton, generatingPDF && styles.pdfButtonDisabled]}
+            onPress={handleGeneratePDF}
+            disabled={generatingPDF}
+          >
+            {generatingPDF ? (
+              <>
+                <ActivityIndicator size="small" color="#FFFFFF" />
+                <Text style={styles.pdfButtonText}>Generating PDF...</Text>
+              </>
+            ) : (
+              <>
+                <IconSymbol
+                  ios_icon_name="doc.fill"
+                  android_material_icon_name="description"
+                  size={24}
+                  color="#FFFFFF"
+                />
+                <Text style={styles.pdfButtonText}>Generate PDF Report</Text>
+              </>
+            )}
+          </TouchableOpacity>
 
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -592,6 +793,31 @@ const styles = StyleSheet.create({
   type: {
     fontSize: 16,
     color: colors.textSecondary,
+  },
+  pdfButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    backgroundColor: '#2563EB',
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    marginTop: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  pdfButtonDisabled: {
+    backgroundColor: colors.textSecondary,
+    opacity: 0.6,
+  },
+  pdfButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
   },
   section: {
     marginTop: 24,

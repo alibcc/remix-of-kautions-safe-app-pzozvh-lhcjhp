@@ -17,7 +17,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 import { colors, commonStyles } from "@/styles/commonStyles";
 import { IconSymbol } from "@/components/IconSymbol";
-import { AlertModal } from "@/components/ui/Modal";
+import { AlertModal, ConfirmModal } from "@/components/ui/Modal";
 import { supabase } from "@/app/integrations/supabase/client";
 
 // Room item presets
@@ -87,6 +87,14 @@ export default function RoomDetailScreen() {
   const [itemNotes, setItemNotes] = useState('');
   const [savingItem, setSavingItem] = useState(false);
   
+  // Edit state
+  const [editingItem, setEditingItem] = useState<RoomItem | null>(null);
+  
+  // Delete confirmation state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<RoomItem | null>(null);
+  const [deletingItem, setDeletingItem] = useState(false);
+  
   // Camera state
   const [showCamera, setShowCamera] = useState(false);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
@@ -138,7 +146,7 @@ export default function RoomDetailScreen() {
       console.log('RoomDetailScreen: Room loaded successfully');
       setRoom(roomData);
 
-      // Fetch room items
+      // CRITICAL FIX: Ensure room_id is explicitly passed when fetching items
       const { data: itemsData, error: itemsError } = await supabase
         .from('room_items')
         .select('*')
@@ -220,9 +228,10 @@ export default function RoomDetailScreen() {
     }
 
     try {
-      // Capture photo
+      // PERFORMANCE FIX: Optimized camera settings
       const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.8,
+        quality: 0.3, // Reduced quality for performance
+        skipProcessing: true, // Skip processing to eliminate lag
       });
 
       if (!photo) {
@@ -366,36 +375,52 @@ export default function RoomDetailScreen() {
     setSavingItem(true);
 
     try {
-      console.log('Adding room item to Supabase:', {
-        room_id: roomId,
+      // CRITICAL FIX: Explicitly pass room_id to ensure it's saved correctly
+      const itemData = {
+        room_id: roomId, // Explicitly pass room_id
         item_name_en: selectedItemPreset.nameEn,
         item_name_de: selectedItemPreset.nameDe,
         condition_status: selectedStatus,
         notes: itemNotes || null,
         requires_repair: selectedStatus === 'Defect',
-      });
+      };
 
-      // Insert directly into Supabase room_items table
-      const { data: newItem, error: insertError } = await supabase
-        .from('room_items')
-        .insert([{
-          room_id: roomId,
-          item_name_en: selectedItemPreset.nameEn,
-          item_name_de: selectedItemPreset.nameDe,
-          condition_status: selectedStatus,
-          notes: itemNotes || null,
-          requires_repair: selectedStatus === 'Defect',
-        }])
-        .select()
-        .single();
+      console.log('Adding room item to Supabase:', itemData);
 
-      if (insertError) {
-        console.error('Error inserting room item:', insertError);
-        showAlert('Error', `Failed to add item: ${insertError.message}`, 'error');
-        return;
+      if (editingItem) {
+        // Update existing item
+        const { data: updatedItem, error: updateError } = await supabase
+          .from('room_items')
+          .update(itemData)
+          .eq('id', editingItem.id)
+          .select()
+          .single();
+
+        if (updateError) {
+          console.error('Error updating room item:', updateError);
+          showAlert('Error', `Failed to update item: ${updateError.message}`, 'error');
+          return;
+        }
+
+        console.log('Room item updated successfully:', updatedItem);
+        showAlert('Success', 'Condition updated successfully', 'success');
+      } else {
+        // Insert new item
+        const { data: newItem, error: insertError } = await supabase
+          .from('room_items')
+          .insert([itemData])
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error('Error inserting room item:', insertError);
+          showAlert('Error', `Failed to add item: ${insertError.message}`, 'error');
+          return;
+        }
+
+        console.log('Room item added successfully:', newItem);
+        showAlert('Success', 'Condition logged successfully', 'success');
       }
-
-      console.log('Room item added successfully:', newItem);
 
       // Refresh the room data
       await fetchRoomData();
@@ -404,12 +429,66 @@ export default function RoomDetailScreen() {
       setSelectedItemPreset(null);
       setSelectedStatus('OK');
       setItemNotes('');
-      showAlert('Success', 'Condition logged successfully', 'success');
+      setEditingItem(null);
     } catch (error: any) {
-      console.error('Unexpected error adding room item:', error);
-      showAlert('Error', `Failed to add item: ${error.message}`, 'error');
+      console.error('Unexpected error saving room item:', error);
+      showAlert('Error', `Failed to save item: ${error.message}`, 'error');
     } finally {
       setSavingItem(false);
+    }
+  };
+
+  const handleEditItem = (item: RoomItem) => {
+    console.log('User tapped Edit button for item:', item.id);
+    setEditingItem(item);
+    
+    // Find the preset that matches this item
+    const preset = ROOM_ITEMS.find(p => p.nameEn === item.item_name_en);
+    setSelectedItemPreset(preset || null);
+    setSelectedStatus(item.condition_status);
+    setItemNotes(item.notes || '');
+    
+    setShowLogConditionModal(true);
+  };
+
+  const handleDeleteItem = (item: RoomItem) => {
+    console.log('User tapped Delete button for item:', item.id);
+    setItemToDelete(item);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteItem = async () => {
+    if (!itemToDelete) return;
+
+    console.log('Deleting item:', itemToDelete.id);
+    setDeletingItem(true);
+
+    try {
+      // Delete the item from Supabase
+      const { error: deleteError } = await supabase
+        .from('room_items')
+        .delete()
+        .eq('id', itemToDelete.id);
+
+      if (deleteError) {
+        console.error('Error deleting item:', deleteError);
+        showAlert('Error', `Failed to delete item: ${deleteError.message}`, 'error');
+        return;
+      }
+
+      console.log('Item deleted successfully');
+      showAlert('Success', 'Item deleted successfully', 'success');
+
+      // Refresh the room data
+      await fetchRoomData();
+
+      setShowDeleteConfirm(false);
+      setItemToDelete(null);
+    } catch (error: any) {
+      console.error('Unexpected error deleting item:', error);
+      showAlert('Error', `Failed to delete item: ${error.message}`, 'error');
+    } finally {
+      setDeletingItem(false);
     }
   };
 
@@ -484,6 +563,10 @@ export default function RoomDetailScreen() {
                 style={styles.addButton}
                 onPress={() => {
                   console.log('User tapped Log Condition button');
+                  setEditingItem(null);
+                  setSelectedItemPreset(null);
+                  setSelectedStatus('OK');
+                  setItemNotes('');
                   setShowLogConditionModal(true);
                 }}
               >
@@ -523,8 +606,32 @@ export default function RoomDetailScreen() {
                           <Text style={styles.itemNameDe}>{item.item_name_de}</Text>
                           <Text style={styles.itemNameEn}>{item.item_name_en}</Text>
                         </View>
-                        <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
-                          <Text style={styles.statusText}>{item.condition_status}</Text>
+                        <View style={styles.itemActions}>
+                          <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
+                            <Text style={styles.statusText}>{item.condition_status}</Text>
+                          </View>
+                          <TouchableOpacity
+                            style={styles.actionButton}
+                            onPress={() => handleEditItem(item)}
+                          >
+                            <IconSymbol
+                              ios_icon_name="pencil"
+                              android_material_icon_name="edit"
+                              size={20}
+                              color={colors.primary}
+                            />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.actionButton}
+                            onPress={() => handleDeleteItem(item)}
+                          >
+                            <IconSymbol
+                              ios_icon_name="trash"
+                              android_material_icon_name="delete"
+                              size={20}
+                              color={colors.error}
+                            />
+                          </TouchableOpacity>
                         </View>
                       </View>
 
@@ -591,7 +698,9 @@ export default function RoomDetailScreen() {
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Log Condition</Text>
+                <Text style={styles.modalTitle}>
+                  {editingItem ? 'Edit Condition' : 'Log Condition'}
+                </Text>
                 <TouchableOpacity onPress={() => setShowLogConditionModal(false)}>
                   <IconSymbol
                     ios_icon_name="xmark.circle.fill"
@@ -693,7 +802,9 @@ export default function RoomDetailScreen() {
                 {savingItem ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.modalSaveButtonText}>Save Condition</Text>
+                  <Text style={styles.modalSaveButtonText}>
+                    {editingItem ? 'Update Condition' : 'Save Condition'}
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -745,6 +856,21 @@ export default function RoomDetailScreen() {
             </View>
           </View>
         </Modal>
+
+        {/* Delete Confirmation Modal */}
+        <ConfirmModal
+          visible={showDeleteConfirm}
+          title="Delete Item"
+          message={`Are you sure you want to delete "${itemToDelete?.item_name_de}"? This action cannot be undone.`}
+          confirmText={deletingItem ? "Deleting..." : "Delete"}
+          cancelText="Cancel"
+          onConfirm={confirmDeleteItem}
+          onCancel={() => {
+            setShowDeleteConfirm(false);
+            setItemToDelete(null);
+          }}
+          type="danger"
+        />
 
         <AlertModal
           visible={alertVisible}
@@ -853,16 +979,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
   },
+  itemActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   statusBadge: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
-    marginLeft: 12,
   },
   statusText: {
     fontSize: 12,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  actionButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: colors.background,
   },
   itemNotes: {
     fontSize: 14,
