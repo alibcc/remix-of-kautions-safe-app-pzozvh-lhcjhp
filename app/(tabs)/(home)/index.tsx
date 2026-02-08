@@ -1,4 +1,5 @@
-import { Stack, useRouter, Redirect } from "expo-router";
+
+import { Stack, useRouter } from "expo-router";
 import React, { useState, useEffect } from "react";
 import { 
   StyleSheet, 
@@ -26,17 +27,18 @@ interface Inspection {
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && user) {
+    // This screen is protected by the (tabs) layout, so user will always exist here
+    if (user) {
       console.log('HomeScreen mounted - loading inspections for user:', user.id);
       loadInspections();
     }
-  }, [user, authLoading]);
+  }, [user]);
 
   const loadInspections = async () => {
     try {
@@ -52,11 +54,6 @@ export default function HomeScreen() {
       setRefreshing(false);
     }
   };
-
-  // Redirect to auth if not logged in
-  if (!authLoading && !user) {
-    return <Redirect href="/auth" />;
-  }
 
   const handleRefresh = () => {
     console.log('User triggered refresh');
@@ -100,7 +97,7 @@ export default function HomeScreen() {
     return 'Move Out';
   };
 
-  if (authLoading || loading) {
+  if (loading) {
     return (
       <>
         <Stack.Screen

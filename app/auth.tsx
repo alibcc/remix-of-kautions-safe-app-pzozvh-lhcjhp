@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,14 +12,15 @@ import {
   ScrollView,
 } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
-import { useRouter } from "expo-router";
+import { useRouter, useSegments } from "expo-router";
 import { AlertModal } from "@/components/ui/Modal";
 
 type Mode = "signin" | "signup";
 
 export default function AuthScreen() {
   const router = useRouter();
-  const { signInWithEmail, signUpWithEmail, signInWithGoogle, signInWithApple, signInWithGitHub, loading: authLoading } =
+  const segments = useSegments();
+  const { user, loading: authLoading, signInWithEmail, signUpWithEmail, signInWithGoogle, signInWithApple, signInWithGitHub } =
     useAuth();
 
   const [mode, setMode] = useState<Mode>("signin");
@@ -38,10 +40,34 @@ export default function AuthScreen() {
     setAlertVisible(true);
   };
 
+  // Redirect authenticated users to home
+  useEffect(() => {
+    if (!authLoading && user) {
+      const inAuthScreen = segments[0] === 'auth' || segments.includes('auth');
+      console.log('Auth screen - User is authenticated, redirecting to home. Segments:', segments);
+      
+      // Only redirect if we're actually on the auth screen
+      if (inAuthScreen) {
+        router.replace('/(tabs)/(home)');
+      }
+    }
+  }, [user, authLoading, segments]);
+
+  // Show loading while auth is initializing
   if (authLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
+  }
+
+  // If user is already authenticated, show loading (redirect will happen in useEffect)
+  if (user) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007AFF" />
+        <Text style={styles.loadingText}>Redirecting...</Text>
       </View>
     );
   }
@@ -55,18 +81,23 @@ export default function AuthScreen() {
     setLoading(true);
     try {
       if (mode === "signin") {
+        console.log('User attempting email sign in');
         await signInWithEmail(email, password);
-        router.replace("/");
+        console.log('Email sign in successful, redirecting to home');
+        router.replace('/(tabs)/(home)');
       } else {
+        console.log('User attempting email sign up');
         await signUpWithEmail(email, password, name);
         showAlert(
           "Success",
           "Account created! Please check your email to verify your account.",
           'success'
         );
-        router.replace("/");
+        console.log('Email sign up successful, redirecting to home');
+        router.replace('/(tabs)/(home)');
       }
     } catch (error: any) {
+      console.error('Email auth error:', error);
       showAlert("Error", error.message || "Authentication failed", 'error');
     } finally {
       setLoading(false);
@@ -76,6 +107,7 @@ export default function AuthScreen() {
   const handleSocialAuth = async (provider: "google" | "apple" | "github") => {
     setLoading(true);
     try {
+      console.log(`User attempting ${provider} sign in`);
       if (provider === "google") {
         await signInWithGoogle();
       } else if (provider === "apple") {
@@ -83,8 +115,10 @@ export default function AuthScreen() {
       } else if (provider === "github") {
         await signInWithGitHub();
       }
-      router.replace("/");
+      console.log(`${provider} sign in successful, redirecting to home`);
+      router.replace('/(tabs)/(home)');
     } catch (error: any) {
+      console.error(`${provider} auth error:`, error);
       showAlert("Error", error.message || "Authentication failed", 'error');
     } finally {
       setLoading(false);
@@ -205,6 +239,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#fff",
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: "#666",
   },
   scrollContent: {
     flexGrow: 1,
