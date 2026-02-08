@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -12,21 +12,16 @@ import {
   ScrollView,
 } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
-import { useRouter, useSegments } from "expo-router";
 import { AlertModal } from "@/components/ui/Modal";
 
 type Mode = "signin" | "signup";
 
 export default function AuthScreen() {
-  const router = useRouter();
-  const segments = useSegments();
-  const { user, loading: authLoading, signInWithEmail, signUpWithEmail, signInWithGoogle, signInWithApple, signInWithGitHub } =
-    useAuth();
+  const { signInWithEmail, signUpWithEmail, signInWithGoogle, signInWithApple } = useAuth();
 
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertTitle, setAlertTitle] = useState("");
@@ -40,38 +35,6 @@ export default function AuthScreen() {
     setAlertVisible(true);
   };
 
-  // Redirect authenticated users to home
-  useEffect(() => {
-    if (!authLoading && user) {
-      const inAuthScreen = segments[0] === 'auth' || segments.includes('auth');
-      console.log('Auth screen - User is authenticated, redirecting to home. Segments:', segments);
-      
-      // Only redirect if we're actually on the auth screen
-      if (inAuthScreen) {
-        router.replace('/(tabs)/(home)');
-      }
-    }
-  }, [user, authLoading, segments]);
-
-  // Show loading while auth is initializing
-  if (authLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
-      </View>
-    );
-  }
-
-  // If user is already authenticated, show loading (redirect will happen in useEffect)
-  if (user) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Redirecting...</Text>
-      </View>
-    );
-  }
-
   const handleEmailAuth = async () => {
     if (!email || !password) {
       showAlert("Error", "Please enter email and password", 'error');
@@ -83,18 +46,17 @@ export default function AuthScreen() {
       if (mode === "signin") {
         console.log('User attempting email sign in');
         await signInWithEmail(email, password);
-        console.log('Email sign in successful, redirecting to home');
-        router.replace('/(tabs)/(home)');
+        console.log('Email sign in successful');
+        showAlert("Success", "Signed in successfully!", 'success');
       } else {
         console.log('User attempting email sign up');
-        await signUpWithEmail(email, password, name);
+        await signUpWithEmail(email, password);
+        console.log('Email sign up successful');
         showAlert(
           "Success",
           "Account created! Please check your email to verify your account.",
           'success'
         );
-        console.log('Email sign up successful, redirecting to home');
-        router.replace('/(tabs)/(home)');
       }
     } catch (error: any) {
       console.error('Email auth error:', error);
@@ -104,7 +66,7 @@ export default function AuthScreen() {
     }
   };
 
-  const handleSocialAuth = async (provider: "google" | "apple" | "github") => {
+  const handleSocialAuth = async (provider: "google" | "apple") => {
     setLoading(true);
     try {
       console.log(`User attempting ${provider} sign in`);
@@ -112,11 +74,8 @@ export default function AuthScreen() {
         await signInWithGoogle();
       } else if (provider === "apple") {
         await signInWithApple();
-      } else if (provider === "github") {
-        await signInWithGitHub();
       }
-      console.log(`${provider} sign in successful, redirecting to home`);
-      router.replace('/(tabs)/(home)');
+      console.log(`${provider} sign in initiated`);
     } catch (error: any) {
       console.error(`${provider} auth error:`, error);
       showAlert("Error", error.message || "Authentication failed", 'error');
@@ -135,16 +94,6 @@ export default function AuthScreen() {
           <Text style={styles.title}>
             {mode === "signin" ? "Sign In" : "Sign Up"}
           </Text>
-
-          {mode === "signup" && (
-            <TextInput
-              style={styles.input}
-              placeholder="Name (optional)"
-              value={name}
-              onChangeText={setName}
-              autoCapitalize="words"
-            />
-          )}
 
           <TextInput
             style={styles.input}
@@ -233,17 +182,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#fff",
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: "#666",
   },
   scrollContent: {
     flexGrow: 1,

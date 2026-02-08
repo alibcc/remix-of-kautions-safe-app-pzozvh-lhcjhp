@@ -1,5 +1,4 @@
 
-import { Stack, useRouter } from "expo-router";
 import React, { useState, useEffect } from "react";
 import { 
   StyleSheet, 
@@ -10,9 +9,10 @@ import {
   ActivityIndicator,
   RefreshControl
 } from "react-native";
-import { colors, commonStyles } from "@/styles/commonStyles";
-import { IconSymbol } from "@/components/IconSymbol";
 import { useAuth } from "@/contexts/AuthContext";
+import { Stack, useRouter } from "expo-router";
+import { IconSymbol } from "@/components/IconSymbol";
+import { colors, commonStyles } from "@/styles/commonStyles";
 import { authenticatedGet } from "@/utils/api";
 
 interface Inspection {
@@ -26,29 +26,27 @@ interface Inspection {
 }
 
 export default function HomeScreen() {
-  const router = useRouter();
   const { user } = useAuth();
+  const router = useRouter();
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    // This screen is protected by the (tabs) layout, so user will always exist here
     if (user) {
-      console.log('HomeScreen mounted - loading inspections for user:', user.id);
+      console.log('HomeScreen: User is authenticated, loading inspections');
       loadInspections();
     }
   }, [user]);
 
   const loadInspections = async () => {
     try {
-      console.log('Fetching inspections from backend');
-      const response = await authenticatedGet<Inspection[]>('/api/inspections');
-      setInspections(response);
-      console.log('Inspections loaded successfully:', response.length);
+      console.log('HomeScreen: Fetching inspections from API');
+      const data = await authenticatedGet<Inspection[]>('/api/inspections');
+      console.log('HomeScreen: Loaded inspections:', data.length);
+      setInspections(data);
     } catch (error) {
-      console.error('Error loading inspections:', error);
-      setInspections([]);
+      console.error('HomeScreen: Failed to load inspections:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -56,299 +54,316 @@ export default function HomeScreen() {
   };
 
   const handleRefresh = () => {
-    console.log('User triggered refresh');
+    console.log('HomeScreen: User pulled to refresh');
     setRefreshing(true);
     loadInspections();
   };
 
   const handleCreateInspection = () => {
-    console.log('User tapped Create New Inspection button');
+    console.log('HomeScreen: User tapped Create Inspection button');
     router.push('/new-inspection');
   };
 
   const handleOpenInspection = (id: string) => {
-    console.log('User tapped inspection:', id);
+    console.log('HomeScreen: User tapped inspection:', id);
     router.push(`/inspection/${id}`);
   };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('de-DE', { 
-      day: '2-digit', 
-      month: '2-digit', 
-      year: 'numeric' 
-    });
+    const day = date.getDate();
+    const month = date.toLocaleString('default', { month: 'short' });
+    const year = date.getFullYear();
+    return `${day} ${month} ${year}`;
   };
 
   const getStatusColor = (status: string) => {
-    if (status === 'completed') return colors.success;
-    if (status === 'exported') return colors.primary;
-    return colors.textSecondary;
+    switch (status) {
+      case 'draft':
+        return '#FFA500';
+      case 'completed':
+        return '#4CAF50';
+      case 'exported':
+        return '#2196F3';
+      default:
+        return '#999';
+    }
   };
 
   const getStatusText = (status: string) => {
-    if (status === 'completed') return 'Completed';
-    if (status === 'exported') return 'Exported';
-    return 'Draft';
+    switch (status) {
+      case 'draft':
+        return 'Draft';
+      case 'completed':
+        return 'Completed';
+      case 'exported':
+        return 'Exported';
+      default:
+        return status;
+    }
   };
 
   const getTypeText = (type: string) => {
-    if (type === 'move_in') return 'Move In';
-    return 'Move Out';
+    switch (type) {
+      case 'move_in':
+        return 'Move In';
+      case 'move_out':
+        return 'Move Out';
+      default:
+        return type;
+    }
   };
 
   if (loading) {
     return (
-      <>
-        <Stack.Screen
-          options={{
-            title: "Kautions-Safe",
-            headerStyle: { backgroundColor: colors.primary },
-            headerTintColor: '#FFFFFF',
-          }}
-        />
-        <View style={[commonStyles.container, styles.centerContent]}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      </>
+      <View style={styles.loadingContainer}>
+        <Stack.Screen options={{ title: 'Inspections' }} />
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
     );
   }
 
   return (
-    <>
-      <Stack.Screen
-        options={{
-          title: "Kautions-Safe",
-          headerStyle: { backgroundColor: colors.primary },
-          headerTintColor: '#FFFFFF',
-        }}
-      />
-      <View style={commonStyles.container}>
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-          }
-        >
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>Apartment Inspections</Text>
-            <Text style={styles.headerSubtitle}>
-              Document apartment condition for handovers
-            </Text>
-          </View>
-
-          <TouchableOpacity 
+    <View style={styles.container}>
+      <Stack.Screen options={{ title: 'Inspections' }} />
+      
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
+      >
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>My Inspections</Text>
+          <TouchableOpacity
             style={styles.createButton}
             onPress={handleCreateInspection}
           >
-            <IconSymbol 
-              ios_icon_name="plus.circle.fill"
-              android_material_icon_name="add-circle"
-              size={24}
-              color="#FFFFFF"
+            <IconSymbol
+              ios_icon_name="plus"
+              android_material_icon_name="add"
+              size={20}
+              color="#fff"
             />
-            <Text style={styles.createButtonText}>Create New Inspection</Text>
+            <Text style={styles.createButtonText}>New Inspection</Text>
           </TouchableOpacity>
+        </View>
 
-          {inspections.length === 0 ? (
-            <View style={styles.emptyState}>
-              <IconSymbol 
-                ios_icon_name="doc.text"
-                android_material_icon_name="description"
-                size={64}
-                color={colors.textSecondary}
-              />
-              <Text style={styles.emptyTitle}>No Inspections Yet</Text>
-              <Text style={styles.emptyText}>
-                Create your first apartment inspection to get started
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.inspectionsList}>
-              {inspections.map((inspection) => {
-                const statusColor = getStatusColor(inspection.status);
-                const statusText = getStatusText(inspection.status);
-                const typeText = getTypeText(inspection.inspectionType);
-                const formattedDate = formatDate(inspection.createdAt);
+        {inspections.length === 0 ? (
+          <View style={styles.emptyState}>
+            <IconSymbol
+              ios_icon_name="doc.text"
+              android_material_icon_name="description"
+              size={64}
+              color="#ccc"
+            />
+            <Text style={styles.emptyStateTitle}>No Inspections Yet</Text>
+            <Text style={styles.emptyStateText}>
+              Create your first apartment inspection to get started
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.inspectionsList}>
+            {inspections.map((inspection) => {
+              const statusColor = getStatusColor(inspection.status);
+              const statusText = getStatusText(inspection.status);
+              const typeText = getTypeText(inspection.inspectionType);
+              const formattedDate = formatDate(inspection.createdAt);
 
-                return (
-                  <TouchableOpacity
-                    key={inspection.id}
-                    style={commonStyles.card}
-                    onPress={() => handleOpenInspection(inspection.id)}
-                  >
-                    <View style={styles.inspectionHeader}>
-                      <View style={styles.inspectionTitleRow}>
-                        <Text style={styles.inspectionAddress}>
-                          {inspection.propertyAddress}
-                        </Text>
-                        <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
-                          <Text style={styles.statusText}>{statusText}</Text>
-                        </View>
-                      </View>
-                      <Text style={styles.inspectionType}>{typeText}</Text>
+              return (
+                <TouchableOpacity
+                  key={inspection.id}
+                  style={styles.inspectionCard}
+                  onPress={() => handleOpenInspection(inspection.id)}
+                >
+                  <View style={styles.inspectionHeader}>
+                    <Text style={styles.inspectionAddress}>
+                      {inspection.propertyAddress}
+                    </Text>
+                    <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
+                      <Text style={styles.statusText}>{statusText}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.inspectionDetails}>
+                    <View style={styles.detailRow}>
+                      <IconSymbol
+                        ios_icon_name="calendar"
+                        android_material_icon_name="calendar-today"
+                        size={16}
+                        color="#666"
+                      />
+                      <Text style={styles.detailText}>{formattedDate}</Text>
                     </View>
 
-                    <View style={styles.inspectionStats}>
-                      <View style={styles.statItem}>
-                        <IconSymbol 
-                          ios_icon_name="door.left.hand.open"
-                          android_material_icon_name="meeting-room"
-                          size={20}
-                          color={colors.textSecondary}
-                        />
-                        <Text style={styles.statText}>{inspection.roomCount}</Text>
-                        <Text style={styles.statLabel}>Rooms</Text>
-                      </View>
-
-                      <View style={styles.statItem}>
-                        <IconSymbol 
-                          ios_icon_name="gauge"
-                          android_material_icon_name="speed"
-                          size={20}
-                          color={colors.textSecondary}
-                        />
-                        <Text style={styles.statText}>{inspection.meterCount}</Text>
-                        <Text style={styles.statLabel}>Meters</Text>
-                      </View>
-
-                      <View style={styles.statItem}>
-                        <IconSymbol 
-                          ios_icon_name="calendar"
-                          android_material_icon_name="calendar-today"
-                          size={20}
-                          color={colors.textSecondary}
-                        />
-                        <Text style={styles.statText}>{formattedDate}</Text>
-                      </View>
+                    <View style={styles.detailRow}>
+                      <IconSymbol
+                        ios_icon_name="house"
+                        android_material_icon_name="home"
+                        size={16}
+                        color="#666"
+                      />
+                      <Text style={styles.detailText}>{typeText}</Text>
                     </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
-        </ScrollView>
-      </View>
-    </>
+                  </View>
+
+                  <View style={styles.inspectionFooter}>
+                    <View style={styles.countBadge}>
+                      <IconSymbol
+                        ios_icon_name="door.left.hand.open"
+                        android_material_icon_name="meeting-room"
+                        size={16}
+                        color="#666"
+                      />
+                      <Text style={styles.countText}>{inspection.roomCount}</Text>
+                      <Text style={styles.countLabel}>rooms</Text>
+                    </View>
+
+                    <View style={styles.countBadge}>
+                      <IconSymbol
+                        ios_icon_name="gauge"
+                        android_material_icon_name="speed"
+                        size={16}
+                        color="#666"
+                      />
+                      <Text style={styles.countText}>{inspection.meterCount}</Text>
+                      <Text style={styles.countLabel}>meters</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     padding: 16,
   },
-  centerContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   header: {
     marginBottom: 24,
   },
   headerTitle: {
     fontSize: 28,
-    fontWeight: '700',
+    fontWeight: 'bold',
     color: colors.text,
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    color: colors.textSecondary,
+    marginBottom: 16,
   },
   createButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    gap: 8,
   },
   createButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
+    color: '#fff',
+    fontSize: 16,
     fontWeight: '600',
-    marginLeft: 8,
   },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 60,
   },
-  emptyTitle: {
+  emptyStateTitle: {
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: 'bold',
     color: colors.text,
     marginTop: 16,
     marginBottom: 8,
   },
-  emptyText: {
-    fontSize: 16,
-    color: colors.textSecondary,
+  emptyStateText: {
+    fontSize: 14,
+    color: '#666',
     textAlign: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: 40,
   },
   inspectionsList: {
-    gap: 12,
+    gap: 16,
+  },
+  inspectionCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    ...commonStyles.shadow,
   },
   inspectionHeader: {
-    marginBottom: 12,
-  },
-  inspectionTitleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 4,
+    marginBottom: 12,
   },
   inspectionAddress: {
+    flex: 1,
     fontSize: 18,
     fontWeight: '600',
     color: colors.text,
-    flex: 1,
     marginRight: 8,
   },
   statusBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: 4,
   },
   statusText: {
-    color: '#FFFFFF',
+    color: '#fff',
     fontSize: 12,
     fontWeight: '600',
   },
-  inspectionType: {
-    fontSize: 14,
-    color: colors.textSecondary,
+  inspectionDetails: {
+    gap: 8,
+    marginBottom: 12,
   },
-  inspectionStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  statItem: {
+  detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
-  statText: {
+  detailText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  inspectionFooter: {
+    flexDirection: 'row',
+    gap: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  countBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  countText: {
     fontSize: 14,
     fontWeight: '600',
     color: colors.text,
   },
-  statLabel: {
+  countLabel: {
     fontSize: 14,
-    color: colors.textSecondary,
+    color: '#666',
   },
 });

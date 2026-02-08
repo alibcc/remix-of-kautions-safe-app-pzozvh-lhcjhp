@@ -6,7 +6,7 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { SystemBars } from "react-native-edge-to-edge";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { useColorScheme, View, Text, StyleSheet } from "react-native";
+import { useColorScheme } from "react-native";
 import { useNetworkState } from "expo-network";
 import {
   DarkTheme,
@@ -94,8 +94,6 @@ export default function RootLayout() {
               >
                 {/* Auth screens - no protection needed */}
                 <Stack.Screen name="auth" options={{ headerShown: false }} />
-                <Stack.Screen name="auth-popup" options={{ headerShown: false }} />
-                <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
                 
                 {/* Protected screens - auth check happens in (tabs)/_layout.tsx */}
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

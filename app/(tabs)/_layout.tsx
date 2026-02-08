@@ -13,18 +13,18 @@ export default function TabLayout() {
   useEffect(() => {
     // Only run auth check after auth context has initialized
     if (loading) {
-      console.log('Auth still loading, waiting...');
+      console.log('TabLayout: Auth still loading, waiting...');
       return;
     }
 
     // Check if we're in the (tabs) group
     const inTabsGroup = segments[0] === '(tabs)';
 
-    console.log('TabLayout auth check - User:', user?.email, 'In tabs:', inTabsGroup);
+    console.log('TabLayout: Auth check - User:', user?.email || 'No user', 'In tabs:', inTabsGroup);
 
     // If user is not authenticated and we're in the tabs group, redirect to auth
     if (!user && inTabsGroup) {
-      console.log('No user found in protected route, redirecting to /auth');
+      console.log('TabLayout: No user found in protected route, redirecting to /auth');
       router.replace('/auth');
     }
   }, [user, loading, segments]);
@@ -52,6 +52,7 @@ export default function TabLayout() {
       }}
     >
       <Stack.Screen name="(home)" />
+      <Stack.Screen name="profile" />
     </Stack>
   );
 }
