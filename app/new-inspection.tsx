@@ -9,11 +9,11 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import { colors, commonStyles } from "@/styles/commonStyles";
 import { IconSymbol } from "@/components/IconSymbol";
 import { supabase } from "@/app/integrations/supabase/client";
+import { AlertModal } from "@/components/ui/Modal";
 
 export default function NewInspectionScreen() {
   const router = useRouter();
@@ -22,19 +22,32 @@ export default function NewInspectionScreen() {
   const [landlordName, setLandlordName] = useState('');
   const [tenantName, setTenantName] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  // Alert modal state
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState('');
+  const [alertMessage, setAlertMessage] = useState('');
+  const [alertType, setAlertType] = useState<'info' | 'error' | 'success'>('info');
+
+  const showAlert = (title: string, message: string, type: 'info' | 'error' | 'success' = 'info') => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertType(type);
+    setAlertVisible(true);
+  };
 
   const handleCreate = async () => {
     console.log('User tapped Create Inspection button');
     
     if (!propertyAddress.trim()) {
       console.log('Validation failed: Property address is required');
-      Alert.alert('Error', 'Please enter a property address');
+      showAlert('Validation Error', 'Please enter a property address', 'error');
       return;
     }
 
     setLoading(true);
     try {
-      console.log('Creating new inspection with Supabase:', { 
+      console.log('Creating new report with Supabase:', { 
         propertyAddress, 
         inspectionType, 
         landlordName, 
@@ -50,67 +63,103 @@ export default function NewInspectionScreen() {
           status: userError.status,
           name: userError.name,
         });
-        Alert.alert('Authentication Error', `Failed to get user: ${userError.message}`);
+        showAlert('Authentication Error', `Failed to get user: ${userError.message}`, 'error');
         setLoading(false);
         return;
       }
 
       if (!user) {
         console.error('No authenticated user found');
-        Alert.alert('Error', 'You must be logged in to create an inspection');
+        showAlert('Authentication Error', 'You must be logged in to create an inspection', 'error');
         setLoading(false);
         return;
       }
 
       console.log('Authenticated user ID:', user.id);
 
-      // Insert inspection into Supabase
-      const { data, error } = await supabase
-        .from('inspections')
+      // Insert into 'reports' table (renamed from 'inspections')
+      const { data: reportData, error: reportError } = await supabase
+        .from('reports')
         .insert([
           {
-            property_address: propertyAddress,
+            address: propertyAddress,
             inspection_type: inspectionType,
-            landlord_name: landlordName || null,
-            tenant_name: tenantName || null,
+            status: 'pending',
             user_id: user.id,
-            status: 'draft',
           }
         ])
-        .select();
+        .select()
+        .single();
 
-      if (error) {
-        // Log the exact Supabase error for debugging
+      if (reportError) {
         console.error('Supabase insert error:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
+          message: reportError.message,
+          details: reportError.details,
+          hint: reportError.hint,
+          code: reportError.code,
         });
-        Alert.alert(
+        showAlert(
           'Database Error', 
-          `Failed to create inspection: ${error.message}\n\nDetails: ${error.details || 'None'}\n\nHint: ${error.hint || 'None'}`
+          `Failed to create report: ${reportError.message}\n\nDetails: ${reportError.details || 'None'}\n\nHint: ${reportError.hint || 'None'}`,
+          'error'
         );
         setLoading(false);
         return;
       }
 
-      if (!data || data.length === 0) {
+      if (!reportData) {
         console.error('No data returned from Supabase insert');
-        Alert.alert('Error', 'Failed to create inspection: No data returned');
+        showAlert('Error', 'Failed to create report: No data returned', 'error');
         setLoading(false);
         return;
       }
 
-      console.log('Inspection created successfully:', data[0]);
-      router.replace(`/inspection/${data[0].id}`);
+      console.log('Report created successfully:', reportData);
+
+      // Handle participants if landlord or tenant names are provided
+      if (landlordName.trim() || tenantName.trim()) {
+        console.log('Inserting participants');
+        const participantsToInsert = [];
+
+        if (landlordName.trim()) {
+          participantsToInsert.push({
+            report_id: reportData.id,
+            type: 'landlord',
+            name: landlordName.trim(),
+          });
+        }
+
+        if (tenantName.trim()) {
+          participantsToInsert.push({
+            report_id: reportData.id,
+            type: 'tenant',
+            name: tenantName.trim(),
+          });
+        }
+
+        const { error: participantsError } = await supabase
+          .from('participants')
+          .insert(participantsToInsert);
+
+        if (participantsError) {
+          console.error('Failed to insert participants:', participantsError);
+          // Don't fail the whole operation, just log the error
+          console.warn('Participants not saved, but report was created successfully');
+        } else {
+          console.log('Participants inserted successfully');
+        }
+      }
+
+      // Navigate to Inspection Overview with the new report ID
+      console.log('Navigating to inspection overview:', reportData.id);
+      router.replace(`/inspection/${reportData.id}`);
     } catch (err: any) {
-      console.error('Unexpected error creating inspection:', {
+      console.error('Unexpected error creating report:', {
         message: err.message,
         stack: err.stack,
         name: err.name,
       });
-      Alert.alert('Error', `An unexpected error occurred: ${err.message}`);
+      showAlert('Unexpected Error', `An unexpected error occurred: ${err.message}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -275,6 +324,14 @@ export default function NewInspectionScreen() {
             )}
           </TouchableOpacity>
         </View>
+
+        <AlertModal
+          visible={alertVisible}
+          title={alertTitle}
+          message={alertMessage}
+          type={alertType}
+          onClose={() => setAlertVisible(false)}
+        />
       </View>
     </>
   );
