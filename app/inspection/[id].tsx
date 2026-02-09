@@ -31,9 +31,9 @@ const ROOM_PRESETS = [
   { nameEn: 'Garden', nameDe: 'Garten' },
 ];
 
-// CRITICAL FIX: Use EU Central Endpoint and correct API Key
+// CRITICAL FIX #1: Updated EU Central Endpoint and correct API Key
 const CRAFTMYPDF_EU_ENDPOINT = 'https://api-eur.craftmypdf.com/v1/create';
-const CRAFTMYPDF_API_KEY = '9cf6Mjg1MjM6Mjg2ODQ6a3ZWUDBhZ2lGUE9CU1UzdA=';
+const CRAFTMYPDF_API_KEY = '9cf6Mjg1MjM6Mjg2ODQ6a3ZWUDBhZ2lGUE9CU1Uzda=';
 const CRAFTMYPDF_TEMPLATE_ID = '5c477b23ea34170c';
 
 interface Room {
@@ -397,7 +397,7 @@ export default function InspectionDetailScreen() {
       console.log('Sending request to CraftMyPDF EU Endpoint');
       console.log('Payload structure:', JSON.stringify(pdfPayload, null, 2));
 
-      // CRITICAL FIX: Call EU Central Endpoint with correct headers
+      // CRITICAL FIX #1: Call EU Central Endpoint with correct headers and API Key
       const response = await fetch(CRAFTMYPDF_EU_ENDPOINT, {
         method: 'POST',
         headers: {

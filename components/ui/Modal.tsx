@@ -35,11 +35,11 @@ export function ConfirmModal({
   const getConfirmButtonColor = () => {
     switch (type) {
       case 'danger':
-        return '#DC2626';
+        return '#FF3B30';
       case 'success':
         return '#16A34A';
       default:
-        return colors.primary;
+        return '#007AFF';
     }
   };
 
@@ -57,11 +57,11 @@ export function ConfirmModal({
   const getIconColor = () => {
     switch (type) {
       case 'danger':
-        return '#DC2626';
+        return '#FF3B30';
       case 'success':
         return '#16A34A';
       default:
-        return colors.primary;
+        return '#007AFF';
     }
   };
 
@@ -140,22 +140,22 @@ export function AlertModal({
   const getIconColor = () => {
     switch (type) {
       case 'error':
-        return '#DC2626';
+        return '#FF3B30';
       case 'success':
         return '#16A34A';
       default:
-        return colors.primary;
+        return '#007AFF';
     }
   };
 
   const getButtonColor = () => {
     switch (type) {
       case 'error':
-        return '#DC2626';
+        return '#FF3B30';
       case 'success':
         return '#16A34A';
       default:
-        return colors.primary;
+        return '#007AFF';
     }
   };
 
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   confirmButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: '#007AFF',
   },
   confirmButtonText: {
     fontSize: 16,
@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   singleButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: '#007AFF',
     width: '100%',
   },
 });

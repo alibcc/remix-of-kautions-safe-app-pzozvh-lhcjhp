@@ -123,7 +123,8 @@ export default function NewInspectionScreen() {
 
       console.log('Report created successfully with IN PROGRESS status. Report ID:', reportData.id);
 
-      // CRITICAL FIX: Handle participants with correct 'role' column (not 'type')
+      // CRITICAL FIX #4: Handle participants with correct 'role' column (not 'type')
+      // Only save name and email (no 'type' column)
       if (landlordName.trim() || tenantName.trim()) {
         console.log('Inserting participants');
         const participantsToInsert = [];
@@ -133,6 +134,7 @@ export default function NewInspectionScreen() {
             report_id: reportData.id,
             role: 'Landlord', // FIXED: Use 'role' instead of 'type'
             name: landlordName.trim(),
+            email: '', // Empty email as per requirement
           });
         }
 
@@ -141,6 +143,7 @@ export default function NewInspectionScreen() {
             report_id: reportData.id,
             role: 'Tenant', // FIXED: Use 'role' instead of 'type'
             name: tenantName.trim(),
+            email: '', // Empty email as per requirement
           });
         }
 

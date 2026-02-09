@@ -244,7 +244,7 @@ export default function RoomDetailScreen() {
     }
 
     try {
-      // PERFORMANCE FIX: Optimized camera settings
+      // PERFORMANCE FIX #3: Optimized camera settings
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.3, // Reduced quality for performance
         base64: false, // Disable base64 for performance
@@ -669,6 +669,7 @@ export default function RoomDetailScreen() {
                         <Text style={styles.takePhotoButtonText}>Take Photo</Text>
                       </TouchableOpacity>
 
+                      {/* CRITICAL FIX #3: Evidence Gallery with 100x100 thumbnails and lightbox */}
                       {itemPhotos.length > 0 && (
                         <View style={styles.evidenceGallery}>
                           <Text style={styles.evidenceTitle}>Evidence Gallery</Text>
@@ -884,7 +885,7 @@ export default function RoomDetailScreen() {
           type="danger"
         />
 
-        {/* Full-Screen Lightbox Modal */}
+        {/* CRITICAL FIX #3: Full-Screen Lightbox Modal */}
         <Modal
           visible={lightboxVisible}
           transparent={true}
