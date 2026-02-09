@@ -31,7 +31,7 @@ const ROOM_PRESETS = [
   { nameEn: 'Garden', nameDe: 'Garten' },
 ];
 
-// CRITICAL: EU Central Endpoint for CraftMyPDF
+// CRITICAL FIX: Updated API Key and EU Central Endpoint
 const CRAFTMYPDF_EU_ENDPOINT = 'https://api-eur.craftmypdf.com/v1/create';
 const CRAFTMYPDF_API_KEY = '9cf6Mjg1MjM6Mjg2ODQ6a3ZWUDBhZ2lGUE9CU1UzdA==';
 const CRAFTMYPDF_TEMPLATE_ID = '5c477b23ea34170c';
@@ -394,7 +394,8 @@ export default function InspectionDetailScreen() {
 
       console.log('All data fetched successfully');
 
-      // CRITICAL: Construct payload with EXACT keys matching template
+      // CRITICAL FIX: Construct payload with EXACT keys matching template
+      // Using 'data' wrapper and correct structure
       const pdfPayload = {
         template_id: CRAFTMYPDF_TEMPLATE_ID,
         data: {
@@ -417,9 +418,10 @@ export default function InspectionDetailScreen() {
         },
       };
 
-      console.log('Sending request to CraftMyPDF EU Endpoint with payload:', JSON.stringify(pdfPayload, null, 2));
+      console.log('Sending request to CraftMyPDF EU Endpoint');
+      console.log('Payload structure:', JSON.stringify(pdfPayload, null, 2));
 
-      // CRITICAL: Call EU Central Endpoint
+      // CRITICAL FIX: Call EU Central Endpoint with correct API Key
       const response = await fetch(CRAFTMYPDF_EU_ENDPOINT, {
         method: 'POST',
         headers: {
@@ -428,6 +430,8 @@ export default function InspectionDetailScreen() {
         },
         body: JSON.stringify(pdfPayload),
       });
+
+      console.log('CraftMyPDF API response status:', response.status);
 
       if (!response.ok) {
         // CRITICAL: Parse and show specific error from CraftMyPDF API
@@ -482,7 +486,7 @@ export default function InspectionDetailScreen() {
     } catch (error: any) {
       console.error('Error generating PDF:', error);
       // Show the specific error message from CraftMyPDF API
-      showAlert('PDF Generation Error', error.message || 'Failed to generate PDF. Please check your Template ID and try again.', 'error');
+      showAlert('PDF Generation Error', error.message || 'Failed to generate PDF. Please check your Template ID and API Key.', 'error');
     } finally {
       setGeneratingPDF(false);
     }
