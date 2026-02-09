@@ -376,14 +376,13 @@ export default function InspectionDetailScreen() {
 
       console.log('All data fetched successfully');
 
-      // CRITICAL FIX #1: Construct payload with EXACT keys matching template
+      // CRITICAL FIX #4: Construct payload with EXACT keys matching template
       const pdfPayload = {
         template_id: CRAFTMYPDF_TEMPLATE_ID,
         data: {
           address: report.address,
           landlord: landlordName,
           tenant: tenantName,
-          inspection_date: new Date(report.created_at).toLocaleDateString('de-DE'),
           rooms_list: roomsWithData.map((room) => ({
             name_de: room.name_de,
             items: room.room_items.map((item: RoomItem) => ({
@@ -393,11 +392,19 @@ export default function InspectionDetailScreen() {
             })),
           })),
         },
+        load_data_from_url: false,
       };
 
-      console.log('Sending request to CraftMyPDF EU Endpoint');
-      console.log('Endpoint:', CRAFTMYPDF_EU_ENDPOINT);
-      console.log('Payload structure:', JSON.stringify(pdfPayload, null, 2));
+      // CRITICAL FIX #1: Log URL and headers before fetch
+      console.log('═══════════════════════════════════════');
+      console.log('PDF GENERATION REQUEST DETAILS:');
+      console.log('Endpoint URL:', CRAFTMYPDF_EU_ENDPOINT);
+      console.log('Headers:', {
+        'Content-Type': 'application/json',
+        'X-API-KEY': CRAFTMYPDF_API_KEY,
+      });
+      console.log('Payload:', JSON.stringify(pdfPayload, null, 2));
+      console.log('═══════════════════════════════════════');
 
       // CRITICAL FIX #1: Call EU Central Endpoint with correct headers and API Key
       const response = await fetch(CRAFTMYPDF_EU_ENDPOINT, {

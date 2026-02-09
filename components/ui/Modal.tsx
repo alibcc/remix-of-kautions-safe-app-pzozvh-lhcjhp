@@ -38,7 +38,7 @@ export function ConfirmModal({
       case 'danger':
         return '#FF3B30'; // Red
       case 'success':
-        return '#007AFF'; // Blue (for success, use blue for consistency)
+        return '#007AFF'; // Blue
       default:
         return '#007AFF'; // Blue
     }
@@ -101,7 +101,7 @@ export function ConfirmModal({
               style={[styles.button, styles.confirmButton, { backgroundColor: confirmButtonColor }]}
               onPress={onConfirm}
             >
-              {/* CRITICAL FIX #2: Explicit white text with bold weight */}
+              {/* CRITICAL FIX #2: Explicit Bold White text */}
               <Text style={styles.confirmButtonText}>{confirmText}</Text>
             </TouchableOpacity>
           </View>
@@ -124,7 +124,7 @@ export function AlertModal({
   visible,
   title,
   message,
-  buttonText = 'OK',
+  buttonText = 'CLOSE',
   onClose,
   type = 'info',
 }: AlertModalProps) {
@@ -150,7 +150,7 @@ export function AlertModal({
     }
   };
 
-  // CRITICAL FIX #2: Force high-contrast button colors
+  // CRITICAL FIX #2: Force high-contrast button colors - Red for errors, Blue for others
   const getButtonColor = () => {
     switch (type) {
       case 'error':
@@ -189,7 +189,7 @@ export function AlertModal({
             style={[styles.button, styles.singleButton, { backgroundColor: buttonColor }]}
             onPress={onClose}
           >
-            {/* CRITICAL FIX #2: Explicit white text with bold weight */}
+            {/* CRITICAL FIX #2: Explicit Bold White text - ALWAYS visible */}
             <Text style={styles.confirmButtonText}>{buttonText}</Text>
           </TouchableOpacity>
         </View>
@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
   confirmButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF', // CRITICAL FIX #2: Explicit white text
+    color: '#FFFFFF', // CRITICAL FIX #2: Explicit Bold White text - ALWAYS visible
   },
   singleButton: {
     backgroundColor: '#007AFF',
