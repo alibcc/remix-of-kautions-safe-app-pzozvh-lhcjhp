@@ -376,7 +376,7 @@ export default function InspectionDetailScreen() {
 
       console.log('All data fetched successfully');
 
-      // CRITICAL FIX #4: Construct payload with EXACT keys matching template
+      // CRITICAL FIX #1: Construct payload with EXACT keys matching template
       const pdfPayload = {
         template_id: CRAFTMYPDF_TEMPLATE_ID,
         data: {
@@ -397,7 +397,6 @@ export default function InspectionDetailScreen() {
 
       console.log('Sending request to CraftMyPDF EU Endpoint');
       console.log('Endpoint:', CRAFTMYPDF_EU_ENDPOINT);
-      console.log('API Key:', CRAFTMYPDF_API_KEY);
       console.log('Payload structure:', JSON.stringify(pdfPayload, null, 2));
 
       // CRITICAL FIX #1: Call EU Central Endpoint with correct headers and API Key

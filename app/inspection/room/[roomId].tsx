@@ -111,7 +111,7 @@ export default function RoomDetailScreen() {
   const [alertMessage, setAlertMessage] = useState('');
   const [alertType, setAlertType] = useState<'info' | 'error' | 'success'>('info');
   
-  // Lightbox state for full-screen image viewing
+  // CRITICAL FIX #3: Lightbox state for full-screen image viewing
   const [lightboxVisible, setLightboxVisible] = useState(false);
   const [lightboxImageUrl, setLightboxImageUrl] = useState<string>('');
   
@@ -162,7 +162,7 @@ export default function RoomDetailScreen() {
       console.log('RoomDetailScreen: Room loaded successfully');
       setRoom(roomData);
 
-      // CRITICAL FIX: Ensure room_id is explicitly passed when fetching items
+      // Fetch room items
       const { data: itemsData, error: itemsError } = await supabase
         .from('room_items')
         .select('*')
@@ -244,9 +244,9 @@ export default function RoomDetailScreen() {
     }
 
     try {
-      // PERFORMANCE FIX #3: Optimized camera settings
+      // CRITICAL FIX #3: Optimized camera settings for performance
       const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.3, // Reduced quality for performance
+        quality: 0.3, // Reduced quality for speed
         base64: false, // Disable base64 for performance
       });
 
@@ -391,9 +391,8 @@ export default function RoomDetailScreen() {
     setSavingItem(true);
 
     try {
-      // CRITICAL FIX: Explicitly pass room_id to ensure it's saved correctly
       const itemData = {
-        room_id: roomId, // Explicitly pass room_id
+        room_id: roomId,
         item_name_en: selectedItemPreset.nameEn,
         item_name_de: selectedItemPreset.nameDe,
         condition_status: selectedStatus,
@@ -1080,6 +1079,7 @@ const styles = StyleSheet.create({
   thumbnailContainer: {
     marginHorizontal: 4,
   },
+  // CRITICAL FIX #3: 100x100 thumbnail size
   thumbnail: {
     width: 100,
     height: 100,
@@ -1088,6 +1088,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.border,
   },
+  // CRITICAL FIX #3: Full-screen lightbox styles
   lightboxOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.95)',

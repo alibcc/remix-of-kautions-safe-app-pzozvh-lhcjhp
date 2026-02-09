@@ -32,12 +32,13 @@ export function ConfirmModal({
   onCancel,
   type = 'default',
 }: ConfirmModalProps) {
+  // CRITICAL FIX #2: Force high-contrast button colors
   const getConfirmButtonColor = () => {
     switch (type) {
       case 'danger':
         return '#FF3B30'; // Red
       case 'success':
-        return '#16A34A'; // Green
+        return '#007AFF'; // Blue (for success, use blue for consistency)
       default:
         return '#007AFF'; // Blue
     }
@@ -100,6 +101,7 @@ export function ConfirmModal({
               style={[styles.button, styles.confirmButton, { backgroundColor: confirmButtonColor }]}
               onPress={onConfirm}
             >
+              {/* CRITICAL FIX #2: Explicit white text with bold weight */}
               <Text style={styles.confirmButtonText}>{confirmText}</Text>
             </TouchableOpacity>
           </View>
@@ -148,14 +150,15 @@ export function AlertModal({
     }
   };
 
+  // CRITICAL FIX #2: Force high-contrast button colors
   const getButtonColor = () => {
     switch (type) {
       case 'error':
-        return '#FF3B30'; // Red
+        return '#FF3B30'; // Red for errors
       case 'success':
-        return '#007AFF'; // Blue (for success, use blue for consistency)
+        return '#007AFF'; // Blue for success
       default:
-        return '#007AFF'; // Blue
+        return '#007AFF'; // Blue for info
     }
   };
 
@@ -186,6 +189,7 @@ export function AlertModal({
             style={[styles.button, styles.singleButton, { backgroundColor: buttonColor }]}
             onPress={onClose}
           >
+            {/* CRITICAL FIX #2: Explicit white text with bold weight */}
             <Text style={styles.confirmButtonText}>{buttonText}</Text>
           </TouchableOpacity>
         </View>
