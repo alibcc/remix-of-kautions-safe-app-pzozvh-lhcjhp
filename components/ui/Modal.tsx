@@ -101,7 +101,7 @@ export function ConfirmModal({
               style={[styles.button, styles.confirmButton, { backgroundColor: confirmButtonColor }]}
               onPress={onConfirm}
             >
-              {/* CRITICAL FIX #2: Explicit Bold White text */}
+              {/* CRITICAL FIX #2: Explicit Bold White text - ALWAYS visible */}
               <Text style={styles.confirmButtonText}>{confirmText}</Text>
             </TouchableOpacity>
           </View>
@@ -270,8 +270,8 @@ const styles = StyleSheet.create({
   },
   confirmButtonText: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF', // CRITICAL FIX #2: Explicit Bold White text - ALWAYS visible
+    fontWeight: '700', // CRITICAL FIX #2: Bold
+    color: '#FFFFFF', // CRITICAL FIX #2: White - ALWAYS visible on red/blue backgrounds
   },
   singleButton: {
     backgroundColor: '#007AFF',

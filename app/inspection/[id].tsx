@@ -31,7 +31,7 @@ const ROOM_PRESETS = [
   { nameEn: 'Garden', nameDe: 'Garten' },
 ];
 
-// CRITICAL FIX #1: Updated EU Central Endpoint and correct API Key
+// CRITICAL FIX #1: Frankfurt Regional Endpoint (EU Central)
 const CRAFTMYPDF_EU_ENDPOINT = 'https://api-eur.craftmypdf.com/v1/create';
 const CRAFTMYPDF_API_KEY = '9cf6Mjg1MjM6Mjg2ODQ6a3ZWUDBhZ2lGUE9CU1Uzda=';
 const CRAFTMYPDF_TEMPLATE_ID = '5c477b23ea34170c';
@@ -392,10 +392,10 @@ export default function InspectionDetailScreen() {
             })),
           })),
         },
-        load_data_from_url: false,
+        load_data_from_url: false, // CRITICAL FIX #4: Explicitly set to false
       };
 
-      // CRITICAL FIX #1: Log URL and headers before fetch
+      // CRITICAL FIX #1: Log URL and headers before fetch for debugging
       console.log('═══════════════════════════════════════');
       console.log('PDF GENERATION REQUEST DETAILS:');
       console.log('Endpoint URL:', CRAFTMYPDF_EU_ENDPOINT);
@@ -406,7 +406,7 @@ export default function InspectionDetailScreen() {
       console.log('Payload:', JSON.stringify(pdfPayload, null, 2));
       console.log('═══════════════════════════════════════');
 
-      // CRITICAL FIX #1: Call EU Central Endpoint with correct headers and API Key
+      // CRITICAL FIX #1: Call Frankfurt EU Central Endpoint with correct headers and API Key
       const response = await fetch(CRAFTMYPDF_EU_ENDPOINT, {
         method: 'POST',
         headers: {
@@ -419,8 +419,9 @@ export default function InspectionDetailScreen() {
       console.log('CraftMyPDF API response status:', response.status);
 
       if (!response.ok) {
-        // CRITICAL: Parse and show specific error from CraftMyPDF API
+        // CRITICAL FIX #1: Parse and show specific error with full URL
         let errorMessage = `PDF generation failed with status ${response.status}`;
+        let errorDetails = '';
         
         try {
           const errorData = await response.json();
@@ -428,22 +429,24 @@ export default function InspectionDetailScreen() {
           
           // Extract specific error message
           if (errorData.message) {
-            errorMessage = errorData.message;
+            errorDetails = errorData.message;
           } else if (errorData.error) {
-            errorMessage = errorData.error;
+            errorDetails = errorData.error;
           } else if (errorData.errors && Array.isArray(errorData.errors)) {
-            errorMessage = errorData.errors.join(', ');
+            errorDetails = errorData.errors.join(', ');
           }
         } catch (parseError) {
           // If JSON parsing fails, try to get text
           const errorText = await response.text();
           console.error('CraftMyPDF API error text:', errorText);
           if (errorText) {
-            errorMessage = errorText;
+            errorDetails = errorText;
           }
         }
         
-        throw new Error(errorMessage);
+        // CRITICAL FIX #1: Include full URL in error message for debugging
+        const fullErrorMessage = `${errorMessage}\n\nURL: ${CRAFTMYPDF_EU_ENDPOINT}\n\nDetails: ${errorDetails}`;
+        throw new Error(fullErrorMessage);
       }
 
       const result = await response.json();
@@ -470,7 +473,7 @@ export default function InspectionDetailScreen() {
       }
     } catch (error: any) {
       console.error('Error generating PDF:', error);
-      // Show the specific error message from CraftMyPDF API
+      // CRITICAL FIX #1: Show the full error message including URL
       showAlert('PDF Generation Error', error.message || 'Failed to generate PDF. Please check your Template ID and API Key.', 'error');
     } finally {
       setGeneratingPDF(false);
