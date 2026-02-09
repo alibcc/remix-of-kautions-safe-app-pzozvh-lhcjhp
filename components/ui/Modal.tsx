@@ -35,9 +35,9 @@ export function ConfirmModal({
   const getConfirmButtonColor = () => {
     switch (type) {
       case 'danger':
-        return colors.error;
+        return '#DC2626';
       case 'success':
-        return colors.success;
+        return '#16A34A';
       default:
         return colors.primary;
     }
@@ -57,13 +57,15 @@ export function ConfirmModal({
   const getIconColor = () => {
     switch (type) {
       case 'danger':
-        return colors.error;
+        return '#DC2626';
       case 'success':
-        return colors.success;
+        return '#16A34A';
       default:
         return colors.primary;
     }
   };
+
+  const confirmButtonColor = getConfirmButtonColor();
 
   return (
     <RNModal
@@ -95,7 +97,7 @@ export function ConfirmModal({
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.button, styles.confirmButton, { backgroundColor: getConfirmButtonColor() }]}
+              style={[styles.button, styles.confirmButton, { backgroundColor: confirmButtonColor }]}
               onPress={onConfirm}
             >
               <Text style={styles.confirmButtonText}>{confirmText}</Text>
@@ -138,9 +140,9 @@ export function AlertModal({
   const getIconColor = () => {
     switch (type) {
       case 'error':
-        return colors.error;
+        return '#DC2626';
       case 'success':
-        return colors.success;
+        return '#16A34A';
       default:
         return colors.primary;
     }
@@ -149,13 +151,15 @@ export function AlertModal({
   const getButtonColor = () => {
     switch (type) {
       case 'error':
-        return colors.error;
+        return '#DC2626';
       case 'success':
-        return colors.success;
+        return '#16A34A';
       default:
         return colors.primary;
     }
   };
+
+  const buttonColor = getButtonColor();
 
   return (
     <RNModal
@@ -179,7 +183,7 @@ export function AlertModal({
           <Text style={styles.message}>{message}</Text>
 
           <TouchableOpacity
-            style={[styles.button, styles.singleButton, { backgroundColor: getButtonColor() }]}
+            style={[styles.button, styles.singleButton, { backgroundColor: buttonColor }]}
             onPress={onClose}
           >
             <Text style={styles.confirmButtonText}>{buttonText}</Text>

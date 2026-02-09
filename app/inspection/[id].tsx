@@ -31,9 +31,9 @@ const ROOM_PRESETS = [
   { nameEn: 'Garden', nameDe: 'Garten' },
 ];
 
-// CRITICAL FIX: User's Secret API Key (replace with your actual key)
+// CRITICAL FIX: Use EU Central Endpoint and correct API Key
 const CRAFTMYPDF_EU_ENDPOINT = 'https://api-eur.craftmypdf.com/v1/create';
-const CRAFTMYPDF_API_KEY = '[PASTE YOUR SECRET API KEY FROM CRAFTMYPDF HERE]'; // REPLACE THIS
+const CRAFTMYPDF_API_KEY = '9cf6Mjg1MjM6Mjg2ODQ6a3ZWUDBhZ2lGUE9CU1UzdA=';
 const CRAFTMYPDF_TEMPLATE_ID = '5c477b23ea34170c';
 
 interface Room {
@@ -355,7 +355,7 @@ export default function InspectionDetailScreen() {
       const landlordName = landlordParticipant?.name || '';
       const tenantName = tenantParticipant?.name || '';
 
-      // Fetch all rooms with their items and photos
+      // Fetch all rooms with their items
       const roomsWithData = await Promise.all(
         rooms.map(async (room) => {
           // Fetch room items
@@ -370,49 +370,25 @@ export default function InspectionDetailScreen() {
           }
 
           const items = itemsData || [];
-
-          // Fetch photos for each item
-          const itemsWithPhotos = await Promise.all(
-            items.map(async (item) => {
-              const { data: photosData, error: photosError } = await supabase
-                .from('photos')
-                .select('*')
-                .eq('item_id', item.id);
-
-              if (photosError) {
-                console.error(`Error fetching photos for item ${item.id}:`, photosError);
-                return { ...item, photos: [] };
-              }
-
-              return { ...item, photos: photosData || [] };
-            })
-          );
-
-          return { ...room, room_items: itemsWithPhotos };
+          return { ...room, room_items: items };
         })
       );
 
       console.log('All data fetched successfully');
 
-      // CRITICAL FIX: Format inspection_date in German format (DD.MM.YYYY)
-      const inspectionDate = new Date(report.created_at);
-      const formattedDate = `${inspectionDate.getDate().toString().padStart(2, '0')}.${(inspectionDate.getMonth() + 1).toString().padStart(2, '0')}.${inspectionDate.getFullYear()}`;
-
       // CRITICAL FIX: Construct payload with EXACT keys matching template
-      // Including inspection_date field
       const pdfPayload = {
         template_id: CRAFTMYPDF_TEMPLATE_ID,
         data: {
           address: report.address,
           landlord: landlordName,
           tenant: tenantName,
-          inspection_date: formattedDate,
           rooms_list: roomsWithData.map((room) => ({
             name_de: room.name_de,
-            items: room.room_items.map((item: RoomItem & { photos: Photo[] }) => ({
+            items: room.room_items.map((item: RoomItem) => ({
               item_name: item.item_name_de,
               status: item.condition_status,
-              description: item.notes || '',
+              notes: item.notes || '',
             })),
           })),
         },
@@ -421,7 +397,7 @@ export default function InspectionDetailScreen() {
       console.log('Sending request to CraftMyPDF EU Endpoint');
       console.log('Payload structure:', JSON.stringify(pdfPayload, null, 2));
 
-      // CRITICAL FIX: Call EU Central Endpoint with correct API Key in X-API-KEY header
+      // CRITICAL FIX: Call EU Central Endpoint with correct headers
       const response = await fetch(CRAFTMYPDF_EU_ENDPOINT, {
         method: 'POST',
         headers: {

@@ -247,7 +247,7 @@ export default function RoomDetailScreen() {
       // PERFORMANCE FIX: Optimized camera settings
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.3, // Reduced quality for performance
-        skipProcessing: true, // Skip processing to eliminate lag
+        base64: false, // Disable base64 for performance
       });
 
       if (!photo) {
