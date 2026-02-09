@@ -31,7 +31,7 @@ const ROOM_PRESETS = [
   { nameEn: 'Garden', nameDe: 'Garten' },
 ];
 
-// CRITICAL FIX #1: Frankfurt Regional Endpoint (EU Central)
+// CRITICAL FIX #1: Frankfurt Regional Endpoint (EU Central) - EXACT URL
 const CRAFTMYPDF_EU_ENDPOINT = 'https://api-eur.craftmypdf.com/v1/create';
 const CRAFTMYPDF_API_KEY = '9cf6Mjg1MjM6Mjg2ODQ6a3ZWUDBhZ2lGUE9CU1Uzda=';
 const CRAFTMYPDF_TEMPLATE_ID = '5c477b23ea34170c';
@@ -392,7 +392,7 @@ export default function InspectionDetailScreen() {
             })),
           })),
         },
-        load_data_from_url: false, // CRITICAL FIX #4: Explicitly set to false
+        load_data_from_url: false,
       };
 
       // CRITICAL FIX #1: Log URL and headers before fetch for debugging
@@ -445,7 +445,7 @@ export default function InspectionDetailScreen() {
         }
         
         // CRITICAL FIX #1: Include full URL in error message for debugging
-        const fullErrorMessage = `${errorMessage}\n\nURL: ${CRAFTMYPDF_EU_ENDPOINT}\n\nDetails: ${errorDetails}`;
+        const fullErrorMessage = `${errorMessage}\n\nAttempted URL:\n${CRAFTMYPDF_EU_ENDPOINT}\n\nError Details:\n${errorDetails}`;
         throw new Error(fullErrorMessage);
       }
 
