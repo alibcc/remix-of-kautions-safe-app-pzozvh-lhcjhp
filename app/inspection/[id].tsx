@@ -31,6 +31,11 @@ const ROOM_PRESETS = [
   { nameEn: 'Garden', nameDe: 'Garten' },
 ];
 
+// CRITICAL: EU Central Endpoint for CraftMyPDF
+const CRAFTMYPDF_EU_ENDPOINT = 'https://api-eur.craftmypdf.com/v1/create';
+const CRAFTMYPDF_API_KEY = '9cf6Mjg1MjM6Mjg2ODQ6a3ZWUDBhZ2lGUE9CU1UzdA==';
+const CRAFTMYPDF_TEMPLATE_ID = '5c477b23ea34170c';
+
 interface Room {
   id: string;
   report_id: string;
@@ -389,9 +394,9 @@ export default function InspectionDetailScreen() {
 
       console.log('All data fetched successfully');
 
-      // CRITICAL: Construct payload EXACTLY as specified
+      // CRITICAL: Construct payload with EXACT keys matching template
       const pdfPayload = {
-        template_id: '5c477b23ea34170c',
+        template_id: CRAFTMYPDF_TEMPLATE_ID,
         data: {
           address: report.address,
           landlord: landlordName,
@@ -412,14 +417,14 @@ export default function InspectionDetailScreen() {
         },
       };
 
-      console.log('Sending request to CraftMyPDF API with payload:', JSON.stringify(pdfPayload, null, 2));
+      console.log('Sending request to CraftMyPDF EU Endpoint with payload:', JSON.stringify(pdfPayload, null, 2));
 
-      // Call CraftMyPDF API
-      const response = await fetch('https://api.craftmypdf.com/v1/create', {
+      // CRITICAL: Call EU Central Endpoint
+      const response = await fetch(CRAFTMYPDF_EU_ENDPOINT, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-KEY': '9cf6Mjg1MjM6Mjg2ODQ6a3ZWUDBhZ2lGUE9CU1UzdA==',
+          'X-API-KEY': CRAFTMYPDF_API_KEY,
         },
         body: JSON.stringify(pdfPayload),
       });
@@ -574,6 +579,7 @@ export default function InspectionDetailScreen() {
 
   const typeText = getTypeText(report.inspection_type);
   const hasRooms = rooms.length > 0;
+  const pdfButtonText = generatingPDF ? 'Processing PDF...' : 'Generate PDF Report';
 
   return (
     <>
@@ -592,7 +598,7 @@ export default function InspectionDetailScreen() {
             <Text style={styles.type}>{typeText}</Text>
           </View>
 
-          {/* PDF Generation Button */}
+          {/* PDF Generation Button with Loading State */}
           <TouchableOpacity
             style={[styles.pdfButton, generatingPDF && styles.pdfButtonDisabled]}
             onPress={handleGeneratePDF}
@@ -601,7 +607,7 @@ export default function InspectionDetailScreen() {
             {generatingPDF ? (
               <>
                 <ActivityIndicator size="small" color="#FFFFFF" />
-                <Text style={styles.pdfButtonText}>Generating PDF...</Text>
+                <Text style={styles.pdfButtonText}>{pdfButtonText}</Text>
               </>
             ) : (
               <>
@@ -611,7 +617,7 @@ export default function InspectionDetailScreen() {
                   size={24}
                   color="#FFFFFF"
                 />
-                <Text style={styles.pdfButtonText}>Generate PDF Report</Text>
+                <Text style={styles.pdfButtonText}>{pdfButtonText}</Text>
               </>
             )}
           </TouchableOpacity>
