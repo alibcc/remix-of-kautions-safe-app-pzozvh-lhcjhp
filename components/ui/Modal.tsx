@@ -101,7 +101,7 @@ export function ConfirmModal({
               style={[styles.button, styles.confirmButton, { backgroundColor: confirmButtonColor }]}
               onPress={onConfirm}
             >
-              {/* CRITICAL FIX #2: Explicit Bold White text - ALWAYS visible */}
+              {/* CRITICAL FIX #2: EXPLICIT Bold White text - MAXIMUM VISIBILITY */}
               <Text style={styles.confirmButtonText}>{confirmText}</Text>
             </TouchableOpacity>
           </View>
@@ -154,7 +154,7 @@ export function AlertModal({
   const getButtonColor = () => {
     switch (type) {
       case 'error':
-        return '#FF3B30'; // Red for errors
+        return '#FF3B30'; // Red for errors - MAXIMUM CONTRAST
       case 'success':
         return '#007AFF'; // Blue for success
       default:
@@ -189,7 +189,7 @@ export function AlertModal({
             style={[styles.button, styles.singleButton, { backgroundColor: buttonColor }]}
             onPress={onClose}
           >
-            {/* CRITICAL FIX #2: Explicit Bold White text - ALWAYS visible */}
+            {/* CRITICAL FIX #2: EXPLICIT Bold White text - MAXIMUM VISIBILITY */}
             <Text style={styles.confirmButtonText}>{buttonText}</Text>
           </TouchableOpacity>
         </View>
@@ -270,8 +270,11 @@ const styles = StyleSheet.create({
   },
   confirmButtonText: {
     fontSize: 16,
-    fontWeight: '700', // CRITICAL FIX #2: Bold
+    fontWeight: '700', // CRITICAL FIX #2: Bold - MAXIMUM VISIBILITY
     color: '#FFFFFF', // CRITICAL FIX #2: White - ALWAYS visible on red/blue backgrounds
+    textShadowColor: 'rgba(0, 0, 0, 0.3)', // Added subtle shadow for extra contrast
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   singleButton: {
     backgroundColor: '#007AFF',
