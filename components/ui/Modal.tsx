@@ -32,15 +32,14 @@ export function ConfirmModal({
   onCancel,
   type = 'default',
 }: ConfirmModalProps) {
-  // CRITICAL FIX #2: Force high-contrast button colors
   const getConfirmButtonColor = () => {
     switch (type) {
       case 'danger':
-        return '#FF3B30'; // Red
+        return '#FF3B30';
       case 'success':
-        return '#007AFF'; // Blue
+        return '#007AFF';
       default:
-        return '#007AFF'; // Blue
+        return '#007AFF';
     }
   };
 
@@ -101,7 +100,6 @@ export function ConfirmModal({
               style={[styles.button, styles.confirmButton, { backgroundColor: confirmButtonColor }]}
               onPress={onConfirm}
             >
-              {/* CRITICAL FIX #2: EXPLICIT Bold White text - MAXIMUM VISIBILITY */}
               <Text style={styles.confirmButtonText}>{confirmText}</Text>
             </TouchableOpacity>
           </View>
@@ -142,23 +140,23 @@ export function AlertModal({
   const getIconColor = () => {
     switch (type) {
       case 'error':
-        return '#FF3B30'; // Red
+        return '#FF3B30';
       case 'success':
-        return '#16A34A'; // Green
+        return '#16A34A';
       default:
-        return '#007AFF'; // Blue
+        return '#007AFF';
     }
   };
 
-  // CRITICAL FIX #2: Force high-contrast button colors - Red for errors, Blue for others
+  // VERSION 3.0.0 - BRIGHT ORANGE background for errors (Visual Reset Confirmation)
   const getButtonColor = () => {
     switch (type) {
       case 'error':
-        return '#FF3B30'; // Red for errors - MAXIMUM CONTRAST
+        return '#FFA500'; // BRIGHT ORANGE - If you see red, code has NOT synced
       case 'success':
-        return '#007AFF'; // Blue for success
+        return '#007AFF';
       default:
-        return '#007AFF'; // Blue for info
+        return '#007AFF';
     }
   };
 
@@ -189,7 +187,6 @@ export function AlertModal({
             style={[styles.button, styles.singleButton, { backgroundColor: buttonColor }]}
             onPress={onClose}
           >
-            {/* CRITICAL FIX #2: EXPLICIT Bold White text - MAXIMUM VISIBILITY */}
             <Text style={styles.confirmButtonText}>{buttonText}</Text>
           </TouchableOpacity>
         </View>
@@ -270,9 +267,9 @@ const styles = StyleSheet.create({
   },
   confirmButtonText: {
     fontSize: 16,
-    fontWeight: '700', // CRITICAL FIX #2: Bold - MAXIMUM VISIBILITY
-    color: '#FFFFFF', // CRITICAL FIX #2: White - ALWAYS visible on red/blue backgrounds
-    textShadowColor: 'rgba(0, 0, 0, 0.3)', // Added subtle shadow for extra contrast
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
