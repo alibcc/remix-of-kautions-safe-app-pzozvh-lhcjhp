@@ -7,7 +7,7 @@ export const colors = {
   card: '#FFFFFF',
   text: '#1A1A1A',
   textSecondary: '#6B7280',
-  primary: '#2563EB', // Professional blue
+  primary: '#86D9F9', // Sky blue - official brand color
   secondary: '#10B981', // Success green for "OK" status
   accent: '#F59E0B', // Warning amber for "Defect" status
   highlight: '#EF4444', // Error red for critical issues
@@ -24,14 +24,11 @@ export const commonStyles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.card,
-    borderRadius: 12,
+    borderRadius: 0,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   title: {
     fontSize: 24,
@@ -57,7 +54,7 @@ export const commonStyles = StyleSheet.create({
   },
   button: {
     backgroundColor: colors.primary,
-    borderRadius: 8,
+    borderRadius: 0, // Sharp corners for official document look
     paddingVertical: 12,
     paddingHorizontal: 24,
     alignItems: 'center',
@@ -72,7 +69,7 @@ export const commonStyles = StyleSheet.create({
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: 0, // Sharp corners for official document look
     paddingVertical: 12,
     paddingHorizontal: 16,
     fontSize: 16,

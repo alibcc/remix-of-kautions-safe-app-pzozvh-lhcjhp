@@ -12,6 +12,7 @@ import {
   Platform,
   Linking,
   Alert,
+  TextInput,
 } from "react-native";
 import { colors, commonStyles } from "@/styles/commonStyles";
 import { IconSymbol } from "@/components/IconSymbol";
@@ -93,6 +94,24 @@ export default function InspectionDetailScreen() {
   // Room modal state
   const [showAddRoomModal, setShowAddRoomModal] = useState(false);
   const [selectedRoomPreset, setSelectedRoomPreset] = useState<typeof ROOM_PRESETS[0] | null>(null);
+  
+  // Final Details modal state
+  const [showFinalDetailsModal, setShowFinalDetailsModal] = useState(false);
+  
+  // Meter readings state
+  const [electricityNo, setElectricityNo] = useState('');
+  const [electricityVal, setElectricityVal] = useState('');
+  const [gasNo, setGasNo] = useState('');
+  const [gasVal, setGasVal] = useState('');
+  const [waterNo, setWaterNo] = useState('');
+  const [waterVal, setWaterVal] = useState('');
+  const [heatingNo, setHeatingNo] = useState('');
+  const [heatingVal, setHeatingVal] = useState('');
+  
+  // Keys and handover type state
+  const [keysHandedOver, setKeysHandedOver] = useState('');
+  const [isMoveIn, setIsMoveIn] = useState(false);
+  const [isMoveOut, setIsMoveOut] = useState(false);
   
   // Alert modal
   const [alertVisible, setAlertVisible] = useState(false);
@@ -323,11 +342,13 @@ export default function InspectionDetailScreen() {
     router.push(`/inspection/room/${roomId}`);
   };
 
+  const handleOpenFinalDetails = () => {
+    console.log('User tapped Create Official Protocol button - opening Final Details');
+    setShowFinalDetailsModal(true);
+  };
+
   const handleGeneratePDF = async () => {
-    console.log('User tapped Generate PDF Report button - Version 3.0.0');
-    
-    // VERSION 3.0.0 - Diagnostic Alert BEFORE API call
-    Alert.alert('Version 3.0 - Attempting PDF', `Endpoint: ${CRAFTMYPDF_ENDPOINT}`);
+    console.log('User tapped Create Official Protocol button - Production Ready');
     
     if (!id || !report) {
       showAlert('Error', 'Report data is not available', 'error');
@@ -335,6 +356,7 @@ export default function InspectionDetailScreen() {
     }
 
     setGeneratingPDF(true);
+    setShowFinalDetailsModal(false);
 
     try {
       console.log('Fetching all data for PDF generation');
@@ -359,7 +381,7 @@ export default function InspectionDetailScreen() {
       const landlordName = landlordParticipant?.name || '';
       const tenantName = tenantParticipant?.name || '';
 
-      // Fetch all rooms with their items
+      // Fetch all rooms with their items and photos
       const roomsWithData = await Promise.all(
         rooms.map(async (room) => {
           // Fetch room items
@@ -374,46 +396,101 @@ export default function InspectionDetailScreen() {
           }
 
           const items = itemsData || [];
-          return { ...room, room_items: items };
+          
+          // Fetch photos for each item
+          const itemsWithPhotos = await Promise.all(
+            items.map(async (item: RoomItem) => {
+              const { data: photosData, error: photosError } = await supabase
+                .from('photos')
+                .select('*')
+                .eq('item_id', item.id)
+                .limit(1);
+
+              if (photosError) {
+                console.error(`Error fetching photos for item ${item.id}:`, photosError);
+                return { ...item, photo_url: '' };
+              }
+
+              const photo = photosData && photosData.length > 0 ? photosData[0] : null;
+              return { ...item, photo_url: photo?.storage_url || '' };
+            })
+          );
+
+          return { ...room, room_items: itemsWithPhotos };
         })
       );
 
       console.log('All data fetched successfully');
 
+      // Format inspection date
+      const inspectionDate = new Date(report.created_at).toLocaleDateString('de-DE');
+
       // Construct payload with EXACT keys matching template
       const pdfPayload = {
         template_id: CRAFTMYPDF_TEMPLATE_ID,
         data: {
-          address: report.address,
-          landlord: landlordName,
-          tenant: tenantName,
+          property_address: report.address,
+          tenant_name: tenantName,
+          landlord_name: landlordName,
+          inspection_date: inspectionDate,
+          is_move_in: isMoveIn,
+          is_move_out: isMoveOut,
+          meters: {
+            electricity_no: electricityNo,
+            electricity_val: electricityVal,
+            gas_no: gasNo,
+            gas_val: gasVal,
+            water_no: waterNo,
+            water_val: waterVal,
+            heating_no: heatingNo,
+            heating_val: heatingVal,
+          },
+          keys_handed_over: keysHandedOver,
           rooms_list: roomsWithData.map((room) => ({
-            name_de: room.name_de,
-            items: room.room_items.map((item: RoomItem) => ({
+            room_name: room.name_de,
+            items: room.room_items.map((item: any) => ({
               item_name: item.item_name_de,
               status: item.condition_status,
-              notes: item.notes || '',
+              comment: item.notes || '',
+              photo_url: item.photo_url || '',
             })),
           })),
         },
         load_data_from_url: false,
       };
 
-      // VERSION 3.0.0 - Log request details
       console.log('═══════════════════════════════════════');
-      console.log('PDF GENERATION REQUEST - VERSION 3.0.0');
+      console.log('PDF GENERATION REQUEST - PRODUCTION');
       console.log('Endpoint URL:', CRAFTMYPDF_ENDPOINT);
-      console.log('API Key:', CRAFTMYPDF_API_KEY);
-      console.log('Template ID:', CRAFTMYPDF_TEMPLATE_ID);
-      console.log('Headers:', {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'X-API-KEY': CRAFTMYPDF_API_KEY,
-      });
       console.log('Payload:', JSON.stringify(pdfPayload, null, 2));
       console.log('═══════════════════════════════════════');
 
-      // VERSION 3.0.0 - Call with updated credentials and reliability headers
+      // Save session data to Supabase before generating PDF
+      console.log('Saving session data to Supabase');
+      const { error: updateError } = await supabase
+        .from('reports')
+        .update({
+          electricity_no: electricityNo,
+          electricity_val: electricityVal,
+          gas_no: gasNo,
+          gas_val: gasVal,
+          water_no: waterNo,
+          water_val: waterVal,
+          heating_no: heatingNo,
+          heating_val: heatingVal,
+          keys_handed_over: keysHandedOver,
+          is_move_in: isMoveIn,
+          is_move_out: isMoveOut,
+        })
+        .eq('id', id);
+
+      if (updateError) {
+        console.error('Error saving session data:', updateError);
+      } else {
+        console.log('Session data saved successfully');
+      }
+
+      // Call CraftMyPDF API
       const response = await fetch(CRAFTMYPDF_ENDPOINT, {
         method: 'POST',
         headers: {
@@ -449,7 +526,7 @@ export default function InspectionDetailScreen() {
           }
         }
         
-        const fullErrorMessage = `${errorMessage}\n\nAttempted URL:\n${CRAFTMYPDF_ENDPOINT}\n\nError Details:\n${errorDetails}`;
+        const fullErrorMessage = `${errorMessage}\n\nError Details:\n${errorDetails}`;
         throw new Error(fullErrorMessage);
       }
 
@@ -574,7 +651,6 @@ export default function InspectionDetailScreen() {
 
   const typeText = getTypeText(report.inspection_type);
   const hasRooms = rooms.length > 0;
-  const pdfButtonText = generatingPDF ? 'Processing PDF...' : '🔥 FINAL PDF TEST v3';
 
   return (
     <>
@@ -593,16 +669,15 @@ export default function InspectionDetailScreen() {
             <Text style={styles.type}>{typeText}</Text>
           </View>
 
-          {/* VERSION 3.0.0 - Updated PDF Button Text */}
           <TouchableOpacity
             style={[styles.pdfButton, generatingPDF && styles.pdfButtonDisabled]}
-            onPress={handleGeneratePDF}
+            onPress={handleOpenFinalDetails}
             disabled={generatingPDF}
           >
             {generatingPDF ? (
               <>
                 <ActivityIndicator size="small" color="#FFFFFF" />
-                <Text style={styles.pdfButtonText}>Processing PDF...</Text>
+                <Text style={styles.pdfButtonText}>Processing...</Text>
               </>
             ) : (
               <>
@@ -612,7 +687,7 @@ export default function InspectionDetailScreen() {
                   size={24}
                   color="#FFFFFF"
                 />
-                <Text style={styles.pdfButtonText}>{pdfButtonText}</Text>
+                <Text style={styles.pdfButtonText}>Create Official Protocol</Text>
               </>
             )}
           </TouchableOpacity>
@@ -752,6 +827,194 @@ export default function InspectionDetailScreen() {
           </View>
         </Modal>
 
+        {/* Final Details Modal */}
+        <Modal
+          visible={showFinalDetailsModal}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setShowFinalDetailsModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Final Details</Text>
+                <TouchableOpacity onPress={() => setShowFinalDetailsModal(false)}>
+                  <IconSymbol
+                    ios_icon_name="xmark.circle.fill"
+                    android_material_icon_name="close"
+                    size={28}
+                    color={colors.textSecondary}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={styles.modalScroll}>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.sectionSubtitle}>Handover Type</Text>
+                  <View style={styles.checkboxContainer}>
+                    <TouchableOpacity
+                      style={styles.checkboxRow}
+                      onPress={() => setIsMoveIn(!isMoveIn)}
+                    >
+                      <View style={[styles.checkbox, isMoveIn && styles.checkboxChecked]}>
+                        {isMoveIn && (
+                          <IconSymbol
+                            ios_icon_name="checkmark"
+                            android_material_icon_name="check"
+                            size={16}
+                            color="#FFFFFF"
+                          />
+                        )}
+                      </View>
+                      <Text style={styles.checkboxLabel}>Vor dem Einzug (Move-in)</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity
+                      style={styles.checkboxRow}
+                      onPress={() => setIsMoveOut(!isMoveOut)}
+                    >
+                      <View style={[styles.checkbox, isMoveOut && styles.checkboxChecked]}>
+                        {isMoveOut && (
+                          <IconSymbol
+                            ios_icon_name="checkmark"
+                            android_material_icon_name="check"
+                            size={16}
+                            color="#FFFFFF"
+                          />
+                        )}
+                      </View>
+                      <Text style={styles.checkboxLabel}>Vor dem Auszug (Move-out)</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.sectionSubtitle}>Meter Readings</Text>
+                  
+                  <Text style={styles.meterLabel}>Strom (Electricity)</Text>
+                  <View style={styles.meterRow}>
+                    <View style={styles.meterInputContainer}>
+                      <Text style={styles.meterInputLabel}>Zählernummer</Text>
+                      <TextInput
+                        style={styles.meterInput}
+                        placeholder="Number"
+                        value={electricityNo}
+                        onChangeText={setElectricityNo}
+                      />
+                    </View>
+                    <View style={styles.meterInputContainer}>
+                      <Text style={styles.meterInputLabel}>Stand</Text>
+                      <TextInput
+                        style={styles.meterInput}
+                        placeholder="Reading"
+                        value={electricityVal}
+                        onChangeText={setElectricityVal}
+                        keyboardType="numeric"
+                      />
+                    </View>
+                  </View>
+
+                  <Text style={styles.meterLabel}>Gas</Text>
+                  <View style={styles.meterRow}>
+                    <View style={styles.meterInputContainer}>
+                      <Text style={styles.meterInputLabel}>Zählernummer</Text>
+                      <TextInput
+                        style={styles.meterInput}
+                        placeholder="Number"
+                        value={gasNo}
+                        onChangeText={setGasNo}
+                      />
+                    </View>
+                    <View style={styles.meterInputContainer}>
+                      <Text style={styles.meterInputLabel}>Stand</Text>
+                      <TextInput
+                        style={styles.meterInput}
+                        placeholder="Reading"
+                        value={gasVal}
+                        onChangeText={setGasVal}
+                        keyboardType="numeric"
+                      />
+                    </View>
+                  </View>
+
+                  <Text style={styles.meterLabel}>Wasser (Water)</Text>
+                  <View style={styles.meterRow}>
+                    <View style={styles.meterInputContainer}>
+                      <Text style={styles.meterInputLabel}>Zählernummer</Text>
+                      <TextInput
+                        style={styles.meterInput}
+                        placeholder="Number"
+                        value={waterNo}
+                        onChangeText={setWaterNo}
+                      />
+                    </View>
+                    <View style={styles.meterInputContainer}>
+                      <Text style={styles.meterInputLabel}>Stand</Text>
+                      <TextInput
+                        style={styles.meterInput}
+                        placeholder="Reading"
+                        value={waterVal}
+                        onChangeText={setWaterVal}
+                        keyboardType="numeric"
+                      />
+                    </View>
+                  </View>
+
+                  <Text style={styles.meterLabel}>Heizung (Heating)</Text>
+                  <View style={styles.meterRow}>
+                    <View style={styles.meterInputContainer}>
+                      <Text style={styles.meterInputLabel}>Zählernummer</Text>
+                      <TextInput
+                        style={styles.meterInput}
+                        placeholder="Number"
+                        value={heatingNo}
+                        onChangeText={setHeatingNo}
+                      />
+                    </View>
+                    <View style={styles.meterInputContainer}>
+                      <Text style={styles.meterInputLabel}>Stand</Text>
+                      <TextInput
+                        style={styles.meterInput}
+                        placeholder="Reading"
+                        value={heatingVal}
+                        onChangeText={setHeatingVal}
+                        keyboardType="numeric"
+                      />
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.sectionSubtitle}>Schlüssel (Keys)</Text>
+                  <TextInput
+                    style={[commonStyles.input, styles.keysInput]}
+                    placeholder="e.g., 3 House, 2 Mailbox"
+                    value={keysHandedOver}
+                    onChangeText={setKeysHandedOver}
+                    multiline
+                    numberOfLines={2}
+                  />
+                </View>
+              </ScrollView>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalSaveButton,
+                  generatingPDF && styles.modalSaveButtonDisabled,
+                ]}
+                onPress={handleGeneratePDF}
+                disabled={generatingPDF}
+              >
+                {generatingPDF ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.modalSaveButtonText}>Create Official Protocol</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
         <AlertModal
           visible={alertVisible}
           title={alertTitle}
@@ -797,7 +1060,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     paddingVertical: 12,
     paddingHorizontal: 24,
-    borderRadius: 8,
+    borderRadius: 0,
   },
   retryButtonText: {
     color: '#FFFFFF',
@@ -819,10 +1082,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
-    backgroundColor: '#2563EB',
+    backgroundColor: colors.primary,
     paddingVertical: 18,
     paddingHorizontal: 24,
-    borderRadius: 12,
+    borderRadius: 0,
     marginTop: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -861,7 +1124,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 40,
     backgroundColor: colors.card,
-    borderRadius: 12,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.border,
     borderStyle: 'dashed',
@@ -876,7 +1139,7 @@ const styles = StyleSheet.create({
   },
   roomCard: {
     backgroundColor: colors.card,
-    borderRadius: 12,
+    borderRadius: 0,
     padding: 16,
     borderWidth: 1,
     borderColor: colors.border,
@@ -944,7 +1207,7 @@ const styles = StyleSheet.create({
   presetButton: {
     paddingVertical: 16,
     paddingHorizontal: 16,
-    borderRadius: 8,
+    borderRadius: 0,
     borderWidth: 2,
     borderColor: colors.border,
     backgroundColor: colors.card,
@@ -971,7 +1234,7 @@ const styles = StyleSheet.create({
   },
   modalSaveButton: {
     backgroundColor: colors.primary,
-    borderRadius: 12,
+    borderRadius: 0,
     paddingVertical: 16,
     paddingHorizontal: 24,
     marginHorizontal: 20,
@@ -988,5 +1251,70 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '600',
+  },
+  sectionSubtitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  checkboxContainer: {
+    gap: 12,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderWidth: 2,
+    borderColor: colors.border,
+    borderRadius: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.card,
+  },
+  checkboxChecked: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  checkboxLabel: {
+    fontSize: 16,
+    color: colors.text,
+  },
+  meterLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  meterRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  meterInputContainer: {
+    flex: 1,
+  },
+  meterInputLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  meterInput: {
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 0,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    fontSize: 14,
+    color: colors.text,
+  },
+  keysInput: {
+    minHeight: 60,
+    textAlignVertical: 'top',
   },
 });

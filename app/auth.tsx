@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
     height: 50,
     borderWidth: 1,
     borderColor: "#ddd",
-    borderRadius: 8,
+    borderRadius: 0,
     paddingHorizontal: 16,
     marginBottom: 16,
     fontSize: 16,
@@ -215,8 +215,8 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     height: 50,
-    backgroundColor: "#007AFF",
-    borderRadius: 8,
+    backgroundColor: "#86D9F9",
+    borderRadius: 0,
     justifyContent: "center",
     alignItems: "center",
     marginTop: 8,
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   switchModeText: {
-    color: "#007AFF",
+    color: "#86D9F9",
     fontSize: 14,
   },
   divider: {
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
     height: 50,
     borderWidth: 1,
     borderColor: "#ddd",
-    borderRadius: 8,
+    borderRadius: 0,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 12,

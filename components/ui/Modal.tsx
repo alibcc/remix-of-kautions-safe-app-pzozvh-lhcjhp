@@ -37,9 +37,9 @@ export function ConfirmModal({
       case 'danger':
         return '#FF3B30';
       case 'success':
-        return '#007AFF';
+        return '#86D9F9';
       default:
-        return '#007AFF';
+        return '#86D9F9';
     }
   };
 
@@ -148,15 +148,14 @@ export function AlertModal({
     }
   };
 
-  // VERSION 3.0.0 - BRIGHT ORANGE background for errors (Visual Reset Confirmation)
   const getButtonColor = () => {
     switch (type) {
       case 'error':
-        return '#FFA500'; // BRIGHT ORANGE - If you see red, code has NOT synced
+        return '#EF4444';
       case 'success':
-        return '#007AFF';
+        return '#86D9F9';
       default:
-        return '#007AFF';
+        return '#86D9F9';
     }
   };
 
@@ -205,7 +204,7 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     backgroundColor: colors.card,
-    borderRadius: 16,
+    borderRadius: 0,
     padding: 24,
     width: '100%',
     maxWidth: 400,
@@ -248,7 +247,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 14,
     paddingHorizontal: 20,
-    borderRadius: 8,
+    borderRadius: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -263,7 +262,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   confirmButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#86D9F9',
   },
   confirmButtonText: {
     fontSize: 16,
@@ -274,7 +273,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
   singleButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#86D9F9',
     width: '100%',
   },
 });

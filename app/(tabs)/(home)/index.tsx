@@ -456,7 +456,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     paddingVertical: 12,
     paddingHorizontal: 20,
-    borderRadius: 8,
+    borderRadius: 0,
     gap: 8,
   },
   createButtonText: {
@@ -493,18 +493,20 @@ const styles = StyleSheet.create({
   inspectionCard: {
     flex: 1,
     backgroundColor: '#fff',
-    borderRadius: 12,
+    borderRadius: 0,
     padding: 16,
-    ...commonStyles.shadow,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   deleteButton: {
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: 0,
     backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
-    ...commonStyles.shadow,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   inspectionHeader: {
     flexDirection: 'row',
@@ -522,7 +524,7 @@ const styles = StyleSheet.create({
   statusBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 4,
+    borderRadius: 0,
   },
   statusText: {
     color: '#fff',
