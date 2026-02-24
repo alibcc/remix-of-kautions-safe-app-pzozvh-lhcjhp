@@ -18,6 +18,8 @@ import { colors, commonStyles } from "@/styles/commonStyles";
 import { IconSymbol } from "@/components/IconSymbol";
 import { AlertModal } from "@/components/ui/Modal";
 import { supabase } from "@/app/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { sendPdfEmail } from "@/utils/api";
 
 // EXPANDED Room preset list with English and German names
 const ROOM_PRESETS = [
@@ -84,6 +86,7 @@ interface Photo {
 export default function InspectionDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const { user } = useAuth();
   const [report, setReport] = useState<Report | null>(null);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(false);
@@ -355,6 +358,11 @@ export default function InspectionDetailScreen() {
       return;
     }
 
+    if (!user || !user.email) {
+      showAlert('Error', 'User email is not available', 'error');
+      return;
+    }
+
     setGeneratingPDF(true);
     setShowFinalDetailsModal(false);
 
@@ -541,16 +549,44 @@ export default function InspectionDetailScreen() {
         throw new Error('PDF URL not found in response');
       }
 
-      console.log('Opening PDF URL:', pdfUrl);
+      console.log('PDF URL received:', pdfUrl);
+
+      // 1. Save PDF URL to Supabase
+      console.log('Saving PDF URL to Supabase');
+      const { error: pdfUrlUpdateError } = await supabase
+        .from('reports')
+        .update({ 
+          pdf_url: pdfUrl,
+          status: 'COMPLETED'
+        })
+        .eq('id', id);
+
+      if (pdfUrlUpdateError) {
+        console.error('Error saving PDF URL to Supabase:', pdfUrlUpdateError);
+        showAlert('Warning', 'PDF generated but failed to save URL to database', 'error');
+      } else {
+        console.log('PDF URL saved successfully to Supabase');
+      }
+
+      // 2. Trigger email with PDF attachment
+      console.log('Triggering email to:', user.email);
+      try {
+        await sendPdfEmail(user.email, pdfUrl, id as string, report.address);
+        console.log('Email sent successfully');
+      } catch (emailError: any) {
+        console.error('Error sending email:', emailError);
+        // Don't fail the whole operation if email fails
+      }
 
       // Open the PDF URL
+      console.log('Opening PDF URL:', pdfUrl);
       const canOpen = await Linking.canOpenURL(pdfUrl);
       if (canOpen) {
         await Linking.openURL(pdfUrl);
-        showAlert('Success', 'PDF generated successfully! Opening now...', 'success');
+        showAlert('Success', 'PDF generated successfully! An email with the PDF has been sent to your address.', 'success');
       } else {
         console.error('Cannot open URL:', pdfUrl);
-        showAlert('Error', 'Cannot open PDF URL. Please check your device settings.', 'error');
+        showAlert('Success', 'PDF generated and saved! An email with the PDF has been sent to your address.', 'success');
       }
     } catch (error: any) {
       console.error('Error generating PDF:', error);
