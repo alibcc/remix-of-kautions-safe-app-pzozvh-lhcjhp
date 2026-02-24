@@ -19,6 +19,7 @@ import { colors, commonStyles } from "@/styles/commonStyles";
 import { IconSymbol } from "@/components/IconSymbol";
 import { AlertModal, ConfirmModal } from "@/components/ui/Modal";
 import { supabase } from "@/app/integrations/supabase/client";
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Room item presets
 const ROOM_ITEMS = [
@@ -111,7 +112,7 @@ export default function RoomDetailScreen() {
   const [alertMessage, setAlertMessage] = useState('');
   const [alertType, setAlertType] = useState<'info' | 'error' | 'success'>('info');
   
-  // CRITICAL FIX #3: Lightbox state for full-screen image viewing
+  // Lightbox state for full-screen image viewing
   const [lightboxVisible, setLightboxVisible] = useState(false);
   const [lightboxImageUrl, setLightboxImageUrl] = useState<string>('');
   
@@ -218,7 +219,7 @@ export default function RoomDetailScreen() {
       const result = await requestCameraPermission();
       if (!result.granted) {
         console.log('Camera permission denied');
-        showAlert('Permission Required', 'Camera permission is required to take photos', 'error');
+        showAlert('Permission Required', 'Kautions-Safe möchte auf Ihre Kamera zugreifen, um Fotos für das Protokoll zu machen.', 'error');
         return;
       }
     }
@@ -244,7 +245,7 @@ export default function RoomDetailScreen() {
     }
 
     try {
-      // CRITICAL FIX #3: Optimized camera settings for performance
+      // Optimized camera settings for performance
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.3, // Reduced quality for speed
         base64: false, // Disable base64 for performance
@@ -510,7 +511,7 @@ export default function RoomDetailScreen() {
   // Show loading state
   if (loading) {
     return (
-      <>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <Stack.Screen
           options={{
             title: "Room Details",
@@ -523,14 +524,14 @@ export default function RoomDetailScreen() {
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Loading room details...</Text>
         </View>
-      </>
+      </SafeAreaView>
     );
   }
 
   // Show error state
   if (error || !room) {
     return (
-      <>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <Stack.Screen
           options={{
             title: "Room Details",
@@ -548,14 +549,14 @@ export default function RoomDetailScreen() {
           />
           <Text style={styles.errorText}>{error || 'Room not found'}</Text>
         </View>
-      </>
+      </SafeAreaView>
     );
   }
 
   const hasItems = roomItems.length > 0;
 
   return (
-    <>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <Stack.Screen
         options={{
           title: room.name_de,
@@ -668,7 +669,7 @@ export default function RoomDetailScreen() {
                         <Text style={styles.takePhotoButtonText}>Take Photo</Text>
                       </TouchableOpacity>
 
-                      {/* CRITICAL FIX #3: Evidence Gallery with 100x100 thumbnails and lightbox */}
+                      {/* Evidence Gallery with 100x100 thumbnails and lightbox */}
                       {itemPhotos.length > 0 && (
                         <View style={styles.evidenceGallery}>
                           <Text style={styles.evidenceTitle}>Evidence Gallery</Text>
@@ -884,7 +885,7 @@ export default function RoomDetailScreen() {
           type="danger"
         />
 
-        {/* CRITICAL FIX #3: Full-Screen Lightbox Modal */}
+        {/* Full-Screen Lightbox Modal */}
         <Modal
           visible={lightboxVisible}
           transparent={true}
@@ -920,11 +921,15 @@ export default function RoomDetailScreen() {
           onClose={() => setAlertVisible(false)}
         />
       </View>
-    </>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   scrollView: {
     flex: 1,
   },
@@ -1079,7 +1084,7 @@ const styles = StyleSheet.create({
   thumbnailContainer: {
     marginHorizontal: 4,
   },
-  // CRITICAL FIX #3: 100x100 thumbnail size
+  // 100x100 thumbnail size
   thumbnail: {
     width: 100,
     height: 100,
@@ -1088,7 +1093,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.border,
   },
-  // CRITICAL FIX #3: Full-screen lightbox styles
+  // Full-screen lightbox styles
   lightboxOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.95)',

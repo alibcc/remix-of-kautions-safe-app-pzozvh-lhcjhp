@@ -23,6 +23,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { sendPdfEmail } from "@/utils/api";
 import SignatureCanvas from "react-native-signature-canvas";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // EXPANDED Room preset list with English and German names
 const ROOM_PRESETS = [
@@ -126,6 +127,10 @@ export default function InspectionDetailScreen() {
   const [landlordSignature, setLandlordSignature] = useState<string | null>(null);
   const [tenantSignature, setTenantSignature] = useState<string | null>(null);
   const [tenantSignatureDate, setTenantSignatureDate] = useState(new Date());
+  
+  // Signature refs
+  const landlordSignatureRef = useRef<any>(null);
+  const tenantSignatureRef = useRef<any>(null);
   
   // Alert modal
   const [alertVisible, setAlertVisible] = useState(false);
@@ -367,6 +372,29 @@ export default function InspectionDetailScreen() {
     setShowSignatureModal(true);
   };
 
+  // CRITICAL FIX #1: Clear signature functions
+  const handleClearLandlordSignature = () => {
+    console.log('Clearing landlord signature');
+    setLandlordSignature(null);
+    if (landlordSignatureRef.current) {
+      landlordSignatureRef.current.clearSignature();
+    }
+  };
+
+  const handleClearTenantSignature = () => {
+    console.log('Clearing tenant signature');
+    setTenantSignature(null);
+    if (tenantSignatureRef.current) {
+      tenantSignatureRef.current.clearSignature();
+    }
+  };
+
+  // CRITICAL FIX #2: Close signature modal without freezing
+  const handleCloseSignatureModal = () => {
+    console.log('User tapped X button on signature modal - closing');
+    setShowSignatureModal(false);
+  };
+
   const handleGeneratePDF = async () => {
     console.log('User tapped Create Official Protocol button - Production Ready');
     
@@ -381,7 +409,6 @@ export default function InspectionDetailScreen() {
     }
 
     setGeneratingPDF(true);
-    setShowFinalDetailsModal(false);
 
     try {
       console.log('Fetching all data for PDF generation');
@@ -637,7 +664,7 @@ export default function InspectionDetailScreen() {
   // Show loading state
   if (loading) {
     return (
-      <>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <Stack.Screen
           options={{
             title: "Inspection",
@@ -650,14 +677,14 @@ export default function InspectionDetailScreen() {
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Loading inspection...</Text>
         </View>
-      </>
+      </SafeAreaView>
     );
   }
 
   // Show error with Retry button
   if (error) {
     return (
-      <>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <Stack.Screen
           options={{
             title: "Inspection",
@@ -684,13 +711,13 @@ export default function InspectionDetailScreen() {
             <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
         </View>
-      </>
+      </SafeAreaView>
     );
   }
 
   if (!report) {
     return (
-      <>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <Stack.Screen
           options={{
             title: "Inspection",
@@ -711,7 +738,7 @@ export default function InspectionDetailScreen() {
             <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
         </View>
-      </>
+      </SafeAreaView>
     );
   }
 
@@ -719,7 +746,7 @@ export default function InspectionDetailScreen() {
   const hasRooms = rooms.length > 0;
 
   return (
-    <>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <Stack.Screen
         options={{
           title: "Inspection Overview",
@@ -735,27 +762,18 @@ export default function InspectionDetailScreen() {
             <Text style={styles.type}>{typeText}</Text>
           </View>
 
+          {/* CRITICAL FIX #2: Button always active (Blue #86D9F9) */}
           <TouchableOpacity
-            style={[styles.pdfButton, generatingPDF && styles.pdfButtonDisabled]}
+            style={styles.pdfButton}
             onPress={handleOpenFinalDetails}
-            disabled={generatingPDF}
           >
-            {generatingPDF ? (
-              <>
-                <ActivityIndicator size="small" color="#FFFFFF" />
-                <Text style={styles.pdfButtonText}>Processing...</Text>
-              </>
-            ) : (
-              <>
-                <IconSymbol
-                  ios_icon_name="doc.fill"
-                  android_material_icon_name="description"
-                  size={24}
-                  color="#FFFFFF"
-                />
-                <Text style={styles.pdfButtonText}>Create Official Protocol</Text>
-              </>
-            )}
+            <IconSymbol
+              ios_icon_name="doc.fill"
+              android_material_icon_name="description"
+              size={24}
+              color="#FFFFFF"
+            />
+            <Text style={styles.pdfButtonText}>Create Official Protocol</Text>
           </TouchableOpacity>
 
           <View style={styles.section}>
@@ -1084,155 +1102,154 @@ export default function InspectionDetailScreen() {
           visible={showSignatureModal}
           animationType="slide"
           transparent={false}
-          onRequestClose={() => setShowSignatureModal(false)}
+          onRequestClose={handleCloseSignatureModal}
         >
-          <KeyboardAvoidingView
-            style={{ flex: 1 }}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-          >
-            <View style={styles.signatureModalContainer}>
-              <View style={styles.signatureModalHeader}>
-                <Text style={styles.signatureModalTitle}>Digital Signatures</Text>
-                <TouchableOpacity onPress={() => setShowSignatureModal(false)}>
-                  <IconSymbol
-                    ios_icon_name="xmark.circle.fill"
-                    android_material_icon_name="close"
-                    size={28}
-                    color={colors.textSecondary}
-                  />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView style={styles.signatureScrollView} contentContainerStyle={styles.signatureScrollContent}>
-                {/* Landlord Signature */}
-                <View style={styles.signatureSection}>
-                  <Text style={styles.signatureLabel}>Vermieter (Landlord) Signature</Text>
-                  <View style={styles.signatureCanvasContainer}>
-                    <SignatureCanvas
-                      onOK={(signature) => {
-                        console.log('Landlord signature captured');
-                        setLandlordSignature(signature);
-                      }}
-                      onEmpty={() => console.log('Landlord signature is empty')}
-                      descriptionText="Sign above"
-                      clearText="Clear"
-                      confirmText="Save"
-                      webStyle={`.m-signature-pad {box-shadow: none; border: 1px solid ${colors.border};} .m-signature-pad--body {border: none;} .m-signature-pad--footer {display: none;}`}
-                      style={styles.signatureCanvas}
+          <SafeAreaView style={styles.signatureSafeArea} edges={['top', 'bottom']}>
+            <KeyboardAvoidingView
+              style={{ flex: 1 }}
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+            >
+              <View style={styles.signatureModalContainer}>
+                <View style={styles.signatureModalHeader}>
+                  <Text style={styles.signatureModalTitle}>Digital Signatures</Text>
+                  {/* CRITICAL FIX #2: X button that doesn't freeze */}
+                  <TouchableOpacity onPress={handleCloseSignatureModal}>
+                    <IconSymbol
+                      ios_icon_name="xmark.circle.fill"
+                      android_material_icon_name="close"
+                      size={28}
+                      color={colors.textSecondary}
                     />
-                  </View>
-                  {landlordSignature && (
-                    <View style={styles.signatureConfirmation}>
-                      <IconSymbol
-                        ios_icon_name="checkmark.circle.fill"
-                        android_material_icon_name="check-circle"
-                        size={20}
-                        color={colors.success}
-                      />
-                      <Text style={styles.signatureConfirmationText}>Signature captured</Text>
-                    </View>
-                  )}
-                  <TouchableOpacity
-                    style={styles.clearSignatureButton}
-                    onPress={() => {
-                      console.log('Clearing landlord signature');
-                      setLandlordSignature(null);
-                    }}
-                  >
-                    <Text style={styles.clearSignatureButtonText}>Clear Landlord Signature</Text>
                   </TouchableOpacity>
                 </View>
 
-                {/* Tenant Signature */}
-                <View style={styles.signatureSection}>
-                  <Text style={styles.signatureLabel}>Mieter (Tenant) Signature</Text>
-                  <View style={styles.signatureCanvasContainer}>
-                    <SignatureCanvas
-                      onOK={(signature) => {
-                        console.log('Tenant signature captured');
-                        setTenantSignature(signature);
-                      }}
-                      onEmpty={() => console.log('Tenant signature is empty')}
-                      descriptionText="Sign above"
-                      clearText="Clear"
-                      confirmText="Save"
-                      webStyle={`.m-signature-pad {box-shadow: none; border: 1px solid ${colors.border};} .m-signature-pad--body {border: none;} .m-signature-pad--footer {display: none;}`}
-                      style={styles.signatureCanvas}
-                    />
-                  </View>
-                  {tenantSignature && (
-                    <View style={styles.signatureConfirmation}>
-                      <IconSymbol
-                        ios_icon_name="checkmark.circle.fill"
-                        android_material_icon_name="check-circle"
-                        size={20}
-                        color={colors.success}
+                <ScrollView style={styles.signatureScrollView} contentContainerStyle={styles.signatureScrollContent}>
+                  {/* Landlord Signature */}
+                  <View style={styles.signatureSection}>
+                    <Text style={styles.signatureLabel}>Vermieter (Landlord) Signature</Text>
+                    <View style={styles.signatureCanvasContainer}>
+                      <SignatureCanvas
+                        ref={landlordSignatureRef}
+                        onOK={(signature) => {
+                          console.log('Landlord signature captured');
+                          setLandlordSignature(signature);
+                        }}
+                        onEmpty={() => console.log('Landlord signature is empty')}
+                        descriptionText="Sign above"
+                        clearText="Clear"
+                        confirmText="Save"
+                        webStyle={`.m-signature-pad {box-shadow: none; border: 1px solid ${colors.border};} .m-signature-pad--body {border: none;} .m-signature-pad--footer {display: none;}`}
+                        style={styles.signatureCanvas}
                       />
-                      <Text style={styles.signatureConfirmationText}>Signature captured</Text>
                     </View>
-                  )}
+                    {landlordSignature && (
+                      <View style={styles.signatureConfirmation}>
+                        <IconSymbol
+                          ios_icon_name="checkmark.circle.fill"
+                          android_material_icon_name="check-circle"
+                          size={20}
+                          color={colors.success}
+                        />
+                        <Text style={styles.signatureConfirmationText}>Signature captured</Text>
+                      </View>
+                    )}
+                    {/* CRITICAL FIX #1: Clear button that works */}
+                    <TouchableOpacity
+                      style={styles.clearSignatureButton}
+                      onPress={handleClearLandlordSignature}
+                    >
+                      <Text style={styles.clearSignatureButtonText}>CLEAR</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Tenant Signature */}
+                  <View style={styles.signatureSection}>
+                    <Text style={styles.signatureLabel}>Mieter (Tenant) Signature</Text>
+                    <View style={styles.signatureCanvasContainer}>
+                      <SignatureCanvas
+                        ref={tenantSignatureRef}
+                        onOK={(signature) => {
+                          console.log('Tenant signature captured');
+                          setTenantSignature(signature);
+                        }}
+                        onEmpty={() => console.log('Tenant signature is empty')}
+                        descriptionText="Sign above"
+                        clearText="Clear"
+                        confirmText="Save"
+                        webStyle={`.m-signature-pad {box-shadow: none; border: 1px solid ${colors.border};} .m-signature-pad--body {border: none;} .m-signature-pad--footer {display: none;}`}
+                        style={styles.signatureCanvas}
+                      />
+                    </View>
+                    {tenantSignature && (
+                      <View style={styles.signatureConfirmation}>
+                        <IconSymbol
+                          ios_icon_name="checkmark.circle.fill"
+                          android_material_icon_name="check-circle"
+                          size={20}
+                          color={colors.success}
+                        />
+                        <Text style={styles.signatureConfirmationText}>Signature captured</Text>
+                      </View>
+                    )}
+                    {/* CRITICAL FIX #1: Clear button that works */}
+                    <TouchableOpacity
+                      style={styles.clearSignatureButton}
+                      onPress={handleClearTenantSignature}
+                    >
+                      <Text style={styles.clearSignatureButtonText}>CLEAR</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Tenant Signature Date */}
+                  <View style={styles.signatureSection}>
+                    <Text style={styles.signatureLabel}>Tenant Signature Date</Text>
+                    <DateTimePicker
+                      value={tenantSignatureDate}
+                      mode="date"
+                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                      onChange={(event, selectedDate) => {
+                        if (selectedDate) {
+                          console.log('Tenant signature date selected:', selectedDate);
+                          setTenantSignatureDate(selectedDate);
+                        }
+                      }}
+                      style={styles.datePicker}
+                    />
+                    <Text style={styles.dateDisplay}>
+                      Selected: {tenantSignatureDate.toLocaleDateString('de-DE')}
+                    </Text>
+                  </View>
+                </ScrollView>
+
+                <View style={styles.signatureModalFooter}>
+                  {/* CRITICAL FIX #2: Button always active (Blue #86D9F9) */}
                   <TouchableOpacity
-                    style={styles.clearSignatureButton}
-                    onPress={() => {
-                      console.log('Clearing tenant signature');
-                      setTenantSignature(null);
-                    }}
+                    style={styles.generatePdfButton}
+                    onPress={handleGeneratePDF}
+                    disabled={generatingPDF}
                   >
-                    <Text style={styles.clearSignatureButtonText}>Clear Tenant Signature</Text>
+                    {generatingPDF ? (
+                      <>
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                        <Text style={styles.generatePdfButtonText}>Generating...</Text>
+                      </>
+                    ) : (
+                      <>
+                        <IconSymbol
+                          ios_icon_name="doc.fill"
+                          android_material_icon_name="description"
+                          size={24}
+                          color="#FFFFFF"
+                        />
+                        <Text style={styles.generatePdfButtonText}>Create Official Protocol</Text>
+                      </>
+                    )}
                   </TouchableOpacity>
                 </View>
-
-                {/* Tenant Signature Date */}
-                <View style={styles.signatureSection}>
-                  <Text style={styles.signatureLabel}>Tenant Signature Date</Text>
-                  <DateTimePicker
-                    value={tenantSignatureDate}
-                    mode="date"
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    onChange={(event, selectedDate) => {
-                      if (selectedDate) {
-                        console.log('Tenant signature date selected:', selectedDate);
-                        setTenantSignatureDate(selectedDate);
-                      }
-                    }}
-                    style={styles.datePicker}
-                  />
-                  <Text style={styles.dateDisplay}>
-                    Selected: {tenantSignatureDate.toLocaleDateString('de-DE')}
-                  </Text>
-                </View>
-              </ScrollView>
-
-              <View style={styles.signatureModalFooter}>
-                <TouchableOpacity
-                  style={[
-                    styles.generatePdfButton,
-                    (!landlordSignature || !tenantSignature || generatingPDF) && styles.generatePdfButtonDisabled,
-                  ]}
-                  onPress={handleGeneratePDF}
-                  disabled={!landlordSignature || !tenantSignature || generatingPDF}
-                >
-                  {generatingPDF ? (
-                    <>
-                      <ActivityIndicator size="small" color="#FFFFFF" />
-                      <Text style={styles.generatePdfButtonText}>Generating...</Text>
-                    </>
-                  ) : (
-                    <>
-                      <IconSymbol
-                        ios_icon_name="doc.fill"
-                        android_material_icon_name="description"
-                        size={24}
-                        color="#FFFFFF"
-                      />
-                      <Text style={styles.generatePdfButtonText}>Create Official Protocol</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
               </View>
-            </View>
-          </KeyboardAvoidingView>
+            </KeyboardAvoidingView>
+          </SafeAreaView>
         </Modal>
 
         <AlertModal
@@ -1243,11 +1260,19 @@ export default function InspectionDetailScreen() {
           onClose={() => setAlertVisible(false)}
         />
       </View>
-    </>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  signatureSafeArea: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   scrollView: {
     flex: 1,
   },
@@ -1302,7 +1327,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
-    backgroundColor: colors.primary,
+    backgroundColor: '#86D9F9',
     paddingVertical: 18,
     paddingHorizontal: 24,
     borderRadius: 0,
@@ -1312,10 +1337,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-  },
-  pdfButtonDisabled: {
-    backgroundColor: colors.textSecondary,
-    opacity: 0.6,
   },
   pdfButtonText: {
     color: '#FFFFFF',
@@ -1596,18 +1617,16 @@ const styles = StyleSheet.create({
   },
   clearSignatureButton: {
     marginTop: 12,
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 0,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
+    backgroundColor: colors.primary,
     alignItems: 'center',
   },
   clearSignatureButtonText: {
-    fontSize: 14,
-    color: colors.text,
-    fontWeight: '600',
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   datePicker: {
     width: '100%',
@@ -1634,14 +1653,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
-    backgroundColor: colors.primary,
+    backgroundColor: '#86D9F9',
     paddingVertical: 18,
     paddingHorizontal: 24,
     borderRadius: 0,
-  },
-  generatePdfButtonDisabled: {
-    backgroundColor: colors.textSecondary,
-    opacity: 0.5,
   },
   generatePdfButtonText: {
     color: '#FFFFFF',

@@ -14,6 +14,7 @@ import SignatureCanvas from 'react-native-signature-canvas';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { IconSymbol } from '@/components/IconSymbol';
 import { colors } from '@/styles/commonStyles';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SignatureScreen() {
   const router = useRouter();
@@ -37,6 +38,7 @@ export default function SignatureScreen() {
     setTenantSignature(signature);
   };
 
+  // CRITICAL FIX #1: Properly clear signature pads
   const handleClearLandlordSignature = () => {
     console.log('Clearing landlord signature');
     setLandlordSignature(null);
@@ -53,15 +55,15 @@ export default function SignatureScreen() {
     }
   };
 
-  const handleProceed = () => {
-    if (!landlordSignature || !tenantSignature) {
-      console.log('Both signatures are required');
-      return;
-    }
+  // CRITICAL FIX #2: Navigation back without freezing
+  const handleClose = () => {
+    console.log('User tapped X button - navigating back');
+    router.back();
+  };
 
+  const handleProceed = () => {
     console.log('Proceeding with signatures');
     router.back();
-    // Pass signatures back via navigation params or state management
   };
 
   const signatureWebStyle = `.m-signature-pad {
@@ -77,13 +79,23 @@ export default function SignatureScreen() {
   }`;
 
   return (
-    <>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <Stack.Screen
         options={{
           title: 'Digital Signatures',
           headerStyle: { backgroundColor: colors.primary },
           headerTintColor: '#FFFFFF',
           headerBackTitle: 'Back',
+          headerRight: () => (
+            <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+              <IconSymbol
+                ios_icon_name="xmark"
+                android_material_icon_name="close"
+                size={24}
+                color="#FFFFFF"
+              />
+            </TouchableOpacity>
+          ),
         }}
       />
       <KeyboardAvoidingView
@@ -125,7 +137,7 @@ export default function SignatureScreen() {
               style={styles.clearButton}
               onPress={handleClearLandlordSignature}
             >
-              <Text style={styles.clearButtonText}>Clear Signature</Text>
+              <Text style={styles.clearButtonText}>CLEAR</Text>
             </TouchableOpacity>
           </View>
 
@@ -159,7 +171,7 @@ export default function SignatureScreen() {
               style={styles.clearButton}
               onPress={handleClearTenantSignature}
             >
-              <Text style={styles.clearButtonText}>Clear Signature</Text>
+              <Text style={styles.clearButtonText}>CLEAR</Text>
             </TouchableOpacity>
           </View>
 
@@ -218,13 +230,10 @@ export default function SignatureScreen() {
         </ScrollView>
 
         <View style={styles.footer}>
+          {/* CRITICAL FIX #2: Button always active (Blue #86D9F9) */}
           <TouchableOpacity
-            style={[
-              styles.proceedButton,
-              (!landlordSignature || !tenantSignature) && styles.proceedButtonDisabled,
-            ]}
+            style={styles.proceedButton}
             onPress={handleProceed}
-            disabled={!landlordSignature || !tenantSignature}
           >
             <IconSymbol
               ios_icon_name="checkmark.circle.fill"
@@ -236,11 +245,15 @@ export default function SignatureScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
-    </>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -248,6 +261,10 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 20,
     paddingBottom: 40,
+  },
+  closeButton: {
+    padding: 8,
+    marginRight: 8,
   },
   signatureSection: {
     marginBottom: 32,
@@ -282,18 +299,16 @@ const styles = StyleSheet.create({
   },
   clearButton: {
     marginTop: 12,
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 0,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
+    backgroundColor: colors.primary,
     alignItems: 'center',
   },
   clearButtonText: {
-    fontSize: 14,
-    color: colors.text,
-    fontWeight: '600',
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   datePicker: {
     width: '100%',
@@ -335,14 +350,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
-    backgroundColor: colors.primary,
+    backgroundColor: '#86D9F9',
     paddingVertical: 18,
     paddingHorizontal: 24,
     borderRadius: 0,
-  },
-  proceedButtonDisabled: {
-    backgroundColor: colors.textSecondary,
-    opacity: 0.5,
   },
   proceedButtonText: {
     color: '#FFFFFF',

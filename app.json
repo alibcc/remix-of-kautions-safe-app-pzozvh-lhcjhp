@@ -1,3 +1,4 @@
+
 {
   "expo": {
     "name": "Kautions-Safe",
@@ -16,7 +17,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.anonymous.Natively",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Kautions-Safe möchte auf Ihre Kamera zugreifen, um Fotos für das Protokoll zu machen.",
+        "NSPhotoLibraryUsageDescription": "Kautions-Safe möchte auf Ihre Fotos zugreifen, um Bilder für das Protokoll auszuwählen."
       }
     },
     "android": {
@@ -25,7 +28,12 @@
         "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.Natively"
+      "package": "com.anonymous.Natively",
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "favicon": "./assets/images/final_quest_240x240.png",
@@ -36,14 +44,20 @@
       "expo-router",
       "expo-web-browser",
       [
+        "expo-camera",
+        {
+          "cameraPermission": "Kautions-Safe möchte auf Ihre Kamera zugreifen, um Fotos für das Protokoll zu machen."
+        }
+      ],
+      [
         "expo-image-picker",
         {
-          "photosPermission": "The app needs access to your photos to document apartment defects.",
-          "cameraPermission": "The app needs access to your camera to take photos of apartment defects and utility meters."
+          "photosPermission": "Kautions-Safe möchte auf Ihre Fotos zugreifen, um Bilder für das Protokoll auszuwählen.",
+          "cameraPermission": "Kautions-Safe möchte auf Ihre Kamera zugreifen, um Fotos für das Protokoll zu machen."
         }
       ]
     ],
-    "scheme": "Kautions-Safe",
+    "scheme": "kautions-safe",
     "experiments": {
       "typedRoutes": true
     },
