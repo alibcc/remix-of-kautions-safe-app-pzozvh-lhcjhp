@@ -13,6 +13,7 @@ import {
   Linking,
   Alert,
   TextInput,
+  KeyboardAvoidingView,
 } from "react-native";
 import { colors, commonStyles } from "@/styles/commonStyles";
 import { IconSymbol } from "@/components/IconSymbol";
@@ -20,6 +21,8 @@ import { AlertModal } from "@/components/ui/Modal";
 import { supabase } from "@/app/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { sendPdfEmail } from "@/utils/api";
+import SignatureCanvas from "react-native-signature-canvas";
+import DateTimePicker from "@react-native-community/datetimepicker";
 
 // EXPANDED Room preset list with English and German names
 const ROOM_PRESETS = [
@@ -101,6 +104,9 @@ export default function InspectionDetailScreen() {
   // Final Details modal state
   const [showFinalDetailsModal, setShowFinalDetailsModal] = useState(false);
   
+  // Signature modal state
+  const [showSignatureModal, setShowSignatureModal] = useState(false);
+  
   // Meter readings state
   const [electricityNo, setElectricityNo] = useState('');
   const [electricityVal, setElectricityVal] = useState('');
@@ -115,6 +121,11 @@ export default function InspectionDetailScreen() {
   const [keysHandedOver, setKeysHandedOver] = useState('');
   const [isMoveIn, setIsMoveIn] = useState(false);
   const [isMoveOut, setIsMoveOut] = useState(false);
+  
+  // Signature state
+  const [landlordSignature, setLandlordSignature] = useState<string | null>(null);
+  const [tenantSignature, setTenantSignature] = useState<string | null>(null);
+  const [tenantSignatureDate, setTenantSignatureDate] = useState(new Date());
   
   // Alert modal
   const [alertVisible, setAlertVisible] = useState(false);
@@ -350,6 +361,12 @@ export default function InspectionDetailScreen() {
     setShowFinalDetailsModal(true);
   };
 
+  const handleProceedToSignatures = () => {
+    console.log('User tapped Proceed to Signatures button');
+    setShowFinalDetailsModal(false);
+    setShowSignatureModal(true);
+  };
+
   const handleGeneratePDF = async () => {
     console.log('User tapped Create Official Protocol button - Production Ready');
     
@@ -430,8 +447,11 @@ export default function InspectionDetailScreen() {
 
       console.log('All data fetched successfully');
 
-      // Format inspection date
+      // Format inspection date (landlord's date)
       const inspectionDate = new Date(report.created_at).toLocaleDateString('de-DE');
+      
+      // Format tenant signature date
+      const tenantSigDate = tenantSignatureDate.toLocaleDateString('de-DE');
 
       // Construct payload with EXACT keys matching template
       const pdfPayload = {
@@ -440,7 +460,9 @@ export default function InspectionDetailScreen() {
           property_address: report.address,
           tenant_name: tenantName,
           landlord_name: landlordName,
-          inspection_date: inspectionDate,
+          date: inspectionDate, // Landlord's date
+          signature_date: tenantSigDate, // Tenant's signature date
+          inspection_date: inspectionDate, // Keep for backward compatibility
           is_move_in: isMoveIn,
           is_move_out: isMoveOut,
           meters: {
@@ -454,6 +476,8 @@ export default function InspectionDetailScreen() {
             heating_val: heatingVal,
           },
           keys_handed_over: keysHandedOver,
+          landlord_signature: landlordSignature || '', // Base64 signature image
+          tenant_signature: tenantSignature || '', // Base64 signature image
           rooms_list: roomsWithData.map((room) => ({
             room_name: room.name_de,
             items: room.room_items.map((item: any) => ({
@@ -489,6 +513,9 @@ export default function InspectionDetailScreen() {
           keys_handed_over: keysHandedOver,
           is_move_in: isMoveIn,
           is_move_out: isMoveOut,
+          landlord_signature: landlordSignature,
+          tenant_signature: tenantSignature,
+          tenant_signature_date: tenantSignatureDate.toISOString(),
         })
         .eq('id', id);
 
@@ -577,6 +604,9 @@ export default function InspectionDetailScreen() {
         console.error('Error sending email:', emailError);
         // Don't fail the whole operation if email fails
       }
+
+      // Close signature modal
+      setShowSignatureModal(false);
 
       // Open the PDF URL
       console.log('Opening PDF URL:', pdfUrl);
@@ -870,8 +900,13 @@ export default function InspectionDetailScreen() {
           transparent={true}
           onRequestClose={() => setShowFinalDetailsModal(false)}
         >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Final Details</Text>
                 <TouchableOpacity onPress={() => setShowFinalDetailsModal(false)}>
@@ -1034,21 +1069,170 @@ export default function InspectionDetailScreen() {
               </ScrollView>
 
               <TouchableOpacity
-                style={[
-                  styles.modalSaveButton,
-                  generatingPDF && styles.modalSaveButtonDisabled,
-                ]}
-                onPress={handleGeneratePDF}
-                disabled={generatingPDF}
+                style={styles.modalSaveButton}
+                onPress={handleProceedToSignatures}
               >
-                {generatingPDF ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.modalSaveButtonText}>Create Official Protocol</Text>
-                )}
+                <Text style={styles.modalSaveButtonText}>Proceed to Signatures</Text>
               </TouchableOpacity>
             </View>
           </View>
+        </KeyboardAvoidingView>
+        </Modal>
+
+        {/* Signature Modal */}
+        <Modal
+          visible={showSignatureModal}
+          animationType="slide"
+          transparent={false}
+          onRequestClose={() => setShowSignatureModal(false)}
+        >
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+          >
+            <View style={styles.signatureModalContainer}>
+              <View style={styles.signatureModalHeader}>
+                <Text style={styles.signatureModalTitle}>Digital Signatures</Text>
+                <TouchableOpacity onPress={() => setShowSignatureModal(false)}>
+                  <IconSymbol
+                    ios_icon_name="xmark.circle.fill"
+                    android_material_icon_name="close"
+                    size={28}
+                    color={colors.textSecondary}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={styles.signatureScrollView} contentContainerStyle={styles.signatureScrollContent}>
+                {/* Landlord Signature */}
+                <View style={styles.signatureSection}>
+                  <Text style={styles.signatureLabel}>Vermieter (Landlord) Signature</Text>
+                  <View style={styles.signatureCanvasContainer}>
+                    <SignatureCanvas
+                      onOK={(signature) => {
+                        console.log('Landlord signature captured');
+                        setLandlordSignature(signature);
+                      }}
+                      onEmpty={() => console.log('Landlord signature is empty')}
+                      descriptionText="Sign above"
+                      clearText="Clear"
+                      confirmText="Save"
+                      webStyle={`.m-signature-pad {box-shadow: none; border: 1px solid ${colors.border};} .m-signature-pad--body {border: none;} .m-signature-pad--footer {display: none;}`}
+                      style={styles.signatureCanvas}
+                    />
+                  </View>
+                  {landlordSignature && (
+                    <View style={styles.signatureConfirmation}>
+                      <IconSymbol
+                        ios_icon_name="checkmark.circle.fill"
+                        android_material_icon_name="check-circle"
+                        size={20}
+                        color={colors.success}
+                      />
+                      <Text style={styles.signatureConfirmationText}>Signature captured</Text>
+                    </View>
+                  )}
+                  <TouchableOpacity
+                    style={styles.clearSignatureButton}
+                    onPress={() => {
+                      console.log('Clearing landlord signature');
+                      setLandlordSignature(null);
+                    }}
+                  >
+                    <Text style={styles.clearSignatureButtonText}>Clear Landlord Signature</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Tenant Signature */}
+                <View style={styles.signatureSection}>
+                  <Text style={styles.signatureLabel}>Mieter (Tenant) Signature</Text>
+                  <View style={styles.signatureCanvasContainer}>
+                    <SignatureCanvas
+                      onOK={(signature) => {
+                        console.log('Tenant signature captured');
+                        setTenantSignature(signature);
+                      }}
+                      onEmpty={() => console.log('Tenant signature is empty')}
+                      descriptionText="Sign above"
+                      clearText="Clear"
+                      confirmText="Save"
+                      webStyle={`.m-signature-pad {box-shadow: none; border: 1px solid ${colors.border};} .m-signature-pad--body {border: none;} .m-signature-pad--footer {display: none;}`}
+                      style={styles.signatureCanvas}
+                    />
+                  </View>
+                  {tenantSignature && (
+                    <View style={styles.signatureConfirmation}>
+                      <IconSymbol
+                        ios_icon_name="checkmark.circle.fill"
+                        android_material_icon_name="check-circle"
+                        size={20}
+                        color={colors.success}
+                      />
+                      <Text style={styles.signatureConfirmationText}>Signature captured</Text>
+                    </View>
+                  )}
+                  <TouchableOpacity
+                    style={styles.clearSignatureButton}
+                    onPress={() => {
+                      console.log('Clearing tenant signature');
+                      setTenantSignature(null);
+                    }}
+                  >
+                    <Text style={styles.clearSignatureButtonText}>Clear Tenant Signature</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Tenant Signature Date */}
+                <View style={styles.signatureSection}>
+                  <Text style={styles.signatureLabel}>Tenant Signature Date</Text>
+                  <DateTimePicker
+                    value={tenantSignatureDate}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={(event, selectedDate) => {
+                      if (selectedDate) {
+                        console.log('Tenant signature date selected:', selectedDate);
+                        setTenantSignatureDate(selectedDate);
+                      }
+                    }}
+                    style={styles.datePicker}
+                  />
+                  <Text style={styles.dateDisplay}>
+                    Selected: {tenantSignatureDate.toLocaleDateString('de-DE')}
+                  </Text>
+                </View>
+              </ScrollView>
+
+              <View style={styles.signatureModalFooter}>
+                <TouchableOpacity
+                  style={[
+                    styles.generatePdfButton,
+                    (!landlordSignature || !tenantSignature || generatingPDF) && styles.generatePdfButtonDisabled,
+                  ]}
+                  onPress={handleGeneratePDF}
+                  disabled={!landlordSignature || !tenantSignature || generatingPDF}
+                >
+                  {generatingPDF ? (
+                    <>
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                      <Text style={styles.generatePdfButtonText}>Generating...</Text>
+                    </>
+                  ) : (
+                    <>
+                      <IconSymbol
+                        ios_icon_name="doc.fill"
+                        android_material_icon_name="description"
+                        size={24}
+                        color="#FFFFFF"
+                      />
+                      <Text style={styles.generatePdfButtonText}>Create Official Protocol</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
         </Modal>
 
         <AlertModal
@@ -1352,5 +1536,116 @@ const styles = StyleSheet.create({
   keysInput: {
     minHeight: 60,
     textAlignVertical: 'top',
+  },
+  signatureModalContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  signatureModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.card,
+  },
+  signatureModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  signatureScrollView: {
+    flex: 1,
+  },
+  signatureScrollContent: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+  signatureSection: {
+    marginBottom: 32,
+  },
+  signatureLabel: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  signatureCanvasContainer: {
+    height: 200,
+    borderWidth: 2,
+    borderColor: colors.border,
+    borderRadius: 0,
+    backgroundColor: colors.card,
+    overflow: 'hidden',
+  },
+  signatureCanvas: {
+    flex: 1,
+  },
+  signatureConfirmation: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 12,
+  },
+  signatureConfirmationText: {
+    fontSize: 14,
+    color: colors.success,
+    fontWeight: '600',
+  },
+  clearSignatureButton: {
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 0,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    alignItems: 'center',
+  },
+  clearSignatureButtonText: {
+    fontSize: 14,
+    color: colors.text,
+    fontWeight: '600',
+  },
+  datePicker: {
+    width: '100%',
+    backgroundColor: colors.card,
+  },
+  dateDisplay: {
+    fontSize: 16,
+    color: colors.text,
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 0,
+  },
+  signatureModalFooter: {
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.card,
+  },
+  generatePdfButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    backgroundColor: colors.primary,
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    borderRadius: 0,
+  },
+  generatePdfButtonDisabled: {
+    backgroundColor: colors.textSecondary,
+    opacity: 0.5,
+  },
+  generatePdfButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
   },
 });
