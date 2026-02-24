@@ -15,6 +15,8 @@ import {
 } from "react-native";
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
+import * as FileSystem from 'expo-file-system/legacy';
+import { decode } from 'base64-arraybuffer';
 import { colors, commonStyles } from "@/styles/commonStyles";
 import { IconSymbol } from "@/components/IconSymbol";
 import { AlertModal, ConfirmModal } from "@/components/ui/Modal";
@@ -248,7 +250,7 @@ export default function RoomDetailScreen() {
       // Optimized camera settings for performance
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.3, // Reduced quality for speed
-        base64: false, // Disable base64 for performance
+        base64: false, // Disable base64 for performance - we'll read it later
       });
 
       if (!photo) {
@@ -298,45 +300,68 @@ export default function RoomDetailScreen() {
       return;
     }
 
-    console.log('Uploading photo to Supabase');
+    console.log('Uploading photo to Supabase Storage');
     setUploadingPhoto(true);
 
     try {
-      // Convert photo URI to blob
-      const response = await fetch(photoUri);
-      const blob = await response.blob();
+      // Step 1: Read the photo URI as Base64
+      console.log('Reading photo file as Base64');
+      const base64Data = await FileSystem.readAsStringAsync(photoUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
 
-      // Create file path: [report_id]/[room_id]/[timestamp].jpg
-      const fileName = `${timestamp.replace(/[:.]/g, '-')}.jpg`;
+      if (!base64Data) {
+        throw new Error('Failed to read photo file');
+      }
+
+      console.log('Base64 data length:', base64Data.length);
+
+      // Step 2: Convert Base64 to ArrayBuffer
+      console.log('Converting Base64 to ArrayBuffer');
+      const arrayBuffer = decode(base64Data);
+
+      if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+        throw new Error('Failed to convert Base64 to ArrayBuffer');
+      }
+
+      console.log('ArrayBuffer size:', arrayBuffer.byteLength, 'bytes');
+
+      // Step 3: Generate unique filename with timestamp
+      const timestampForFilename = new Date().getTime();
+      const fileName = `room_${timestampForFilename}.jpg`;
       const filePath = `${room.report_id}/${room.id}/${fileName}`;
 
       console.log('Uploading to path:', filePath);
 
-      // Upload to Supabase Storage
+      // Step 4: Upload ArrayBuffer to Supabase Storage with explicit contentType
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('inspection-photos')
-        .upload(filePath, blob, {
-          contentType: 'image/jpeg',
-          upsert: false,
+        .upload(filePath, arrayBuffer, {
+          contentType: 'image/jpeg', // Explicitly set content type
+          upsert: false, // Do not overwrite existing files
         });
 
       if (uploadError) {
-        console.error('Error uploading photo:', uploadError);
-        showAlert('Upload Error', `Failed to upload photo: ${uploadError.message}`, 'error');
-        return;
+        console.error('Supabase Storage Upload Error:', uploadError);
+        throw new Error(`Photo upload failed: ${uploadError.message}`);
       }
 
-      console.log('Photo uploaded successfully:', uploadData);
+      console.log('Photo uploaded successfully to Supabase Storage:', uploadData);
 
-      // Get public URL
+      // Step 5: Get public URL ONLY after successful upload (200/OK status)
       const { data: urlData } = supabase.storage
         .from('inspection-photos')
         .getPublicUrl(filePath);
 
-      const publicUrl = urlData.publicUrl;
-      console.log('Public URL:', publicUrl);
+      if (!urlData || !urlData.publicUrl) {
+        throw new Error('Failed to get public URL for uploaded photo');
+      }
 
-      // Save photo record to database
+      const publicUrl = urlData.publicUrl;
+      console.log('Public URL retrieved:', publicUrl);
+
+      // Step 6: Save photo metadata to database ONLY after successful storage upload
+      console.log('Saving photo metadata to database');
       const { data: photoData, error: photoError } = await supabase
         .from('photos')
         .insert([{
@@ -349,12 +374,11 @@ export default function RoomDetailScreen() {
         .single();
 
       if (photoError) {
-        console.error('Error saving photo record:', photoError);
-        showAlert('Database Error', `Failed to save photo record: ${photoError.message}`, 'error');
-        return;
+        console.error('Database sync error:', photoError);
+        throw new Error(`Failed to save photo URL to database: ${photoError.message}`);
       }
 
-      console.log('Photo record saved successfully:', photoData);
+      console.log('Photo metadata saved successfully to database:', photoData);
 
       // Refresh photos list
       await fetchRoomData();
