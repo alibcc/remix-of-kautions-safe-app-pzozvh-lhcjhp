@@ -42,7 +42,7 @@ const ROOM_PRESETS = [
 // VERSION 3.0.0 - UPDATED CREDENTIALS (STRICT)
 const CRAFTMYPDF_API_KEY = '9cf6Mjg1MjM6Mjg2ODQ6a3ZWUDBhZ2lGUE9CU1UzdA=';
 const CRAFTMYPDF_TEMPLATE_ID = '5c477b23ea34170c';
-const CRAFTMYPDF_ENDPOINT = 'https://api.craftmypdf.com/v1/create';
+const CRAFTMYPDF_ENDPOINT = 'https://api-eur.craftmypdf.com/v1/create';
 
 interface Room {
   id: string;
@@ -108,15 +108,15 @@ export default function InspectionDetailScreen() {
   // Signature modal state
   const [showSignatureModal, setShowSignatureModal] = useState(false);
   
-  // Meter readings state
+  // CRITICAL FIX #1: Meter readings state with exact keys
   const [electricityNo, setElectricityNo] = useState('');
   const [electricityVal, setElectricityVal] = useState('');
   const [gasNo, setGasNo] = useState('');
   const [gasVal, setGasVal] = useState('');
   const [waterNo, setWaterNo] = useState('');
   const [waterVal, setWaterVal] = useState('');
-  const [heatingNo, setHeatingNo] = useState('');
-  const [heatingVal, setHeatingVal] = useState('');
+  const [heatNo, setHeatNo] = useState('');
+  const [heatVal, setHeatVal] = useState('');
   
   // Keys and handover type state
   const [keysHandedOver, setKeysHandedOver] = useState('');
@@ -372,7 +372,7 @@ export default function InspectionDetailScreen() {
     setShowSignatureModal(true);
   };
 
-  // CRITICAL FIX #1: Clear signature functions
+  // CRITICAL FIX #2: Clear signature functions that fully reset pads
   const handleClearLandlordSignature = () => {
     console.log('Clearing landlord signature');
     setLandlordSignature(null);
@@ -389,9 +389,9 @@ export default function InspectionDetailScreen() {
     }
   };
 
-  // CRITICAL FIX #2: Close signature modal without freezing
+  // CRITICAL FIX #4: Close signature modal without freezing
   const handleCloseSignatureModal = () => {
-    console.log('User tapped X button on signature modal - closing');
+    console.log('User tapped X button on signature modal - closing instantly');
     setShowSignatureModal(false);
   };
 
@@ -426,7 +426,7 @@ export default function InspectionDetailScreen() {
       const participants = participantsData || [];
       console.log('Participants:', participants.length);
 
-      // CRITICAL FIX #1: Extract landlord and tenant names with fallback to empty string
+      // CRITICAL FIX #3: Extract landlord and tenant names with fallback to empty string
       const landlordParticipant = participants.find((p: Participant) => p.role === 'Landlord');
       const tenantParticipant = participants.find((p: Participant) => p.role === 'Tenant');
       
@@ -464,7 +464,7 @@ export default function InspectionDetailScreen() {
               }
 
               const photo = photosData && photosData.length > 0 ? photosData[0] : null;
-              // CRITICAL FIX #1: Ensure photo_url is absolute URL or empty string
+              // CRITICAL FIX #3: Ensure photo_url is absolute URL or empty string
               return { ...item, photo_url: photo?.storage_url || '' };
             })
           );
@@ -481,19 +481,19 @@ export default function InspectionDetailScreen() {
       // Format tenant signature date
       const tenantSigDate = tenantSignatureDate.toLocaleDateString('de-DE');
 
-      // CRITICAL FIX #1: Construct payload with EXACT keys matching template
-      // All fields explicitly mapped to avoid undefined
+      // CRITICAL FIX #1: Construct payload with nested 'meters' object and EXACT keys
+      // CRITICAL FIX #3: All fields explicitly mapped to avoid undefined
       const pdfPayload = {
         template_id: CRAFTMYPDF_TEMPLATE_ID,
         data: {
           property_address: report.address || '', // Ensure no undefined
           tenant_name: tenantName || '', // Ensure no undefined
           landlord_name: landlordName || '', // Ensure no undefined
-          date: inspectionDate, // Landlord's date
+          inspection_date: inspectionDate, // Landlord's date
           signature_date: tenantSigDate, // Tenant's signature date
-          inspection_date: inspectionDate, // Keep for backward compatibility
           is_move_in: isMoveIn,
           is_move_out: isMoveOut,
+          // CRITICAL FIX #1: Nested meters object with exact keys
           meters: {
             electricity_no: electricityNo || '', // Ensure no undefined
             electricity_val: electricityVal || '', // Ensure no undefined
@@ -501,8 +501,8 @@ export default function InspectionDetailScreen() {
             gas_val: gasVal || '', // Ensure no undefined
             water_no: waterNo || '', // Ensure no undefined
             water_val: waterVal || '', // Ensure no undefined
-            heating_no: heatingNo || '', // Ensure no undefined
-            heating_val: heatingVal || '', // Ensure no undefined
+            heat_no: heatNo || '', // Ensure no undefined
+            heat_val: heatVal || '', // Ensure no undefined
           },
           keys_handed_over: keysHandedOver || '', // Ensure no undefined
           landlord_signature: landlordSignature || '', // Base64 signature image or empty string
@@ -537,8 +537,8 @@ export default function InspectionDetailScreen() {
           gas_val: gasVal || '',
           water_no: waterNo || '',
           water_val: waterVal || '',
-          heating_no: heatingNo || '',
-          heating_val: heatingVal || '',
+          heat_no: heatNo || '',
+          heat_val: heatVal || '',
           keys_handed_over: keysHandedOver || '',
           is_move_in: isMoveIn,
           is_move_out: isMoveOut,
@@ -607,7 +607,7 @@ export default function InspectionDetailScreen() {
 
       console.log('PDF URL received:', pdfUrl);
 
-      // CRITICAL FIX #2: Save PDF URL to Supabase FIRST
+      // CRITICAL FIX #4: Save PDF URL to Supabase FIRST
       console.log('Saving PDF URL to Supabase');
       const { error: pdfUrlUpdateError } = await supabase
         .from('reports')
@@ -624,11 +624,11 @@ export default function InspectionDetailScreen() {
         console.log('PDF URL saved successfully to Supabase');
       }
 
-      // CRITICAL FIX #2: Wait for PDF URL to be saved before triggering email
+      // CRITICAL FIX #4: Wait 2 seconds to ensure PDF URL is fully saved before triggering email
       console.log('Waiting 2 seconds to ensure PDF URL is fully saved');
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // CRITICAL FIX #2: Trigger email with PDF attachment AFTER PDF URL is saved
+      // CRITICAL FIX #4: Trigger email with PDF attachment AFTER PDF URL is saved
       console.log('Triggering email to:', user.email);
       try {
         await sendPdfEmail(user.email, pdfUrl, id as string, report.address);
@@ -752,7 +752,7 @@ export default function InspectionDetailScreen() {
   const typeText = getTypeText(report.inspection_type);
   const hasRooms = rooms.length > 0;
   
-  // CRITICAL FIX #4: Check if any room has no conditions logged
+  // CRITICAL FIX #5: Check if any room exists for onboarding tip
   const hasRoomsWithoutConditions = rooms.length > 0;
 
   return (
@@ -772,7 +772,7 @@ export default function InspectionDetailScreen() {
             <Text style={styles.type}>{typeText}</Text>
           </View>
 
-          {/* CRITICAL FIX #2: Button always active (Blue #86D9F9) */}
+          {/* Button always active (Blue #86D9F9) */}
           <TouchableOpacity
             style={styles.pdfButton}
             onPress={handleOpenFinalDetails}
@@ -805,7 +805,7 @@ export default function InspectionDetailScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* CRITICAL FIX #4: User onboarding prompt - Updated text */}
+            {/* CRITICAL FIX #5: User onboarding prompt with exact text */}
             {hasRoomsWithoutConditions && (
               <View style={styles.onboardingTip}>
                 <IconSymbol
@@ -815,7 +815,7 @@ export default function InspectionDetailScreen() {
                   color="#FFA500"
                 />
                 <Text style={styles.onboardingTipText}>
-                  Tipp: Klicken Sie auf einen Raum, um Zustände zu protokollieren und Fotos hinzuzufügen
+                  Tipp: Klicken Sie auf einen Raum, um Zustände zu protokollieren und Fotos hinzuzufügen.
                 </Text>
               </View>
             )}
@@ -1081,8 +1081,8 @@ export default function InspectionDetailScreen() {
                       <TextInput
                         style={styles.meterInput}
                         placeholder="Number"
-                        value={heatingNo}
-                        onChangeText={setHeatingNo}
+                        value={heatNo}
+                        onChangeText={setHeatNo}
                       />
                     </View>
                     <View style={styles.meterInputContainer}>
@@ -1090,8 +1090,8 @@ export default function InspectionDetailScreen() {
                       <TextInput
                         style={styles.meterInput}
                         placeholder="Reading"
-                        value={heatingVal}
-                        onChangeText={setHeatingVal}
+                        value={heatVal}
+                        onChangeText={setHeatVal}
                         keyboardType="numeric"
                       />
                     </View>
@@ -1138,7 +1138,7 @@ export default function InspectionDetailScreen() {
               <View style={styles.signatureModalContainer}>
                 <View style={styles.signatureModalHeader}>
                   <Text style={styles.signatureModalTitle}>Digital Signatures</Text>
-                  {/* CRITICAL FIX #2: X button that doesn't freeze */}
+                  {/* CRITICAL FIX #4: X button that closes instantly without freezing */}
                   <TouchableOpacity onPress={handleCloseSignatureModal}>
                     <IconSymbol
                       ios_icon_name="xmark.circle.fill"
@@ -1158,6 +1158,7 @@ export default function InspectionDetailScreen() {
                   {/* Landlord Signature */}
                   <View style={styles.signatureSection}>
                     <Text style={styles.signatureLabel}>Vermieter (Landlord) Signature</Text>
+                    {/* CRITICAL FIX #2: Disable scroll on touch to allow precise drawing */}
                     <View 
                       style={styles.signatureCanvasContainer}
                       onStartShouldSetResponder={() => true}
@@ -1188,7 +1189,7 @@ export default function InspectionDetailScreen() {
                         <Text style={styles.signatureConfirmationText}>Signature captured</Text>
                       </View>
                     )}
-                    {/* CRITICAL FIX #1: Clear button that works */}
+                    {/* CRITICAL FIX #2: Clear button that fully resets the pad */}
                     <TouchableOpacity
                       style={styles.clearSignatureButton}
                       onPress={handleClearLandlordSignature}
@@ -1200,6 +1201,7 @@ export default function InspectionDetailScreen() {
                   {/* Tenant Signature */}
                   <View style={styles.signatureSection}>
                     <Text style={styles.signatureLabel}>Mieter (Tenant) Signature</Text>
+                    {/* CRITICAL FIX #2: Disable scroll on touch to allow precise drawing */}
                     <View 
                       style={styles.signatureCanvasContainer}
                       onStartShouldSetResponder={() => true}
@@ -1230,7 +1232,7 @@ export default function InspectionDetailScreen() {
                         <Text style={styles.signatureConfirmationText}>Signature captured</Text>
                       </View>
                     )}
-                    {/* CRITICAL FIX #1: Clear button that works */}
+                    {/* CRITICAL FIX #2: Clear button that fully resets the pad */}
                     <TouchableOpacity
                       style={styles.clearSignatureButton}
                       onPress={handleClearTenantSignature}
@@ -1261,7 +1263,7 @@ export default function InspectionDetailScreen() {
                 </ScrollView>
 
                 <View style={styles.signatureModalFooter}>
-                  {/* CRITICAL FIX #2: Button always active (Blue #86D9F9) */}
+                  {/* Button always active (Blue #86D9F9) */}
                   <TouchableOpacity
                     style={styles.generatePdfButton}
                     onPress={handleGeneratePDF}
@@ -1398,7 +1400,7 @@ const styles = StyleSheet.create({
   addButton: {
     padding: 4,
   },
-  // CRITICAL FIX #4: Onboarding tip styles
+  // CRITICAL FIX #5: Onboarding tip styles
   onboardingTip: {
     flexDirection: 'row',
     alignItems: 'center',

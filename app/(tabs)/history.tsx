@@ -45,6 +45,7 @@ export default function HistoryScreen() {
     setAlertVisible(true);
   };
 
+  // CRITICAL FIX #5: Force refresh and show all saved protocols from Supabase
   const fetchCompletedInspections = useCallback(async () => {
     if (!user || !user.id) {
       console.log('HistoryScreen: No user found, cannot fetch inspections');
@@ -56,7 +57,7 @@ export default function HistoryScreen() {
     try {
       console.log('HistoryScreen: Fetching completed inspections for user:', user.id);
 
-      // CRITICAL FIX #3: Query reports table correctly with user_id filter
+      // CRITICAL FIX #5: Query reports table correctly with user_id filter
       const { data, error } = await supabase
         .from('reports')
         .select('id, address, inspection_type, inspection_date, pdf_url, created_at')
