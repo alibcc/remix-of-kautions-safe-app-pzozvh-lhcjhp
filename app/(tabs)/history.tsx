@@ -56,14 +56,14 @@ export default function HistoryScreen() {
     try {
       console.log('HistoryScreen: Fetching completed inspections for user:', user.id);
 
-      // Fetch reports with status 'COMPLETED' and a PDF URL
+      // CRITICAL FIX #3: Query reports table correctly with user_id filter
       const { data, error } = await supabase
         .from('reports')
         .select('id, address, inspection_type, inspection_date, pdf_url, created_at')
         .eq('user_id', user.id)
         .eq('status', 'COMPLETED')
         .not('pdf_url', 'is', null)
-        .order('inspection_date', { ascending: false });
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.error('HistoryScreen: Error fetching completed inspections:', error);

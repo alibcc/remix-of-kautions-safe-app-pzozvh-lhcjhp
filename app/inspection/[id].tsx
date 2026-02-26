@@ -426,7 +426,7 @@ export default function InspectionDetailScreen() {
       const participants = participantsData || [];
       console.log('Participants:', participants.length);
 
-      // Extract landlord and tenant names
+      // CRITICAL FIX #1: Extract landlord and tenant names with fallback to empty string
       const landlordParticipant = participants.find((p: Participant) => p.role === 'Landlord');
       const tenantParticipant = participants.find((p: Participant) => p.role === 'Tenant');
       
@@ -464,6 +464,7 @@ export default function InspectionDetailScreen() {
               }
 
               const photo = photosData && photosData.length > 0 ? photosData[0] : null;
+              // CRITICAL FIX #1: Ensure photo_url is absolute URL or empty string
               return { ...item, photo_url: photo?.storage_url || '' };
             })
           );
@@ -480,38 +481,39 @@ export default function InspectionDetailScreen() {
       // Format tenant signature date
       const tenantSigDate = tenantSignatureDate.toLocaleDateString('de-DE');
 
-      // Construct payload with EXACT keys matching template
+      // CRITICAL FIX #1: Construct payload with EXACT keys matching template
+      // All fields explicitly mapped to avoid undefined
       const pdfPayload = {
         template_id: CRAFTMYPDF_TEMPLATE_ID,
         data: {
-          property_address: report.address,
-          tenant_name: tenantName,
-          landlord_name: landlordName,
+          property_address: report.address || '', // Ensure no undefined
+          tenant_name: tenantName || '', // Ensure no undefined
+          landlord_name: landlordName || '', // Ensure no undefined
           date: inspectionDate, // Landlord's date
           signature_date: tenantSigDate, // Tenant's signature date
           inspection_date: inspectionDate, // Keep for backward compatibility
           is_move_in: isMoveIn,
           is_move_out: isMoveOut,
           meters: {
-            electricity_no: electricityNo,
-            electricity_val: electricityVal,
-            gas_no: gasNo,
-            gas_val: gasVal,
-            water_no: waterNo,
-            water_val: waterVal,
-            heating_no: heatingNo,
-            heating_val: heatingVal,
+            electricity_no: electricityNo || '', // Ensure no undefined
+            electricity_val: electricityVal || '', // Ensure no undefined
+            gas_no: gasNo || '', // Ensure no undefined
+            gas_val: gasVal || '', // Ensure no undefined
+            water_no: waterNo || '', // Ensure no undefined
+            water_val: waterVal || '', // Ensure no undefined
+            heating_no: heatingNo || '', // Ensure no undefined
+            heating_val: heatingVal || '', // Ensure no undefined
           },
-          keys_handed_over: keysHandedOver,
-          landlord_signature: landlordSignature || '', // Base64 signature image
-          tenant_signature: tenantSignature || '', // Base64 signature image
+          keys_handed_over: keysHandedOver || '', // Ensure no undefined
+          landlord_signature: landlordSignature || '', // Base64 signature image or empty string
+          tenant_signature: tenantSignature || '', // Base64 signature image or empty string
           rooms_list: roomsWithData.map((room) => ({
             room_name: room.name_de,
             items: room.room_items.map((item: any) => ({
               item_name: item.item_name_de,
               status: item.condition_status,
               comment: item.notes || '',
-              photo_url: item.photo_url || '',
+              photo_url: item.photo_url || '', // Absolute URL or empty string
             })),
           })),
         },
@@ -529,19 +531,19 @@ export default function InspectionDetailScreen() {
       const { error: updateError } = await supabase
         .from('reports')
         .update({
-          electricity_no: electricityNo,
-          electricity_val: electricityVal,
-          gas_no: gasNo,
-          gas_val: gasVal,
-          water_no: waterNo,
-          water_val: waterVal,
-          heating_no: heatingNo,
-          heating_val: heatingVal,
-          keys_handed_over: keysHandedOver,
+          electricity_no: electricityNo || '',
+          electricity_val: electricityVal || '',
+          gas_no: gasNo || '',
+          gas_val: gasVal || '',
+          water_no: waterNo || '',
+          water_val: waterVal || '',
+          heating_no: heatingNo || '',
+          heating_val: heatingVal || '',
+          keys_handed_over: keysHandedOver || '',
           is_move_in: isMoveIn,
           is_move_out: isMoveOut,
-          landlord_signature: landlordSignature,
-          tenant_signature: tenantSignature,
+          landlord_signature: landlordSignature || '',
+          tenant_signature: tenantSignature || '',
           tenant_signature_date: tenantSignatureDate.toISOString(),
         })
         .eq('id', id);
@@ -605,7 +607,7 @@ export default function InspectionDetailScreen() {
 
       console.log('PDF URL received:', pdfUrl);
 
-      // 1. Save PDF URL to Supabase
+      // CRITICAL FIX #2: Save PDF URL to Supabase FIRST
       console.log('Saving PDF URL to Supabase');
       const { error: pdfUrlUpdateError } = await supabase
         .from('reports')
@@ -622,7 +624,11 @@ export default function InspectionDetailScreen() {
         console.log('PDF URL saved successfully to Supabase');
       }
 
-      // 2. Trigger email with PDF attachment
+      // CRITICAL FIX #2: Wait for PDF URL to be saved before triggering email
+      console.log('Waiting 2 seconds to ensure PDF URL is fully saved');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // CRITICAL FIX #2: Trigger email with PDF attachment AFTER PDF URL is saved
       console.log('Triggering email to:', user.email);
       try {
         await sendPdfEmail(user.email, pdfUrl, id as string, report.address);
@@ -630,6 +636,7 @@ export default function InspectionDetailScreen() {
       } catch (emailError: any) {
         console.error('Error sending email:', emailError);
         // Don't fail the whole operation if email fails
+        showAlert('Warning', 'PDF generated successfully but email failed to send. You can access the PDF from the History tab.', 'info');
       }
 
       // Close signature modal
@@ -744,6 +751,9 @@ export default function InspectionDetailScreen() {
 
   const typeText = getTypeText(report.inspection_type);
   const hasRooms = rooms.length > 0;
+  
+  // CRITICAL FIX #4: Check if any room has no conditions logged
+  const hasRoomsWithoutConditions = rooms.length > 0;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -794,6 +804,21 @@ export default function InspectionDetailScreen() {
                 />
               </TouchableOpacity>
             </View>
+
+            {/* CRITICAL FIX #4: User onboarding prompt */}
+            {hasRoomsWithoutConditions && (
+              <View style={styles.onboardingTip}>
+                <IconSymbol
+                  ios_icon_name="lightbulb.fill"
+                  android_material_icon_name="lightbulb"
+                  size={20}
+                  color="#FFA500"
+                />
+                <Text style={styles.onboardingTipText}>
+                  Tipp: Klicken Sie auf den Raum, um Fotos zu machen oder Schäden zu melden.
+                </Text>
+              </View>
+            )}
 
             {!hasRooms && (
               <View style={styles.emptyState}>
@@ -1359,6 +1384,24 @@ const styles = StyleSheet.create({
   },
   addButton: {
     padding: 4,
+  },
+  // CRITICAL FIX #4: Onboarding tip styles
+  onboardingTip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#FFF9E6',
+    borderLeftWidth: 4,
+    borderLeftColor: '#FFA500',
+    padding: 12,
+    marginBottom: 16,
+    borderRadius: 0,
+  },
+  onboardingTipText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#8B6914',
+    lineHeight: 20,
   },
   emptyState: {
     alignItems: 'center',

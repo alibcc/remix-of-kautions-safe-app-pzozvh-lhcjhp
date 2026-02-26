@@ -122,7 +122,7 @@ export function AlertModal({
   visible,
   title,
   message,
-  buttonText = 'CLOSE',
+  buttonText = 'OK',
   onClose,
   type = 'info',
 }: AlertModalProps) {
@@ -182,6 +182,7 @@ export function AlertModal({
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.message}>{message}</Text>
 
+          {/* CRITICAL FIX #2: Increased button width and ensured text is visible */}
           <TouchableOpacity
             style={[styles.button, styles.singleButton, { backgroundColor: buttonColor }]}
             onPress={onClose}
@@ -250,6 +251,7 @@ const styles = StyleSheet.create({
     borderRadius: 0,
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 50,
   },
   cancelButton: {
     backgroundColor: colors.background,
@@ -272,8 +274,11 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
+  // CRITICAL FIX #2: Increased width and ensured text is centered
   singleButton: {
     backgroundColor: '#86D9F9',
     width: '100%',
+    minWidth: 200,
+    paddingVertical: 16,
   },
 });

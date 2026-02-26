@@ -1,4 +1,3 @@
-
 {
   "expo": {
     "name": "Kautions-Safe",
@@ -18,8 +17,8 @@
       "bundleIdentifier": "com.anonymous.Natively",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSCameraUsageDescription": "Kautions-Safe möchte auf Ihre Kamera zugreifen, um Fotos für das Protokoll zu machen.",
-        "NSPhotoLibraryUsageDescription": "Kautions-Safe möchte auf Ihre Fotos zugreifen, um Bilder für das Protokoll auszuwählen."
+        "NSCameraUsageDescription": "Kautions-Safe m\u00f6chte auf Ihre Kamera zugreifen, um Fotos f\u00fcr das Protokoll zu machen.",
+        "NSPhotoLibraryUsageDescription": "Kautions-Safe m\u00f6chte auf Ihre Fotos zugreifen, um Bilder f\u00fcr das Protokoll auszuw\u00e4hlen."
       }
     },
     "android": {
@@ -46,18 +45,18 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Kautions-Safe möchte auf Ihre Kamera zugreifen, um Fotos für das Protokoll zu machen."
+          "cameraPermission": "Kautions-Safe m\u00f6chte auf Ihre Kamera zugreifen, um Fotos f\u00fcr das Protokoll zu machen."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Kautions-Safe möchte auf Ihre Fotos zugreifen, um Bilder für das Protokoll auszuwählen.",
-          "cameraPermission": "Kautions-Safe möchte auf Ihre Kamera zugreifen, um Fotos für das Protokoll zu machen."
+          "photosPermission": "Kautions-Safe m\u00f6chte auf Ihre Fotos zugreifen, um Bilder f\u00fcr das Protokoll auszuw\u00e4hlen.",
+          "cameraPermission": "Kautions-Safe m\u00f6chte auf Ihre Kamera zugreifen, um Fotos f\u00fcr das Protokoll zu machen."
         }
       ]
     ],
-    "scheme": "kautions-safe",
+    "scheme": "Kautions-Safe",
     "experiments": {
       "typedRoutes": true
     },
