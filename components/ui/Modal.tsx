@@ -274,11 +274,12 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
-  // CRITICAL FIX #2: Increased width and ensured text is centered
+  // CRITICAL FIX #2: Increased width and ensured text is centered and visible
   singleButton: {
     backgroundColor: '#86D9F9',
     width: '100%',
-    minWidth: 200,
-    paddingVertical: 16,
+    minWidth: 250,
+    paddingVertical: 18,
+    paddingHorizontal: 32,
   },
 });

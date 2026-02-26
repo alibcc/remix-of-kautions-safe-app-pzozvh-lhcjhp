@@ -805,7 +805,7 @@ export default function InspectionDetailScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* CRITICAL FIX #4: User onboarding prompt */}
+            {/* CRITICAL FIX #4: User onboarding prompt - Updated text */}
             {hasRoomsWithoutConditions && (
               <View style={styles.onboardingTip}>
                 <IconSymbol
@@ -815,7 +815,7 @@ export default function InspectionDetailScreen() {
                   color="#FFA500"
                 />
                 <Text style={styles.onboardingTipText}>
-                  Tipp: Klicken Sie auf den Raum, um Fotos zu machen oder Schäden zu melden.
+                  Tipp: Klicken Sie auf einen Raum, um Zustände zu protokollieren und Fotos hinzuzufügen
                 </Text>
               </View>
             )}
@@ -1149,11 +1149,20 @@ export default function InspectionDetailScreen() {
                   </TouchableOpacity>
                 </View>
 
-                <ScrollView style={styles.signatureScrollView} contentContainerStyle={styles.signatureScrollContent}>
+                <ScrollView 
+                  style={styles.signatureScrollView} 
+                  contentContainerStyle={styles.signatureScrollContent}
+                  scrollEnabled={true}
+                  nestedScrollEnabled={true}
+                >
                   {/* Landlord Signature */}
                   <View style={styles.signatureSection}>
                     <Text style={styles.signatureLabel}>Vermieter (Landlord) Signature</Text>
-                    <View style={styles.signatureCanvasContainer}>
+                    <View 
+                      style={styles.signatureCanvasContainer}
+                      onStartShouldSetResponder={() => true}
+                      onMoveShouldSetResponder={() => true}
+                    >
                       <SignatureCanvas
                         ref={landlordSignatureRef}
                         onOK={(signature) => {
@@ -1191,7 +1200,11 @@ export default function InspectionDetailScreen() {
                   {/* Tenant Signature */}
                   <View style={styles.signatureSection}>
                     <Text style={styles.signatureLabel}>Mieter (Tenant) Signature</Text>
-                    <View style={styles.signatureCanvasContainer}>
+                    <View 
+                      style={styles.signatureCanvasContainer}
+                      onStartShouldSetResponder={() => true}
+                      onMoveShouldSetResponder={() => true}
+                    >
                       <SignatureCanvas
                         ref={tenantSignatureRef}
                         onOK={(signature) => {
