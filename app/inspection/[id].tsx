@@ -113,7 +113,7 @@ export default function InspectionDetailScreen() {
   // Signature modal state
   const [showSignatureModal, setShowSignatureModal] = useState(false);
   
-  // CRITICAL FIX #4: Meter readings state with exact keys matching database columns
+  // CRITICAL FIX: Meter readings state with exact keys matching database columns
   const [electricityNo, setElectricityNo] = useState('');
   const [electricityVal, setElectricityVal] = useState('');
   const [gasNo, setGasNo] = useState('');
@@ -137,7 +137,7 @@ export default function InspectionDetailScreen() {
   const landlordSignatureRef = useRef<any>(null);
   const tenantSignatureRef = useRef<any>(null);
   
-  // CRITICAL FIX #2: Scroll lock state for signature pads
+  // CRITICAL FIX: Scroll lock state for signature pads
   const [scrollEnabled, setScrollEnabled] = useState(true);
   
   // Alert modal
@@ -380,7 +380,7 @@ export default function InspectionDetailScreen() {
     setShowSignatureModal(true);
   };
 
-  // CRITICAL FIX #2: Clear signature functions that fully reset pads
+  // CRITICAL FIX: Clear signature functions that fully reset pads
   const handleClearLandlordSignature = () => {
     console.log('Clearing landlord signature');
     setLandlordSignature(null);
@@ -489,7 +489,7 @@ export default function InspectionDetailScreen() {
       // Format tenant signature date
       const tenantSigDate = tenantSignatureDate.toLocaleDateString('de-DE');
 
-      // CRITICAL FIX #4: Save meter data directly to individual columns (NOT nested JSON)
+      // CRITICAL FIX: Save meter data directly to individual columns (NOT nested JSON)
       console.log('Saving meter data to Supabase (individual columns)');
       
       const { error: updateError } = await supabase
@@ -521,11 +521,11 @@ export default function InspectionDetailScreen() {
         console.log('Meter data saved successfully to Supabase (individual columns)');
       }
 
-      // CRITICAL FIX #4: Wait 2 seconds to ensure database save is 100% complete
+      // CRITICAL FIX: Wait 2 seconds to ensure database save is 100% complete
       console.log('Waiting 2 seconds to ensure database save is complete');
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // CRITICAL FIX #4: Construct payload with individual meter fields (NOT nested object)
+      // CRITICAL FIX: Construct payload with meters as NESTED OBJECT for CraftMyPDF
       const pdfPayload = {
         template_id: CRAFTMYPDF_TEMPLATE_ID,
         data: {
@@ -536,18 +536,20 @@ export default function InspectionDetailScreen() {
           signature_date: tenantSigDate,
           is_move_in: isMoveIn,
           is_move_out: isMoveOut,
-          // CRITICAL FIX #4: Individual meter fields (NOT nested)
-          electricity_no: electricityNo || '',
-          electricity_val: electricityVal || '',
-          gas_no: gasNo || '',
-          gas_val: gasVal || '',
-          water_no: waterNo || '',
-          water_val: waterVal || '',
-          heat_no: heatNo || '',
-          heat_val: heatVal || '',
           keys_handed_over: keysHandedOver || '',
           landlord_signature: landlordSignature || '',
           tenant_signature: tenantSignature || '',
+          // CRITICAL FIX: Send meters as NESTED OBJECT to match CraftMyPDF template
+          meters: {
+            electricity_no: electricityNo || '',
+            electricity_val: electricityVal || '',
+            gas_no: gasNo || '',
+            gas_val: gasVal || '',
+            water_no: waterNo || '',
+            water_val: waterVal || '',
+            heat_no: heatNo || '',
+            heat_val: heatVal || '',
+          },
           rooms_list: roomsWithData.map((room) => ({
             room_name: room.name_de,
             items: room.room_items.map((item: any) => ({
@@ -620,7 +622,7 @@ export default function InspectionDetailScreen() {
 
       console.log('PDF URL received:', pdfUrl);
 
-      // CRITICAL FIX #4: Save PDF URL to Supabase and wait for confirmation
+      // CRITICAL FIX: Save PDF URL to Supabase and wait for confirmation
       console.log('Saving PDF URL to Supabase');
       const { error: pdfUrlUpdateError } = await supabase
         .from('reports')
@@ -637,11 +639,11 @@ export default function InspectionDetailScreen() {
         console.log('PDF URL saved successfully to Supabase');
       }
 
-      // CRITICAL FIX #4: Wait 2 seconds to ensure PDF URL is fully saved before triggering email
+      // CRITICAL FIX: Wait 2 seconds to ensure PDF URL is fully saved before triggering email
       console.log('Waiting 2 seconds to ensure PDF URL is fully saved');
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // CRITICAL FIX #4: Trigger email with PDF attachment AFTER PDF URL is saved
+      // CRITICAL FIX: Trigger email with PDF attachment AFTER PDF URL is saved
       console.log('Triggering email to:', user.email);
       try {
         await sendPdfEmail(user.email, pdfUrl, id as string, report.address);
@@ -785,7 +787,7 @@ export default function InspectionDetailScreen() {
             <Text style={styles.type}>{typeText}</Text>
           </View>
 
-          {/* BRANDING UPDATE: Burnt Sienna button */}
+          {/* BRANDING UPDATE: Burnt Sienna button with sharp corners */}
           <TouchableOpacity
             style={styles.pdfButton}
             onPress={handleOpenFinalDetails}
@@ -1148,7 +1150,7 @@ export default function InspectionDetailScreen() {
           </KeyboardAvoidingView>
         </Modal>
 
-        {/* Signature Modal - CRITICAL FIX #2: Scroll lock enabled */}
+        {/* Signature Modal - CRITICAL FIX: Scroll lock enabled */}
         <Modal
           visible={showSignatureModal}
           animationType="slide"
@@ -1183,7 +1185,7 @@ export default function InspectionDetailScreen() {
                   {/* Landlord Signature */}
                   <View style={styles.signatureSection}>
                     <Text style={styles.signatureLabel}>Vermieter (Landlord) Signature</Text>
-                    {/* CRITICAL FIX #2: Disable scroll on touch to allow precise drawing */}
+                    {/* CRITICAL FIX: Disable scroll on touch to allow precise drawing */}
                     <View 
                       style={styles.signatureCanvasContainer}
                       onStartShouldSetResponder={() => {
@@ -1232,7 +1234,7 @@ export default function InspectionDetailScreen() {
                   {/* Tenant Signature */}
                   <View style={styles.signatureSection}>
                     <Text style={styles.signatureLabel}>Mieter (Tenant) Signature</Text>
-                    {/* CRITICAL FIX #2: Disable scroll on touch to allow precise drawing */}
+                    {/* CRITICAL FIX: Disable scroll on touch to allow precise drawing */}
                     <View 
                       style={styles.signatureCanvasContainer}
                       onStartShouldSetResponder={() => {
