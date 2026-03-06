@@ -1,13 +1,14 @@
+
 import { StyleSheet } from 'react-native';
 
-// Kautions-Safe Color Theme - Professional German apartment inspection app
+// Kautions-Safe Color Theme - UPDATED with Burnt Sienna branding
 export const colors = {
   // Light theme colors
   background: '#F8F9FA',
   card: '#FFFFFF',
   text: '#1A1A1A',
   textSecondary: '#6B7280',
-  primary: '#86D9F9', // Sky blue - official brand color
+  primary: '#ED7B58', // BRANDING UPDATE: Burnt Sienna - new official brand color
   secondary: '#10B981', // Success green for "OK" status
   accent: '#F59E0B', // Warning amber for "Defect" status
   highlight: '#EF4444', // Error red for critical issues
@@ -15,6 +16,8 @@ export const colors = {
   success: '#10B981',
   warning: '#F59E0B',
   error: '#EF4444',
+  // Dot matrix pattern color for backgrounds
+  dotMatrix: 'rgba(237, 123, 88, 0.05)', // Very subtle burnt sienna tint
 };
 
 export const commonStyles = StyleSheet.create({
@@ -24,7 +27,7 @@ export const commonStyles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.card,
-    borderRadius: 0,
+    borderRadius: 0, // Sharp angular corners
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
@@ -54,7 +57,7 @@ export const commonStyles = StyleSheet.create({
   },
   button: {
     backgroundColor: colors.primary,
-    borderRadius: 0, // Sharp corners for official document look
+    borderRadius: 0, // Sharp angular corners for official document look
     paddingVertical: 12,
     paddingHorizontal: 24,
     alignItems: 'center',
@@ -69,7 +72,7 @@ export const commonStyles = StyleSheet.create({
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 0, // Sharp corners for official document look
+    borderRadius: 0, // Sharp angular corners for official document look
     paddingVertical: 12,
     paddingHorizontal: 16,
     fontSize: 16,

@@ -14,6 +14,7 @@ import {
   Alert,
   TextInput,
   KeyboardAvoidingView,
+  ImageBackground,
 } from "react-native";
 import { colors, commonStyles } from "@/styles/commonStyles";
 import { IconSymbol } from "@/components/IconSymbol";
@@ -87,6 +88,11 @@ interface Photo {
   timestamp_verified: string;
 }
 
+// Dot matrix pattern generator for SVG
+const createDotMatrixPattern = () => {
+  return `data:image/svg+xml,%3Csvg width='20' height='20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='2' cy='2' r='1' fill='%23ED7B58' opacity='0.1'/%3E%3C/svg%3E`;
+};
+
 export default function InspectionDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
@@ -131,6 +137,9 @@ export default function InspectionDetailScreen() {
   // Signature refs
   const landlordSignatureRef = useRef<any>(null);
   const tenantSignatureRef = useRef<any>(null);
+  
+  // Scroll lock state for signature pads
+  const [scrollEnabled, setScrollEnabled] = useState(true);
   
   // Alert modal
   const [alertVisible, setAlertVisible] = useState(false);
@@ -481,6 +490,41 @@ export default function InspectionDetailScreen() {
       // Format tenant signature date
       const tenantSigDate = tenantSignatureDate.toLocaleDateString('de-DE');
 
+      // CRITICAL FIX #1: Save meter data to Supabase FIRST before generating PDF
+      console.log('Saving meter data to Supabase (nested JSON object)');
+      const metersObject = {
+        electricity_no: electricityNo || '',
+        electricity_val: electricityVal || '',
+        gas_no: gasNo || '',
+        gas_val: gasVal || '',
+        water_no: waterNo || '',
+        water_val: waterVal || '',
+        heat_no: heatNo || '',
+        heat_val: heatVal || '',
+      };
+
+      const { error: updateError } = await supabase
+        .from('reports')
+        .update({
+          meters: metersObject, // Save as JSON object
+          keys_handed_over: keysHandedOver || '',
+          is_move_in: isMoveIn,
+          is_move_out: isMoveOut,
+          landlord_signature: landlordSignature || '',
+          tenant_signature: tenantSignature || '',
+          tenant_signature_date: tenantSignatureDate.toISOString(),
+        })
+        .eq('id', id);
+
+      if (updateError) {
+        console.error('Error saving meter data to Supabase:', updateError);
+        showAlert('Error', `Failed to save data: ${updateError.message}`, 'error');
+        setGeneratingPDF(false);
+        return;
+      } else {
+        console.log('Meter data saved successfully to Supabase');
+      }
+
       // CRITICAL FIX #1: Construct payload with nested 'meters' object and EXACT keys
       // CRITICAL FIX #3: All fields explicitly mapped to avoid undefined
       const pdfPayload = {
@@ -494,16 +538,7 @@ export default function InspectionDetailScreen() {
           is_move_in: isMoveIn,
           is_move_out: isMoveOut,
           // CRITICAL FIX #1: Nested meters object with exact keys
-          meters: {
-            electricity_no: electricityNo || '', // Ensure no undefined
-            electricity_val: electricityVal || '', // Ensure no undefined
-            gas_no: gasNo || '', // Ensure no undefined
-            gas_val: gasVal || '', // Ensure no undefined
-            water_no: waterNo || '', // Ensure no undefined
-            water_val: waterVal || '', // Ensure no undefined
-            heat_no: heatNo || '', // Ensure no undefined
-            heat_val: heatVal || '', // Ensure no undefined
-          },
+          meters: metersObject,
           keys_handed_over: keysHandedOver || '', // Ensure no undefined
           landlord_signature: landlordSignature || '', // Base64 signature image or empty string
           tenant_signature: tenantSignature || '', // Base64 signature image or empty string
@@ -525,34 +560,6 @@ export default function InspectionDetailScreen() {
       console.log('Endpoint URL:', CRAFTMYPDF_ENDPOINT);
       console.log('Payload:', JSON.stringify(pdfPayload, null, 2));
       console.log('═══════════════════════════════════════');
-
-      // Save session data to Supabase before generating PDF
-      console.log('Saving session data to Supabase');
-      const { error: updateError } = await supabase
-        .from('reports')
-        .update({
-          electricity_no: electricityNo || '',
-          electricity_val: electricityVal || '',
-          gas_no: gasNo || '',
-          gas_val: gasVal || '',
-          water_no: waterNo || '',
-          water_val: waterVal || '',
-          heat_no: heatNo || '',
-          heat_val: heatVal || '',
-          keys_handed_over: keysHandedOver || '',
-          is_move_in: isMoveIn,
-          is_move_out: isMoveOut,
-          landlord_signature: landlordSignature || '',
-          tenant_signature: tenantSignature || '',
-          tenant_signature_date: tenantSignatureDate.toISOString(),
-        })
-        .eq('id', id);
-
-      if (updateError) {
-        console.error('Error saving session data:', updateError);
-      } else {
-        console.log('Session data saved successfully');
-      }
 
       // Call CraftMyPDF API
       const response = await fetch(CRAFTMYPDF_ENDPOINT, {
@@ -772,7 +779,7 @@ export default function InspectionDetailScreen() {
             <Text style={styles.type}>{typeText}</Text>
           </View>
 
-          {/* Button always active (Blue #86D9F9) */}
+          {/* Button always active (Burnt Sienna #ED7B58) */}
           <TouchableOpacity
             style={styles.pdfButton}
             onPress={handleOpenFinalDetails}
@@ -805,19 +812,28 @@ export default function InspectionDetailScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* CRITICAL FIX #5: User onboarding prompt with exact text */}
+            {/* BRANDING UPDATE: Bilingual Tipp box with dot-matrix pattern and sharp corners */}
             {hasRoomsWithoutConditions && (
-              <View style={styles.onboardingTip}>
+              <ImageBackground
+                source={{ uri: createDotMatrixPattern() }}
+                style={styles.onboardingTip}
+                imageStyle={{ opacity: 0.3 }}
+              >
                 <IconSymbol
                   ios_icon_name="lightbulb.fill"
                   android_material_icon_name="lightbulb"
                   size={20}
-                  color="#FFA500"
+                  color={colors.primary}
                 />
-                <Text style={styles.onboardingTipText}>
-                  Tipp: Klicken Sie auf einen Raum, um Zustände zu protokollieren und Fotos hinzuzufügen.
-                </Text>
-              </View>
+                <View style={styles.onboardingTipTextContainer}>
+                  <Text style={styles.onboardingTipTextDe}>
+                    Tipp: Klicken Sie auf einen Raum, um Zustände zu protokollieren und Fotos hinzuzufügen.
+                  </Text>
+                  <Text style={styles.onboardingTipTextEn}>
+                    Tip: Click on a room to log conditions and add photos.
+                  </Text>
+                </View>
+              </ImageBackground>
             )}
 
             {!hasRooms && (
@@ -936,7 +952,7 @@ export default function InspectionDetailScreen() {
           </View>
         </Modal>
 
-        {/* Final Details Modal */}
+        {/* Final Details Modal with dot-matrix pattern */}
         <Modal
           visible={showFinalDetailsModal}
           animationType="slide"
@@ -949,7 +965,11 @@ export default function InspectionDetailScreen() {
             keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
           >
             <View style={styles.modalOverlay}>
-              <View style={styles.modalContent}>
+              <ImageBackground
+                source={{ uri: createDotMatrixPattern() }}
+                style={styles.modalContent}
+                imageStyle={{ opacity: 0.2 }}
+              >
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Final Details</Text>
                 <TouchableOpacity onPress={() => setShowFinalDetailsModal(false)}>
@@ -1117,12 +1137,12 @@ export default function InspectionDetailScreen() {
               >
                 <Text style={styles.modalSaveButtonText}>Proceed to Signatures</Text>
               </TouchableOpacity>
+              </ImageBackground>
             </View>
-          </View>
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
         </Modal>
 
-        {/* Signature Modal */}
+        {/* Signature Modal - CRITICAL FIX: Scroll lock enabled */}
         <Modal
           visible={showSignatureModal}
           animationType="slide"
@@ -1152,7 +1172,7 @@ export default function InspectionDetailScreen() {
                 <ScrollView 
                   style={styles.signatureScrollView} 
                   contentContainerStyle={styles.signatureScrollContent}
-                  scrollEnabled={true}
+                  scrollEnabled={scrollEnabled}
                   nestedScrollEnabled={true}
                 >
                   {/* Landlord Signature */}
@@ -1161,8 +1181,15 @@ export default function InspectionDetailScreen() {
                     {/* CRITICAL FIX #2: Disable scroll on touch to allow precise drawing */}
                     <View 
                       style={styles.signatureCanvasContainer}
-                      onStartShouldSetResponder={() => true}
-                      onMoveShouldSetResponder={() => true}
+                      onStartShouldSetResponder={() => {
+                        console.log('Landlord signature pad touched - disabling scroll');
+                        setScrollEnabled(false);
+                        return true;
+                      }}
+                      onResponderRelease={() => {
+                        console.log('Landlord signature pad released - enabling scroll');
+                        setScrollEnabled(true);
+                      }}
                     >
                       <SignatureCanvas
                         ref={landlordSignatureRef}
@@ -1204,8 +1231,15 @@ export default function InspectionDetailScreen() {
                     {/* CRITICAL FIX #2: Disable scroll on touch to allow precise drawing */}
                     <View 
                       style={styles.signatureCanvasContainer}
-                      onStartShouldSetResponder={() => true}
-                      onMoveShouldSetResponder={() => true}
+                      onStartShouldSetResponder={() => {
+                        console.log('Tenant signature pad touched - disabling scroll');
+                        setScrollEnabled(false);
+                        return true;
+                      }}
+                      onResponderRelease={() => {
+                        console.log('Tenant signature pad released - enabling scroll');
+                        setScrollEnabled(true);
+                      }}
                     >
                       <SignatureCanvas
                         ref={tenantSignatureRef}
@@ -1263,7 +1297,7 @@ export default function InspectionDetailScreen() {
                 </ScrollView>
 
                 <View style={styles.signatureModalFooter}>
-                  {/* Button always active (Blue #86D9F9) */}
+                  {/* Button always active (Burnt Sienna #ED7B58) */}
                   <TouchableOpacity
                     style={styles.generatePdfButton}
                     onPress={handleGeneratePDF}
@@ -1367,7 +1401,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
-    backgroundColor: '#86D9F9',
+    backgroundColor: colors.primary,
     paddingVertical: 18,
     paddingHorizontal: 24,
     borderRadius: 0,
@@ -1400,23 +1434,34 @@ const styles = StyleSheet.create({
   addButton: {
     padding: 4,
   },
-  // CRITICAL FIX #5: Onboarding tip styles
+  // BRANDING UPDATE: Bilingual Tipp box with dot-matrix pattern and sharp corners
   onboardingTip: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 12,
     backgroundColor: '#FFF9E6',
     borderLeftWidth: 4,
-    borderLeftColor: '#FFA500',
+    borderLeftColor: colors.primary,
     padding: 12,
     marginBottom: 16,
     borderRadius: 0,
+    overflow: 'hidden',
   },
-  onboardingTipText: {
+  onboardingTipTextContainer: {
     flex: 1,
+  },
+  onboardingTipTextDe: {
     fontSize: 14,
     color: '#8B6914',
     lineHeight: 20,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  onboardingTipTextEn: {
+    fontSize: 13,
+    color: '#A0825A',
+    lineHeight: 18,
+    fontStyle: 'italic',
   },
   emptyState: {
     alignItems: 'center',
@@ -1711,7 +1756,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
-    backgroundColor: '#86D9F9',
+    backgroundColor: colors.primary,
     paddingVertical: 18,
     paddingHorizontal: 24,
     borderRadius: 0,
