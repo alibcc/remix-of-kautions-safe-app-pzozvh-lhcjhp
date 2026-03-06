@@ -525,7 +525,7 @@ export default function InspectionDetailScreen() {
       console.log('Waiting 2 seconds to ensure database save is complete');
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // CRITICAL FIX: Construct payload with meters as NESTED OBJECT for CraftMyPDF
+      // CRITICAL FIX: Construct payload with photo_url in rows array for CraftMyPDF
       const pdfPayload = {
         template_id: CRAFTMYPDF_TEMPLATE_ID,
         data: {
@@ -550,15 +550,16 @@ export default function InspectionDetailScreen() {
             heat_no: heatNo || '',
             heat_val: heatVal || '',
           },
-          rooms_list: roomsWithData.map((room) => ({
-            room_name: room.name_de,
-            items: room.room_items.map((item: any) => ({
+          // CRITICAL FIX: Map room photos to rows array with photo_url key
+          rows: roomsWithData.flatMap((room) => 
+            room.room_items.map((item: any) => ({
+              room_name: room.name_de,
               item_name: item.item_name_de,
               status: item.condition_status,
               comment: item.notes || '',
-              photo_url: item.photo_url || '',
-            })),
-          })),
+              photo_url: item.photo_url || '', // CRITICAL: Public URL for template display
+            }))
+          ),
         },
         load_data_from_url: false,
       };
