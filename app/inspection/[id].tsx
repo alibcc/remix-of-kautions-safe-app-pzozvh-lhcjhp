@@ -39,11 +39,11 @@ const ROOM_PRESETS = [
   { nameEn: 'Garden', nameDe: 'Garten' },
 ];
 
-// VERSION 3.0.0 - UPDATED CREDENTIALS (STRICT)
+// VERIFIED CRAFTMYPDF CREDENTIALS - PRODUCTION READY
 const CRAFTMYPDF_API_KEY = '9cf6Mjg1MjM6Mjg2ODQ6a3ZWUDBhZ2lGUE9CU1UzdA=';
 const CRAFTMYPDF_TEMPLATE_ID = '5c477b23ea34170c';
 const CRAFTMYPDF_ENDPOINT = 'https://api-eur.craftmypdf.com/v1/create';
-const CRAFTMYPDF_TIMEOUT = 30000; // CRITICAL FIX: 30 seconds timeout
+const CRAFTMYPDF_TIMEOUT = 30000; // 30 seconds timeout as requested
 
 interface Room {
   id: string;
@@ -114,7 +114,7 @@ export default function InspectionDetailScreen() {
   // Signature modal state
   const [showSignatureModal, setShowSignatureModal] = useState(false);
   
-  // CRITICAL FIX: Meter readings state with exact keys matching database columns
+  // CRITICAL: Meter readings state - maps directly to Supabase columns
   const [electricityNo, setElectricityNo] = useState('');
   const [electricityVal, setElectricityVal] = useState('');
   const [gasNo, setGasNo] = useState('');
@@ -138,7 +138,7 @@ export default function InspectionDetailScreen() {
   const landlordSignatureRef = useRef<any>(null);
   const tenantSignatureRef = useRef<any>(null);
   
-  // CRITICAL FIX: Scroll lock state for signature pads
+  // Scroll lock state for signature pads
   const [scrollEnabled, setScrollEnabled] = useState(true);
   
   // Alert modal
@@ -381,7 +381,6 @@ export default function InspectionDetailScreen() {
     setShowSignatureModal(true);
   };
 
-  // CRITICAL FIX: Clear signature functions that fully reset pads
   const handleClearLandlordSignature = () => {
     console.log('Clearing landlord signature');
     setLandlordSignature(null);
@@ -398,14 +397,16 @@ export default function InspectionDetailScreen() {
     }
   };
 
-  // Close signature modal
   const handleCloseSignatureModal = () => {
     console.log('User tapped X button on signature modal - closing instantly');
     setShowSignatureModal(false);
   };
 
   const handleGeneratePDF = async () => {
-    console.log('User tapped Create Official Protocol button - Production Ready');
+    console.log('═══════════════════════════════════════');
+    console.log('PDF GENERATION STARTED - PRODUCTION READY');
+    console.log('User tapped Create Official Protocol button');
+    console.log('═══════════════════════════════════════');
     
     if (!id || !report) {
       showAlert('Error', 'Report data is not available', 'error');
@@ -420,7 +421,7 @@ export default function InspectionDetailScreen() {
     setGeneratingPDF(true);
 
     try {
-      console.log('Fetching all data for PDF generation');
+      console.log('Step 1: Fetching all data for PDF generation');
 
       // Fetch participants
       const { data: participantsData, error: participantsError } = await supabase
@@ -433,7 +434,7 @@ export default function InspectionDetailScreen() {
       }
 
       const participants = participantsData || [];
-      console.log('Participants:', participants.length);
+      console.log('Participants fetched:', participants.length);
 
       // Extract landlord and tenant names with fallback to empty string
       const landlordParticipant = participants.find((p: Participant) => p.role === 'Landlord');
@@ -473,7 +474,6 @@ export default function InspectionDetailScreen() {
               }
 
               const photo = photosData && photosData.length > 0 ? photosData[0] : null;
-              // Ensure photo_url is absolute URL or empty string
               return { ...item, photo_url: photo?.storage_url || '' };
             })
           );
@@ -490,9 +490,18 @@ export default function InspectionDetailScreen() {
       // Format tenant signature date
       const tenantSigDate = tenantSignatureDate.toLocaleDateString('de-DE');
 
-      // CRITICAL FIX #1: Save meter data directly to individual columns (NOT nested JSON)
-      // Ensure all values are empty strings ("") instead of null
-      console.log('Saving meter data to Supabase (8 individual columns with empty strings)');
+      console.log('═══════════════════════════════════════');
+      console.log('Step 2: Saving meter data to Supabase (8 individual columns)');
+      console.log('Meter data being saved:');
+      console.log('  electricity_no:', electricityNo || '(empty)');
+      console.log('  electricity_val:', electricityVal || '(empty)');
+      console.log('  gas_no:', gasNo || '(empty)');
+      console.log('  gas_val:', gasVal || '(empty)');
+      console.log('  water_no:', waterNo || '(empty)');
+      console.log('  water_val:', waterVal || '(empty)');
+      console.log('  heat_no:', heatNo || '(empty)');
+      console.log('  heat_val:', heatVal || '(empty)');
+      console.log('═══════════════════════════════════════');
       
       const { error: updateError } = await supabase
         .from('reports')
@@ -515,20 +524,24 @@ export default function InspectionDetailScreen() {
         .eq('id', id);
 
       if (updateError) {
-        console.error('Error saving meter data to Supabase:', updateError);
+        console.error('❌ Error saving meter data to Supabase:', updateError);
         showAlert('Error', `Failed to save data: ${updateError.message}`, 'error');
         setGeneratingPDF(false);
         return;
       } else {
-        console.log('✅ Meter data saved successfully to Supabase (8 individual columns with empty strings)');
+        console.log('✅ Meter data saved successfully to Supabase');
       }
 
-      // CRITICAL FIX: Wait 2 seconds to ensure database save is 100% complete
-      console.log('Waiting 2 seconds to ensure database save is complete');
+      // Wait 2 seconds to ensure database save is complete
+      console.log('Waiting 2 seconds to ensure database save is complete...');
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // CRITICAL FIX #2: Construct payload with meters as NESTED JSON OBJECT for CraftMyPDF
-      // All empty values MUST be "" (empty strings), not null
+      console.log('═══════════════════════════════════════');
+      console.log('Step 3: Preparing CraftMyPDF payload');
+      console.log('Wrapping 8 meter values in nested "meters" object for template');
+      console.log('═══════════════════════════════════════');
+
+      // Construct payload with meters as NESTED JSON OBJECT for CraftMyPDF
       const pdfPayload = {
         template_id: CRAFTMYPDF_TEMPLATE_ID,
         data: {
@@ -542,8 +555,7 @@ export default function InspectionDetailScreen() {
           keys_handed_over: keysHandedOver || '',
           landlord_signature: landlordSignature || '',
           tenant_signature: tenantSignature || '',
-          // CRITICAL FIX #2: Wrap 8 meter values in nested 'meters' object for CraftMyPDF template
-          // NO TRAILING COMMAS - JavaScript object literal handles this automatically
+          // CRITICAL: Wrap 8 meter values in nested 'meters' object for CraftMyPDF template
           meters: {
             electricity_no: electricityNo || '',
             electricity_val: electricityVal || '',
@@ -554,14 +566,13 @@ export default function InspectionDetailScreen() {
             heat_no: heatNo || '',
             heat_val: heatVal || ''
           },
-          // CRITICAL FIX: Map room photos to rows array with photo_url key
           rows: roomsWithData.flatMap((room) => 
             room.room_items.map((item: any) => ({
               room_name: room.name_de,
               item_name: item.item_name_de,
               status: item.condition_status,
               comment: item.notes || '',
-              photo_url: item.photo_url || '', // CRITICAL: Public URL for template display
+              photo_url: item.photo_url || '',
             }))
           ),
         },
@@ -569,13 +580,16 @@ export default function InspectionDetailScreen() {
       };
 
       console.log('═══════════════════════════════════════');
-      console.log('PDF GENERATION REQUEST - PRODUCTION');
-      console.log('Endpoint URL:', CRAFTMYPDF_ENDPOINT);
+      console.log('Step 4: Calling CraftMyPDF API');
+      console.log('Endpoint:', CRAFTMYPDF_ENDPOINT);
+      console.log('Template ID:', CRAFTMYPDF_TEMPLATE_ID);
       console.log('Timeout:', CRAFTMYPDF_TIMEOUT, 'ms (30 seconds)');
-      console.log('Payload meters object (valid JSON, no trailing commas, empty strings):', JSON.stringify(pdfPayload.data.meters, null, 2));
+      console.log('Headers: X-API-KEY included');
+      console.log('Meters object (valid JSON, no trailing commas):');
+      console.log(JSON.stringify(pdfPayload.data.meters, null, 2));
       console.log('═══════════════════════════════════════');
 
-      // CRITICAL FIX #2: Call CraftMyPDF API with 30-second timeout
+      // Call CraftMyPDF API with 30-second timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), CRAFTMYPDF_TIMEOUT);
 
@@ -623,7 +637,7 @@ export default function InspectionDetailScreen() {
         }
 
         const result = await response.json();
-        console.log('PDF generated successfully:', result);
+        console.log('✅ PDF generated successfully:', result);
 
         // Extract PDF URL from response
         const pdfUrl = result.file || result.url || result.pdf_url;
@@ -635,8 +649,10 @@ export default function InspectionDetailScreen() {
 
         console.log('PDF URL received:', pdfUrl);
 
-        // CRITICAL FIX: Save PDF URL to Supabase and wait for confirmation
-        console.log('Saving PDF URL to Supabase');
+        console.log('═══════════════════════════════════════');
+        console.log('Step 5: Saving PDF URL to Supabase');
+        console.log('═══════════════════════════════════════');
+        
         const { error: pdfUrlUpdateError } = await supabase
           .from('reports')
           .update({ 
@@ -646,24 +662,26 @@ export default function InspectionDetailScreen() {
           .eq('id', id);
 
         if (pdfUrlUpdateError) {
-          console.error('Error saving PDF URL to Supabase:', pdfUrlUpdateError);
+          console.error('❌ Error saving PDF URL to Supabase:', pdfUrlUpdateError);
           showAlert('Warning', 'PDF generated but failed to save URL to database', 'error');
         } else {
-          console.log('PDF URL saved successfully to Supabase');
+          console.log('✅ PDF URL saved successfully to Supabase');
         }
 
-        // CRITICAL FIX: Wait 2 seconds to ensure PDF URL is fully saved before triggering email
-        console.log('Waiting 2 seconds to ensure PDF URL is fully saved');
+        // Wait 2 seconds to ensure PDF URL is fully saved
+        console.log('Waiting 2 seconds to ensure PDF URL is fully saved...');
         await new Promise(resolve => setTimeout(resolve, 2000));
 
-        // CRITICAL FIX: Trigger email with PDF attachment AFTER PDF URL is saved
-        console.log('Triggering email to:', user.email);
+        console.log('═══════════════════════════════════════');
+        console.log('Step 6: Triggering email with PDF attachment');
+        console.log('Recipient:', user.email);
+        console.log('═══════════════════════════════════════');
+        
         try {
           await sendPdfEmail(user.email, pdfUrl, id as string, report.address);
-          console.log('Email sent successfully');
+          console.log('✅ Email sent successfully');
         } catch (emailError: any) {
-          console.error('Error sending email:', emailError);
-          // Don't fail the whole operation if email fails
+          console.error('❌ Error sending email:', emailError);
           showAlert('Warning', 'PDF generated successfully but email failed to send. You can access the PDF from the History tab.', 'info');
         }
 
@@ -680,6 +698,10 @@ export default function InspectionDetailScreen() {
           console.error('Cannot open URL:', pdfUrl);
           showAlert('Success', 'PDF generated and saved! An email with the PDF has been sent to your address.', 'success');
         }
+
+        console.log('═══════════════════════════════════════');
+        console.log('✅ PDF GENERATION COMPLETE - SUCCESS');
+        console.log('═══════════════════════════════════════');
       } catch (fetchError: any) {
         clearTimeout(timeoutId);
         if (fetchError.name === 'AbortError') {
@@ -688,7 +710,7 @@ export default function InspectionDetailScreen() {
         throw fetchError;
       }
     } catch (error: any) {
-      console.error('Error generating PDF:', error);
+      console.error('❌ Error generating PDF:', error);
       showAlert('PDF Generation Error', error.message || 'Failed to generate PDF. Please check your Template ID and API Key.', 'error');
     } finally {
       setGeneratingPDF(false);
@@ -786,8 +808,6 @@ export default function InspectionDetailScreen() {
 
   const typeText = getTypeText(report.inspection_type);
   const hasRooms = rooms.length > 0;
-  
-  // Check if any room exists for onboarding tip
   const hasRoomsWithoutConditions = rooms.length > 0;
 
   return (
@@ -807,7 +827,7 @@ export default function InspectionDetailScreen() {
             <Text style={styles.type}>{typeText}</Text>
           </View>
 
-          {/* BRANDING UPDATE: Burnt Sienna button with sharp corners */}
+          {/* BRANDING: Burnt Sienna button with sharp corners */}
           <TouchableOpacity
             style={styles.pdfButton}
             onPress={handleOpenFinalDetails}
@@ -840,7 +860,7 @@ export default function InspectionDetailScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* BRANDING UPDATE: Bilingual Tipp box with dot-matrix pattern and sharp corners */}
+            {/* BRANDING: Bilingual Tipp box with dot-matrix pattern and sharp corners */}
             {hasRoomsWithoutConditions && (
               <ImageBackground
                 source={{ uri: createDotMatrixPattern() }}
@@ -1170,7 +1190,7 @@ export default function InspectionDetailScreen() {
           </KeyboardAvoidingView>
         </Modal>
 
-        {/* Signature Modal - CRITICAL FIX: Scroll lock enabled */}
+        {/* Signature Modal */}
         <Modal
           visible={showSignatureModal}
           animationType="slide"
@@ -1205,7 +1225,6 @@ export default function InspectionDetailScreen() {
                   {/* Landlord Signature */}
                   <View style={styles.signatureSection}>
                     <Text style={styles.signatureLabel}>Vermieter (Landlord) Signature</Text>
-                    {/* CRITICAL FIX: Disable scroll on touch to allow precise drawing */}
                     <View 
                       style={styles.signatureCanvasContainer}
                       onStartShouldSetResponder={() => {
@@ -1254,7 +1273,6 @@ export default function InspectionDetailScreen() {
                   {/* Tenant Signature */}
                   <View style={styles.signatureSection}>
                     <Text style={styles.signatureLabel}>Mieter (Tenant) Signature</Text>
-                    {/* CRITICAL FIX: Disable scroll on touch to allow precise drawing */}
                     <View 
                       style={styles.signatureCanvasContainer}
                       onStartShouldSetResponder={() => {
