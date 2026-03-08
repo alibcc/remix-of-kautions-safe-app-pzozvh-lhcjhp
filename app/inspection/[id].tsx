@@ -39,10 +39,10 @@ const ROOM_PRESETS = [
   { nameEn: 'Garden', nameDe: 'Garten' },
 ];
 
-// VERIFIED CRAFTMYPDF CREDENTIALS - PRODUCTION READY
+// VERIFIED CRAFTMYPDF CREDENTIALS - EUROPEAN ENDPOINT
 const CRAFTMYPDF_API_KEY = '9cf6Mjg1MjM6Mjg2ODQ6a3ZWUDBhZ2lGUE9CU1UzdA=';
 const CRAFTMYPDF_TEMPLATE_ID = '5c477b23ea34170c';
-const CRAFTMYPDF_ENDPOINT = 'https://api-eur.craftmypdf.com/v1/create';
+const CRAFTMYPDF_ENDPOINT = 'https://api-de.craftmypdf.com/v1/create'; // UPDATED: European endpoint
 const CRAFTMYPDF_TIMEOUT = 30000; // 30 seconds timeout as requested
 
 interface Room {
@@ -404,7 +404,7 @@ export default function InspectionDetailScreen() {
 
   const handleGeneratePDF = async () => {
     console.log('═══════════════════════════════════════');
-    console.log('PDF GENERATION STARTED - PRODUCTION READY');
+    console.log('PDF GENERATION STARTED - EUROPEAN ENDPOINT');
     console.log('User tapped Create Official Protocol button');
     console.log('═══════════════════════════════════════');
     
@@ -538,10 +538,10 @@ export default function InspectionDetailScreen() {
 
       console.log('═══════════════════════════════════════');
       console.log('Step 3: Preparing CraftMyPDF payload');
-      console.log('Wrapping 8 meter values in nested "meters" object for template');
+      console.log('Wrapping 8 meter values in nested "meters" object inside "data" for template');
       console.log('═══════════════════════════════════════');
 
-      // Construct payload with meters as NESTED JSON OBJECT for CraftMyPDF
+      // Construct payload with meters as NESTED JSON OBJECT inside data for CraftMyPDF
       const pdfPayload = {
         template_id: CRAFTMYPDF_TEMPLATE_ID,
         data: {
@@ -555,7 +555,7 @@ export default function InspectionDetailScreen() {
           keys_handed_over: keysHandedOver || '',
           landlord_signature: landlordSignature || '',
           tenant_signature: tenantSignature || '',
-          // CRITICAL: Wrap 8 meter values in nested 'meters' object for CraftMyPDF template
+          // CRITICAL: Wrap 8 meter values in nested 'meters' object inside 'data' for CraftMyPDF template
           meters: {
             electricity_no: electricityNo || '',
             electricity_val: electricityVal || '',
@@ -580,7 +580,7 @@ export default function InspectionDetailScreen() {
       };
 
       console.log('═══════════════════════════════════════');
-      console.log('Step 4: Calling CraftMyPDF API');
+      console.log('Step 4: Calling CraftMyPDF API (EUROPEAN ENDPOINT)');
       console.log('Endpoint:', CRAFTMYPDF_ENDPOINT);
       console.log('Template ID:', CRAFTMYPDF_TEMPLATE_ID);
       console.log('Timeout:', CRAFTMYPDF_TIMEOUT, 'ms (30 seconds)');
