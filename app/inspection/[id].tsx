@@ -43,6 +43,7 @@ const ROOM_PRESETS = [
 const CRAFTMYPDF_API_KEY = '9cf6Mjg1MjM6Mjg2ODQ6a3ZWUDBhZ2lGUE9CU1UzdA=';
 const CRAFTMYPDF_TEMPLATE_ID = '5c477b23ea34170c';
 const CRAFTMYPDF_ENDPOINT = 'https://api-eur.craftmypdf.com/v1/create';
+const CRAFTMYPDF_TIMEOUT = 30000; // CRITICAL FIX: 30 seconds timeout
 
 interface Room {
   id: string;
@@ -89,7 +90,7 @@ interface Photo {
 
 // Dot matrix pattern generator for SVG
 const createDotMatrixPattern = () => {
-  return `data:image/svg+xml,%3Csvg width='20' height='20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='2' cy='2' r='1' fill='%23ED7B58' opacity='0.1'/%3E%3C/svg%3E`;
+  return `data:image/svg+xml,%3Csvg width='20' height='20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='2' cy='2' r='1' fill='%23ED7B58' opacity='0.15'/%3E%3C/svg%3E`;
 };
 
 export default function InspectionDetailScreen() {
@@ -489,8 +490,8 @@ export default function InspectionDetailScreen() {
       // Format tenant signature date
       const tenantSigDate = tenantSignatureDate.toLocaleDateString('de-DE');
 
-      // CRITICAL FIX: Save meter data directly to individual columns (NOT nested JSON)
-      console.log('Saving meter data to Supabase (individual columns)');
+      // CRITICAL FIX #1: Save meter data directly to individual columns (NOT nested JSON)
+      console.log('Saving meter data to Supabase (8 individual columns)');
       
       const { error: updateError } = await supabase
         .from('reports')
@@ -518,14 +519,14 @@ export default function InspectionDetailScreen() {
         setGeneratingPDF(false);
         return;
       } else {
-        console.log('Meter data saved successfully to Supabase (individual columns)');
+        console.log('✅ Meter data saved successfully to Supabase (8 individual columns)');
       }
 
       // CRITICAL FIX: Wait 2 seconds to ensure database save is 100% complete
       console.log('Waiting 2 seconds to ensure database save is complete');
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // CRITICAL FIX: Construct payload with photo_url in rows array for CraftMyPDF
+      // CRITICAL FIX #2: Construct payload with meters as NESTED JSON OBJECT for CraftMyPDF
       const pdfPayload = {
         template_id: CRAFTMYPDF_TEMPLATE_ID,
         data: {
@@ -539,7 +540,7 @@ export default function InspectionDetailScreen() {
           keys_handed_over: keysHandedOver || '',
           landlord_signature: landlordSignature || '',
           tenant_signature: tenantSignature || '',
-          // CRITICAL FIX: Send meters as NESTED OBJECT to match CraftMyPDF template
+          // CRITICAL FIX #2: Wrap 8 meter values in nested 'meters' object for CraftMyPDF template
           meters: {
             electricity_no: electricityNo || '',
             electricity_val: electricityVal || '',
@@ -567,106 +568,121 @@ export default function InspectionDetailScreen() {
       console.log('═══════════════════════════════════════');
       console.log('PDF GENERATION REQUEST - PRODUCTION');
       console.log('Endpoint URL:', CRAFTMYPDF_ENDPOINT);
-      console.log('Payload:', JSON.stringify(pdfPayload, null, 2));
+      console.log('Timeout:', CRAFTMYPDF_TIMEOUT, 'ms (30 seconds)');
+      console.log('Payload meters object:', JSON.stringify(pdfPayload.data.meters, null, 2));
       console.log('═══════════════════════════════════════');
 
-      // Call CraftMyPDF API
-      const response = await fetch(CRAFTMYPDF_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'X-API-KEY': CRAFTMYPDF_API_KEY,
-        },
-        body: JSON.stringify(pdfPayload),
-      });
+      // CRITICAL FIX #2: Call CraftMyPDF API with 30-second timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), CRAFTMYPDF_TIMEOUT);
 
-      console.log('CraftMyPDF API response status:', response.status);
-
-      if (!response.ok) {
-        let errorMessage = `PDF generation failed with status ${response.status}`;
-        let errorDetails = '';
-        
-        try {
-          const errorData = await response.json();
-          console.error('CraftMyPDF API error response:', errorData);
-          
-          if (errorData.message) {
-            errorDetails = errorData.message;
-          } else if (errorData.error) {
-            errorDetails = errorData.error;
-          } else if (errorData.errors && Array.isArray(errorData.errors)) {
-            errorDetails = errorData.errors.join(', ');
-          }
-        } catch (parseError) {
-          const errorText = await response.text();
-          console.error('CraftMyPDF API error text:', errorText);
-          if (errorText) {
-            errorDetails = errorText;
-          }
-        }
-        
-        const fullErrorMessage = `${errorMessage}\n\nError Details:\n${errorDetails}`;
-        throw new Error(fullErrorMessage);
-      }
-
-      const result = await response.json();
-      console.log('PDF generated successfully:', result);
-
-      // Extract PDF URL from response
-      const pdfUrl = result.file || result.url || result.pdf_url;
-
-      if (!pdfUrl) {
-        console.error('No PDF URL in response:', result);
-        throw new Error('PDF URL not found in response');
-      }
-
-      console.log('PDF URL received:', pdfUrl);
-
-      // CRITICAL FIX: Save PDF URL to Supabase and wait for confirmation
-      console.log('Saving PDF URL to Supabase');
-      const { error: pdfUrlUpdateError } = await supabase
-        .from('reports')
-        .update({ 
-          pdf_url: pdfUrl,
-          status: 'COMPLETED'
-        })
-        .eq('id', id);
-
-      if (pdfUrlUpdateError) {
-        console.error('Error saving PDF URL to Supabase:', pdfUrlUpdateError);
-        showAlert('Warning', 'PDF generated but failed to save URL to database', 'error');
-      } else {
-        console.log('PDF URL saved successfully to Supabase');
-      }
-
-      // CRITICAL FIX: Wait 2 seconds to ensure PDF URL is fully saved before triggering email
-      console.log('Waiting 2 seconds to ensure PDF URL is fully saved');
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // CRITICAL FIX: Trigger email with PDF attachment AFTER PDF URL is saved
-      console.log('Triggering email to:', user.email);
       try {
-        await sendPdfEmail(user.email, pdfUrl, id as string, report.address);
-        console.log('Email sent successfully');
-      } catch (emailError: any) {
-        console.error('Error sending email:', emailError);
-        // Don't fail the whole operation if email fails
-        showAlert('Warning', 'PDF generated successfully but email failed to send. You can access the PDF from the History tab.', 'info');
-      }
+        const response = await fetch(CRAFTMYPDF_ENDPOINT, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-API-KEY': CRAFTMYPDF_API_KEY,
+          },
+          body: JSON.stringify(pdfPayload),
+          signal: controller.signal,
+        });
 
-      // Close signature modal
-      setShowSignatureModal(false);
+        clearTimeout(timeoutId);
 
-      // Open the PDF URL
-      console.log('Opening PDF URL:', pdfUrl);
-      const canOpen = await Linking.canOpenURL(pdfUrl);
-      if (canOpen) {
-        await Linking.openURL(pdfUrl);
-        showAlert('Success', 'PDF generated successfully! An email with the PDF has been sent to your address.', 'success');
-      } else {
-        console.error('Cannot open URL:', pdfUrl);
-        showAlert('Success', 'PDF generated and saved! An email with the PDF has been sent to your address.', 'success');
+        console.log('CraftMyPDF API response status:', response.status);
+
+        if (!response.ok) {
+          let errorMessage = `PDF generation failed with status ${response.status}`;
+          let errorDetails = '';
+          
+          try {
+            const errorData = await response.json();
+            console.error('CraftMyPDF API error response:', errorData);
+            
+            if (errorData.message) {
+              errorDetails = errorData.message;
+            } else if (errorData.error) {
+              errorDetails = errorData.error;
+            } else if (errorData.errors && Array.isArray(errorData.errors)) {
+              errorDetails = errorData.errors.join(', ');
+            }
+          } catch (parseError) {
+            const errorText = await response.text();
+            console.error('CraftMyPDF API error text:', errorText);
+            if (errorText) {
+              errorDetails = errorText;
+            }
+          }
+          
+          const fullErrorMessage = `${errorMessage}\n\nError Details:\n${errorDetails}`;
+          throw new Error(fullErrorMessage);
+        }
+
+        const result = await response.json();
+        console.log('PDF generated successfully:', result);
+
+        // Extract PDF URL from response
+        const pdfUrl = result.file || result.url || result.pdf_url;
+
+        if (!pdfUrl) {
+          console.error('No PDF URL in response:', result);
+          throw new Error('PDF URL not found in response');
+        }
+
+        console.log('PDF URL received:', pdfUrl);
+
+        // CRITICAL FIX: Save PDF URL to Supabase and wait for confirmation
+        console.log('Saving PDF URL to Supabase');
+        const { error: pdfUrlUpdateError } = await supabase
+          .from('reports')
+          .update({ 
+            pdf_url: pdfUrl,
+            status: 'COMPLETED'
+          })
+          .eq('id', id);
+
+        if (pdfUrlUpdateError) {
+          console.error('Error saving PDF URL to Supabase:', pdfUrlUpdateError);
+          showAlert('Warning', 'PDF generated but failed to save URL to database', 'error');
+        } else {
+          console.log('PDF URL saved successfully to Supabase');
+        }
+
+        // CRITICAL FIX: Wait 2 seconds to ensure PDF URL is fully saved before triggering email
+        console.log('Waiting 2 seconds to ensure PDF URL is fully saved');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // CRITICAL FIX: Trigger email with PDF attachment AFTER PDF URL is saved
+        console.log('Triggering email to:', user.email);
+        try {
+          await sendPdfEmail(user.email, pdfUrl, id as string, report.address);
+          console.log('Email sent successfully');
+        } catch (emailError: any) {
+          console.error('Error sending email:', emailError);
+          // Don't fail the whole operation if email fails
+          showAlert('Warning', 'PDF generated successfully but email failed to send. You can access the PDF from the History tab.', 'info');
+        }
+
+        // Close signature modal
+        setShowSignatureModal(false);
+
+        // Open the PDF URL
+        console.log('Opening PDF URL:', pdfUrl);
+        const canOpen = await Linking.canOpenURL(pdfUrl);
+        if (canOpen) {
+          await Linking.openURL(pdfUrl);
+          showAlert('Success', 'PDF generated successfully! An email with the PDF has been sent to your address.', 'success');
+        } else {
+          console.error('Cannot open URL:', pdfUrl);
+          showAlert('Success', 'PDF generated and saved! An email with the PDF has been sent to your address.', 'success');
+        }
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        if (fetchError.name === 'AbortError') {
+          throw new Error('PDF generation timed out after 30 seconds. Please try again.');
+        }
+        throw fetchError;
       }
     } catch (error: any) {
       console.error('Error generating PDF:', error);
