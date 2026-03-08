@@ -491,7 +491,8 @@ export default function InspectionDetailScreen() {
       const tenantSigDate = tenantSignatureDate.toLocaleDateString('de-DE');
 
       // CRITICAL FIX #1: Save meter data directly to individual columns (NOT nested JSON)
-      console.log('Saving meter data to Supabase (8 individual columns)');
+      // Ensure all values are empty strings ("") instead of null
+      console.log('Saving meter data to Supabase (8 individual columns with empty strings)');
       
       const { error: updateError } = await supabase
         .from('reports')
@@ -519,7 +520,7 @@ export default function InspectionDetailScreen() {
         setGeneratingPDF(false);
         return;
       } else {
-        console.log('✅ Meter data saved successfully to Supabase (8 individual columns)');
+        console.log('✅ Meter data saved successfully to Supabase (8 individual columns with empty strings)');
       }
 
       // CRITICAL FIX: Wait 2 seconds to ensure database save is 100% complete
@@ -527,6 +528,7 @@ export default function InspectionDetailScreen() {
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       // CRITICAL FIX #2: Construct payload with meters as NESTED JSON OBJECT for CraftMyPDF
+      // All empty values MUST be "" (empty strings), not null
       const pdfPayload = {
         template_id: CRAFTMYPDF_TEMPLATE_ID,
         data: {
@@ -541,6 +543,7 @@ export default function InspectionDetailScreen() {
           landlord_signature: landlordSignature || '',
           tenant_signature: tenantSignature || '',
           // CRITICAL FIX #2: Wrap 8 meter values in nested 'meters' object for CraftMyPDF template
+          // NO TRAILING COMMAS - JavaScript object literal handles this automatically
           meters: {
             electricity_no: electricityNo || '',
             electricity_val: electricityVal || '',
@@ -549,7 +552,7 @@ export default function InspectionDetailScreen() {
             water_no: waterNo || '',
             water_val: waterVal || '',
             heat_no: heatNo || '',
-            heat_val: heatVal || '',
+            heat_val: heatVal || ''
           },
           // CRITICAL FIX: Map room photos to rows array with photo_url key
           rows: roomsWithData.flatMap((room) => 
@@ -569,7 +572,7 @@ export default function InspectionDetailScreen() {
       console.log('PDF GENERATION REQUEST - PRODUCTION');
       console.log('Endpoint URL:', CRAFTMYPDF_ENDPOINT);
       console.log('Timeout:', CRAFTMYPDF_TIMEOUT, 'ms (30 seconds)');
-      console.log('Payload meters object:', JSON.stringify(pdfPayload.data.meters, null, 2));
+      console.log('Payload meters object (valid JSON, no trailing commas, empty strings):', JSON.stringify(pdfPayload.data.meters, null, 2));
       console.log('═══════════════════════════════════════');
 
       // CRITICAL FIX #2: Call CraftMyPDF API with 30-second timeout

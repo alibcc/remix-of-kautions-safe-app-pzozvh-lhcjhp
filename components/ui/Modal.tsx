@@ -37,9 +37,9 @@ export function ConfirmModal({
       case 'danger':
         return '#FF3B30';
       case 'success':
-        return '#86D9F9';
+        return colors.primary;
       default:
-        return '#86D9F9';
+        return colors.primary;
     }
   };
 
@@ -153,9 +153,9 @@ export function AlertModal({
       case 'error':
         return '#EF4444';
       case 'success':
-        return '#86D9F9';
+        return colors.primary;
       default:
-        return '#86D9F9';
+        return colors.primary;
     }
   };
 
@@ -182,7 +182,7 @@ export function AlertModal({
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.message}>{message}</Text>
 
-          {/* CRITICAL FIX #2: Increased button width and ensured text is visible */}
+          {/* BRANDING FIX: Burnt Sienna button with sharp corners */}
           <TouchableOpacity
             style={[styles.button, styles.singleButton, { backgroundColor: buttonColor }]}
             onPress={onClose}
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   confirmButton: {
-    backgroundColor: '#86D9F9',
+    backgroundColor: colors.primary,
   },
   confirmButtonText: {
     fontSize: 16,
@@ -274,9 +274,8 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
-  // CRITICAL FIX #2: Increased width and ensured text is centered and visible
   singleButton: {
-    backgroundColor: '#86D9F9',
+    backgroundColor: colors.primary,
     width: '100%',
     minWidth: 250,
     paddingVertical: 18,
