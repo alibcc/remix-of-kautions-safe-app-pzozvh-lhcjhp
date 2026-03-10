@@ -24,8 +24,8 @@ import { sendPdfEmail } from "@/utils/api";
 import SignatureCanvas from "react-native-signature-canvas";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { decode } from 'base64-arraybuffer';
 
-// EXPANDED Room preset list with English and German names
 const ROOM_PRESETS = [
   { nameEn: 'Living Room', nameDe: 'Wohnzimmer' },
   { nameEn: 'Bedroom', nameDe: 'Schlafzimmer' },
@@ -39,11 +39,10 @@ const ROOM_PRESETS = [
   { nameEn: 'Garden', nameDe: 'Garten' },
 ];
 
-// VERIFIED CRAFTMYPDF CREDENTIALS - EUROPEAN ENDPOINT
 const CRAFTMYPDF_API_KEY = '9cf6Mjg1MjM6Mjg2ODQ6a3ZWUDBhZ2lGUE9CU1UzdA=';
 const CRAFTMYPDF_TEMPLATE_ID = '5c477b23ea34170c';
-const CRAFTMYPDF_ENDPOINT = 'https://api-de.craftmypdf.com/v1/create'; // UPDATED: European endpoint
-const CRAFTMYPDF_TIMEOUT = 30000; // 30 seconds timeout as requested
+const CRAFTMYPDF_ENDPOINT = 'https://api-de.craftmypdf.com/v1/create';
+const CRAFTMYPDF_TIMEOUT = 30000;
 
 interface Room {
   id: string;
@@ -88,7 +87,6 @@ interface Photo {
   timestamp_verified: string;
 }
 
-// Dot matrix pattern generator for SVG
 const createDotMatrixPattern = () => {
   return `data:image/svg+xml,%3Csvg width='20' height='20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='2' cy='2' r='1' fill='%23ED7B58' opacity='0.15'/%3E%3C/svg%3E`;
 };
@@ -104,17 +102,12 @@ export default function InspectionDetailScreen() {
   const [savingRoom, setSavingRoom] = useState(false);
   const [generatingPDF, setGeneratingPDF] = useState(false);
   
-  // Room modal state
   const [showAddRoomModal, setShowAddRoomModal] = useState(false);
   const [selectedRoomPreset, setSelectedRoomPreset] = useState<typeof ROOM_PRESETS[0] | null>(null);
   
-  // Final Details modal state
   const [showFinalDetailsModal, setShowFinalDetailsModal] = useState(false);
-  
-  // Signature modal state
   const [showSignatureModal, setShowSignatureModal] = useState(false);
   
-  // CRITICAL: Meter readings state - maps directly to Supabase columns
   const [electricityNo, setElectricityNo] = useState('');
   const [electricityVal, setElectricityVal] = useState('');
   const [gasNo, setGasNo] = useState('');
@@ -124,24 +117,19 @@ export default function InspectionDetailScreen() {
   const [heatNo, setHeatNo] = useState('');
   const [heatVal, setHeatVal] = useState('');
   
-  // Keys and handover type state
   const [keysHandedOver, setKeysHandedOver] = useState('');
   const [isMoveIn, setIsMoveIn] = useState(false);
   const [isMoveOut, setIsMoveOut] = useState(false);
   
-  // Signature state
   const [landlordSignature, setLandlordSignature] = useState<string | null>(null);
   const [tenantSignature, setTenantSignature] = useState<string | null>(null);
   const [tenantSignatureDate, setTenantSignatureDate] = useState(new Date());
   
-  // Signature refs
   const landlordSignatureRef = useRef<any>(null);
   const tenantSignatureRef = useRef<any>(null);
   
-  // Scroll lock state for signature pads
   const [scrollEnabled, setScrollEnabled] = useState(true);
   
-  // Alert modal
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertTitle, setAlertTitle] = useState('');
   const [alertMessage, setAlertMessage] = useState('');
@@ -154,7 +142,6 @@ export default function InspectionDetailScreen() {
     setAlertVisible(true);
   };
 
-  // Fetch report and rooms
   useEffect(() => {
     let isMounted = true;
 
@@ -170,13 +157,11 @@ export default function InspectionDetailScreen() {
       setReport(null);
       setRooms([]);
 
-      // 1-second delay to give Supabase time to index new reports
       await new Promise(resolve => setTimeout(resolve, 1000));
 
       if (!isMounted) return;
 
       try {
-        // Fetch report
         const { data: reportData, error: fetchError } = await supabase
           .from('reports')
           .select('*')
@@ -202,7 +187,6 @@ export default function InspectionDetailScreen() {
           console.log('InspectionDetailScreen: Report loaded successfully');
           setReport(reportData);
 
-          // Fetch rooms for this report
           const { data: roomsData, error: roomsError } = await supabase
             .from('rooms')
             .select('*')
@@ -265,7 +249,6 @@ export default function InspectionDetailScreen() {
           setReport(data);
           setError(null);
 
-          // Fetch rooms
           const { data: roomsData, error: roomsError } = await supabase
             .from('rooms')
             .select('*')
@@ -316,7 +299,6 @@ export default function InspectionDetailScreen() {
         name_de: selectedRoomPreset.nameDe,
       });
 
-      // Insert directly into Supabase rooms table
       const { data: newRoom, error: insertError } = await supabase
         .from('rooms')
         .insert([{
@@ -340,7 +322,6 @@ export default function InspectionDetailScreen() {
 
       console.log('Room added successfully:', newRoom);
 
-      // Refresh the rooms list
       const { data: roomsData, error: roomsError } = await supabase
         .from('rooms')
         .select('*')
@@ -404,7 +385,7 @@ export default function InspectionDetailScreen() {
 
   const handleGeneratePDF = async () => {
     console.log('═══════════════════════════════════════');
-    console.log('PDF GENERATION STARTED - EUROPEAN ENDPOINT');
+    console.log('PDF GENERATION STARTED - MEGA-FIX VERSION');
     console.log('User tapped Create Official Protocol button');
     console.log('═══════════════════════════════════════');
     
@@ -423,7 +404,6 @@ export default function InspectionDetailScreen() {
     try {
       console.log('Step 1: Fetching all data for PDF generation');
 
-      // Fetch participants
       const { data: participantsData, error: participantsError } = await supabase
         .from('participants')
         .select('*')
@@ -436,17 +416,19 @@ export default function InspectionDetailScreen() {
       const participants = participantsData || [];
       console.log('Participants fetched:', participants.length);
 
-      // Extract landlord and tenant names with fallback to empty string
       const landlordParticipant = participants.find((p: Participant) => p.role === 'Landlord');
       const tenantParticipant = participants.find((p: Participant) => p.role === 'Tenant');
       
       const landlordName = landlordParticipant?.name || '';
       const tenantName = tenantParticipant?.name || '';
 
-      // Fetch all rooms with their items and photos
+      console.log('═══════════════════════════════════════');
+      console.log('MEGA-FIX #2: Fetching rooms with items and photos');
+      console.log('═══════════════════════════════════════');
+
+      // MEGA-FIX #2: Fetch all rooms with their items and photos
       const roomsWithData = await Promise.all(
         rooms.map(async (room) => {
-          // Fetch room items
           const { data: itemsData, error: itemsError } = await supabase
             .from('room_items')
             .select('*')
@@ -458,8 +440,8 @@ export default function InspectionDetailScreen() {
           }
 
           const items = itemsData || [];
+          console.log(`Room ${room.name_de}: ${items.length} items found`);
           
-          // Fetch photos for each item
           const itemsWithPhotos = await Promise.all(
             items.map(async (item: RoomItem) => {
               const { data: photosData, error: photosError } = await supabase
@@ -474,7 +456,18 @@ export default function InspectionDetailScreen() {
               }
 
               const photo = photosData && photosData.length > 0 ? photosData[0] : null;
-              return { ...item, photo_url: photo?.storage_url || '' };
+              
+              // MEGA-FIX #3: Get public URL for photo from Supabase Storage
+              let photoPublicUrl = '';
+              if (photo && photo.storage_url) {
+                const { data: publicUrlData } = supabase.storage
+                  .from('photos')
+                  .getPublicUrl(photo.storage_url);
+                photoPublicUrl = publicUrlData.publicUrl;
+                console.log(`Photo public URL for item ${item.item_name_de}:`, photoPublicUrl);
+              }
+              
+              return { ...item, photo_url: photoPublicUrl };
             })
           );
 
@@ -482,25 +475,75 @@ export default function InspectionDetailScreen() {
         })
       );
 
-      console.log('All data fetched successfully');
+      console.log('All rooms with items and photos fetched successfully');
 
-      // Format inspection date (landlord's date)
       const inspectionDate = new Date(report.created_at).toLocaleDateString('de-DE');
-      
-      // Format tenant signature date
       const tenantSigDate = tenantSignatureDate.toLocaleDateString('de-DE');
 
       console.log('═══════════════════════════════════════');
-      console.log('Step 2: Saving meter data to Supabase (8 individual columns)');
-      console.log('Meter data being saved:');
-      console.log('  electricity_no:', electricityNo || '(empty)');
-      console.log('  electricity_val:', electricityVal || '(empty)');
-      console.log('  gas_no:', gasNo || '(empty)');
-      console.log('  gas_val:', gasVal || '(empty)');
-      console.log('  water_no:', waterNo || '(empty)');
-      console.log('  water_val:', waterVal || '(empty)');
-      console.log('  heat_no:', heatNo || '(empty)');
-      console.log('  heat_val:', heatVal || '(empty)');
+      console.log('MEGA-FIX #3: Uploading signatures to Supabase Storage');
+      console.log('═══════════════════════════════════════');
+
+      // MEGA-FIX #3: Upload signatures to Supabase Storage and get public URLs
+      let landlordSignatureUrl = '';
+      let tenantSignatureUrl = '';
+
+      if (landlordSignature) {
+        try {
+          const landlordSigBase64 = landlordSignature.replace(/^data:image\/\w+;base64,/, '');
+          const landlordSigBuffer = decode(landlordSigBase64);
+          const landlordSigPath = `signatures/${id}_landlord_${Date.now()}.png`;
+          
+          const { error: landlordUploadError } = await supabase.storage
+            .from('signatures')
+            .upload(landlordSigPath, landlordSigBuffer, {
+              contentType: 'image/png',
+              upsert: true,
+            });
+
+          if (landlordUploadError) {
+            console.error('Error uploading landlord signature:', landlordUploadError);
+          } else {
+            const { data: landlordPublicUrlData } = supabase.storage
+              .from('signatures')
+              .getPublicUrl(landlordSigPath);
+            landlordSignatureUrl = landlordPublicUrlData.publicUrl;
+            console.log('Landlord signature public URL:', landlordSignatureUrl);
+          }
+        } catch (sigError: any) {
+          console.error('Error processing landlord signature:', sigError);
+        }
+      }
+
+      if (tenantSignature) {
+        try {
+          const tenantSigBase64 = tenantSignature.replace(/^data:image\/\w+;base64,/, '');
+          const tenantSigBuffer = decode(tenantSigBase64);
+          const tenantSigPath = `signatures/${id}_tenant_${Date.now()}.png`;
+          
+          const { error: tenantUploadError } = await supabase.storage
+            .from('signatures')
+            .upload(tenantSigPath, tenantSigBuffer, {
+              contentType: 'image/png',
+              upsert: true,
+            });
+
+          if (tenantUploadError) {
+            console.error('Error uploading tenant signature:', tenantUploadError);
+          } else {
+            const { data: tenantPublicUrlData } = supabase.storage
+              .from('signatures')
+              .getPublicUrl(tenantSigPath);
+            tenantSignatureUrl = tenantPublicUrlData.publicUrl;
+            console.log('Tenant signature public URL:', tenantSignatureUrl);
+          }
+        } catch (sigError: any) {
+          console.error('Error processing tenant signature:', sigError);
+        }
+      }
+
+      console.log('═══════════════════════════════════════');
+      console.log('Step 2: Saving meter data to Supabase');
       console.log('═══════════════════════════════════════');
       
       const { error: updateError } = await supabase
@@ -517,31 +560,40 @@ export default function InspectionDetailScreen() {
           keys_handed_over: keysHandedOver || '',
           is_move_in: isMoveIn,
           is_move_out: isMoveOut,
-          landlord_signature: landlordSignature || '',
-          tenant_signature: tenantSignature || '',
+          landlord_signature: landlordSignatureUrl || '',
+          tenant_signature: tenantSignatureUrl || '',
           tenant_signature_date: tenantSignatureDate.toISOString(),
         })
         .eq('id', id);
 
       if (updateError) {
-        console.error('❌ Error saving meter data to Supabase:', updateError);
+        console.error('❌ Error saving data to Supabase:', updateError);
         showAlert('Error', `Failed to save data: ${updateError.message}`, 'error');
         setGeneratingPDF(false);
         return;
       } else {
-        console.log('✅ Meter data saved successfully to Supabase');
+        console.log('✅ Data saved successfully to Supabase');
       }
 
-      // Wait 2 seconds to ensure database save is complete
-      console.log('Waiting 2 seconds to ensure database save is complete...');
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       console.log('═══════════════════════════════════════');
-      console.log('Step 3: Preparing CraftMyPDF payload');
-      console.log('Wrapping 8 meter values in nested "meters" object inside "data" for template');
+      console.log('Step 3: Preparing CraftMyPDF payload with rooms array');
       console.log('═══════════════════════════════════════');
 
-      // Construct payload with meters as NESTED JSON OBJECT inside data for CraftMyPDF
+      // MEGA-FIX #2: Map rooms to flat rows array for CraftMyPDF
+      const rows = roomsWithData.flatMap((room) => 
+        room.room_items.map((item: any) => ({
+          room_name: room.name_de,
+          item_name: item.item_name_de,
+          status: item.condition_status,
+          comment: item.notes || '',
+          photo_url: item.photo_url || '',
+        }))
+      );
+
+      console.log(`Mapped ${rows.length} room items for PDF`);
+
       const pdfPayload = {
         template_id: CRAFTMYPDF_TEMPLATE_ID,
         data: {
@@ -553,9 +605,8 @@ export default function InspectionDetailScreen() {
           is_move_in: isMoveIn,
           is_move_out: isMoveOut,
           keys_handed_over: keysHandedOver || '',
-          landlord_signature: landlordSignature || '',
-          tenant_signature: tenantSignature || '',
-          // CRITICAL: Wrap 8 meter values in nested 'meters' object inside 'data' for CraftMyPDF template
+          landlord_signature: landlordSignatureUrl || '',
+          tenant_signature: tenantSignatureUrl || '',
           meters: {
             electricity_no: electricityNo || '',
             electricity_val: electricityVal || '',
@@ -566,30 +617,17 @@ export default function InspectionDetailScreen() {
             heat_no: heatNo || '',
             heat_val: heatVal || ''
           },
-          rows: roomsWithData.flatMap((room) => 
-            room.room_items.map((item: any) => ({
-              room_name: room.name_de,
-              item_name: item.item_name_de,
-              status: item.condition_status,
-              comment: item.notes || '',
-              photo_url: item.photo_url || '',
-            }))
-          ),
+          rows: rows,
         },
         load_data_from_url: false,
       };
 
       console.log('═══════════════════════════════════════');
-      console.log('Step 4: Calling CraftMyPDF API (EUROPEAN ENDPOINT)');
+      console.log('Step 4: Calling CraftMyPDF API');
       console.log('Endpoint:', CRAFTMYPDF_ENDPOINT);
-      console.log('Template ID:', CRAFTMYPDF_TEMPLATE_ID);
-      console.log('Timeout:', CRAFTMYPDF_TIMEOUT, 'ms (30 seconds)');
-      console.log('Headers: X-API-KEY included');
-      console.log('Meters object (valid JSON, no trailing commas):');
-      console.log(JSON.stringify(pdfPayload.data.meters, null, 2));
+      console.log('Rows count:', rows.length);
       console.log('═══════════════════════════════════════');
 
-      // Call CraftMyPDF API with 30-second timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), CRAFTMYPDF_TIMEOUT);
 
@@ -639,7 +677,6 @@ export default function InspectionDetailScreen() {
         const result = await response.json();
         console.log('✅ PDF generated successfully:', result);
 
-        // Extract PDF URL from response
         const pdfUrl = result.file || result.url || result.pdf_url;
 
         if (!pdfUrl) {
@@ -650,13 +687,51 @@ export default function InspectionDetailScreen() {
         console.log('PDF URL received:', pdfUrl);
 
         console.log('═══════════════════════════════════════');
-        console.log('Step 5: Saving PDF URL to Supabase');
+        console.log('MEGA-FIX #4: Downloading PDF and saving to Supabase Storage');
+        console.log('═══════════════════════════════════════');
+
+        // MEGA-FIX #4: Download the PDF and save to Supabase Storage
+        const pdfResponse = await fetch(pdfUrl);
+        if (!pdfResponse.ok) {
+          throw new Error('Failed to download PDF from CraftMyPDF');
+        }
+
+        const pdfBlob = await pdfResponse.blob();
+        const pdfArrayBuffer = await pdfBlob.arrayBuffer();
+        const pdfPath = `reports/${id}_${Date.now()}.pdf`;
+
+        console.log('Uploading PDF to Supabase Storage:', pdfPath);
+
+        const { error: pdfUploadError } = await supabase.storage
+          .from('reports_pdfs')
+          .upload(pdfPath, pdfArrayBuffer, {
+            contentType: 'application/pdf',
+            upsert: true,
+          });
+
+        if (pdfUploadError) {
+          console.error('❌ Error uploading PDF to Supabase Storage:', pdfUploadError);
+          throw new Error(`Failed to save PDF: ${pdfUploadError.message}`);
+        }
+
+        console.log('✅ PDF uploaded to Supabase Storage successfully');
+
+        // Get public URL for the saved PDF
+        const { data: pdfPublicUrlData } = supabase.storage
+          .from('reports_pdfs')
+          .getPublicUrl(pdfPath);
+
+        const savedPdfUrl = pdfPublicUrlData.publicUrl;
+        console.log('PDF public URL:', savedPdfUrl);
+
+        console.log('═══════════════════════════════════════');
+        console.log('Step 5: Saving PDF URL to database');
         console.log('═══════════════════════════════════════');
         
         const { error: pdfUrlUpdateError } = await supabase
           .from('reports')
           .update({ 
-            pdf_url: pdfUrl,
+            pdf_url: savedPdfUrl,
             status: 'COMPLETED'
           })
           .eq('id', id);
@@ -668,39 +743,35 @@ export default function InspectionDetailScreen() {
           console.log('✅ PDF URL saved successfully to Supabase');
         }
 
-        // Wait 2 seconds to ensure PDF URL is fully saved
-        console.log('Waiting 2 seconds to ensure PDF URL is fully saved...');
         await new Promise(resolve => setTimeout(resolve, 2000));
 
         console.log('═══════════════════════════════════════');
-        console.log('Step 6: Triggering email with PDF attachment');
+        console.log('MEGA-FIX #4: Triggering email AFTER PDF is saved');
         console.log('Recipient:', user.email);
         console.log('═══════════════════════════════════════');
         
         try {
-          await sendPdfEmail(user.email, pdfUrl, id as string, report.address);
+          await sendPdfEmail(user.email, savedPdfUrl, id as string, report.address);
           console.log('✅ Email sent successfully');
         } catch (emailError: any) {
           console.error('❌ Error sending email:', emailError);
           showAlert('Warning', 'PDF generated successfully but email failed to send. You can access the PDF from the History tab.', 'info');
         }
 
-        // Close signature modal
         setShowSignatureModal(false);
 
-        // Open the PDF URL
-        console.log('Opening PDF URL:', pdfUrl);
-        const canOpen = await Linking.canOpenURL(pdfUrl);
+        console.log('Opening PDF URL:', savedPdfUrl);
+        const canOpen = await Linking.canOpenURL(savedPdfUrl);
         if (canOpen) {
-          await Linking.openURL(pdfUrl);
+          await Linking.openURL(savedPdfUrl);
           showAlert('Success', 'PDF generated successfully! An email with the PDF has been sent to your address.', 'success');
         } else {
-          console.error('Cannot open URL:', pdfUrl);
+          console.error('Cannot open URL:', savedPdfUrl);
           showAlert('Success', 'PDF generated and saved! An email with the PDF has been sent to your address.', 'success');
         }
 
         console.log('═══════════════════════════════════════');
-        console.log('✅ PDF GENERATION COMPLETE - SUCCESS');
+        console.log('✅ PDF GENERATION COMPLETE - ALL MEGA-FIXES APPLIED');
         console.log('═══════════════════════════════════════');
       } catch (fetchError: any) {
         clearTimeout(timeoutId);
@@ -725,7 +796,6 @@ export default function InspectionDetailScreen() {
     return type;
   };
 
-  // Show loading state
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -745,7 +815,6 @@ export default function InspectionDetailScreen() {
     );
   }
 
-  // Show error with Retry button
   if (error) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -827,7 +896,6 @@ export default function InspectionDetailScreen() {
             <Text style={styles.type}>{typeText}</Text>
           </View>
 
-          {/* BRANDING: Burnt Sienna button with sharp corners */}
           <TouchableOpacity
             style={styles.pdfButton}
             onPress={handleOpenFinalDetails}
@@ -860,7 +928,6 @@ export default function InspectionDetailScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* BRANDING: Bilingual Tipp box with dot-matrix pattern and sharp corners */}
             {hasRoomsWithoutConditions && (
               <ImageBackground
                 source={{ uri: createDotMatrixPattern() }}
@@ -924,7 +991,6 @@ export default function InspectionDetailScreen() {
           </View>
         </ScrollView>
 
-        {/* Add Room Modal */}
         <Modal
           visible={showAddRoomModal}
           animationType="slide"
@@ -1000,7 +1066,6 @@ export default function InspectionDetailScreen() {
           </View>
         </Modal>
 
-        {/* Final Details Modal with dot-matrix pattern */}
         <Modal
           visible={showFinalDetailsModal}
           animationType="slide"
@@ -1190,7 +1255,6 @@ export default function InspectionDetailScreen() {
           </KeyboardAvoidingView>
         </Modal>
 
-        {/* Signature Modal */}
         <Modal
           visible={showSignatureModal}
           animationType="slide"
@@ -1222,7 +1286,6 @@ export default function InspectionDetailScreen() {
                   scrollEnabled={scrollEnabled}
                   nestedScrollEnabled={true}
                 >
-                  {/* Landlord Signature */}
                   <View style={styles.signatureSection}>
                     <Text style={styles.signatureLabel}>Vermieter (Landlord) Signature</Text>
                     <View 
@@ -1270,7 +1333,6 @@ export default function InspectionDetailScreen() {
                     </TouchableOpacity>
                   </View>
 
-                  {/* Tenant Signature */}
                   <View style={styles.signatureSection}>
                     <Text style={styles.signatureLabel}>Mieter (Tenant) Signature</Text>
                     <View 
@@ -1318,7 +1380,6 @@ export default function InspectionDetailScreen() {
                     </TouchableOpacity>
                   </View>
 
-                  {/* Tenant Signature Date */}
                   <View style={styles.signatureSection}>
                     <Text style={styles.signatureLabel}>Tenant Signature Date</Text>
                     <DateTimePicker

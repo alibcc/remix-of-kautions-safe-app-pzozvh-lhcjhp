@@ -51,9 +51,8 @@ export default function HomeScreen() {
     setAlertVisible(true);
   };
 
-  // CRITICAL FIX: Use useCallback to memoize fetchReports
+  // MEGA-FIX #1: Show ALL reports regardless of status or PDF presence
   const fetchReports = useCallback(async () => {
-    // CRITICAL FIX: Only fetch if user exists
     if (!user || !user.id) {
       console.log('HomeScreen: No user found, cannot fetch reports');
       setLoading(false);
@@ -62,9 +61,8 @@ export default function HomeScreen() {
     }
 
     try {
-      console.log('HomeScreen: Fetching reports from Supabase for user:', user.id);
+      console.log('HomeScreen: Fetching ALL reports from Supabase for user:', user.id);
       
-      // CRITICAL FIX: Wait for session to be confirmed
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
@@ -83,12 +81,11 @@ export default function HomeScreen() {
 
       console.log('HomeScreen: Session confirmed, fetching reports');
 
-      // Fetch reports with status 'IN PROGRESS', 'ACTIVE', or 'PENDING'
+      // MEGA-FIX #1: Remove ALL filters - show every report
       const { data, error } = await supabase
         .from('reports')
         .select('*')
         .eq('user_id', user.id)
-        .in('status', ['IN PROGRESS', 'ACTIVE', 'PENDING'])
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -100,7 +97,7 @@ export default function HomeScreen() {
         });
         setReports([]);
       } else {
-        console.log('HomeScreen: Loaded reports:', data?.length || 0);
+        console.log('HomeScreen: Loaded ALL reports (no filters):', data?.length || 0);
         
         // Fetch room count for each report
         const reportsWithRoomCount = await Promise.all(
@@ -133,7 +130,6 @@ export default function HomeScreen() {
   useEffect(() => {
     console.log('HomeScreen: Checking user authentication');
     
-    // CRITICAL FIX: Only fetch reports if user exists
     if (!user) {
       console.log('HomeScreen: No user found, staying in loading state');
       setLoading(false);
@@ -166,7 +162,6 @@ export default function HomeScreen() {
     setShowDeleteConfirm(true);
   };
 
-  // CRITICAL FIX #2: Delete and immediately refresh without freezing
   const confirmDeleteReport = async () => {
     if (!reportToDelete) return;
 
@@ -174,7 +169,6 @@ export default function HomeScreen() {
     setDeletingReport(true);
 
     try {
-      // Delete the report from Supabase
       const { error: deleteError } = await supabase
         .from('reports')
         .delete()
@@ -188,14 +182,11 @@ export default function HomeScreen() {
 
       console.log('HomeScreen: Report deleted successfully');
       
-      // Close modal first
       setShowDeleteConfirm(false);
       setReportToDelete(null);
       
-      // Show success message
       showAlert('Success', 'Inspection deleted successfully', 'success');
 
-      // CRITICAL FIX #2: Immediately refresh the list without freezing
       await fetchReports();
     } catch (error: any) {
       console.error('HomeScreen: Unexpected error deleting report:', error);
@@ -216,7 +207,7 @@ export default function HomeScreen() {
 
   const getStatusColor = (status: string) => {
     const upperStatus = status.toUpperCase();
-    if (upperStatus === 'IN PROGRESS' || upperStatus === 'ACTIVE' || upperStatus === 'PENDING') {
+    if (upperStatus === 'IN PROGRESS' || upperStatus === 'ACTIVE' || upperStatus === 'PENDING' || upperStatus === 'DRAFT') {
       return '#FFA500';
     }
     if (upperStatus === 'COMPLETED') {
@@ -401,7 +392,6 @@ export default function HomeScreen() {
           )}
         </ScrollView>
 
-        {/* Delete Confirmation Modal */}
         <ConfirmModal
           visible={showDeleteConfirm}
           title="Delete Inspection"
