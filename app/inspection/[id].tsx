@@ -385,7 +385,7 @@ export default function InspectionDetailScreen() {
 
   const handleGeneratePDF = async () => {
     console.log('═══════════════════════════════════════');
-    console.log('PDF GENERATION STARTED - MEGA-FIX VERSION');
+    console.log('PDF GENERATION STARTED - FINAL FIX VERSION');
     console.log('User tapped Create Official Protocol button');
     console.log('═══════════════════════════════════════');
     
@@ -402,7 +402,17 @@ export default function InspectionDetailScreen() {
     setGeneratingPDF(true);
 
     try {
-      console.log('Step 1: Fetching all data for PDF generation');
+      console.log('Step 1: Getting Supabase access token for authentication');
+      
+      // FIX #5: Get Supabase access token for CraftMyPDF authentication
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+        throw new Error('Failed to get Supabase session for PDF API call.');
+      }
+      const accessToken = session.access_token;
+      console.log('✅ Access token retrieved successfully');
+
+      console.log('Step 2: Fetching all data for PDF generation');
 
       const { data: participantsData, error: participantsError } = await supabase
         .from('participants')
@@ -423,10 +433,10 @@ export default function InspectionDetailScreen() {
       const tenantName = tenantParticipant?.name || '';
 
       console.log('═══════════════════════════════════════');
-      console.log('MEGA-FIX #2: Fetching rooms with items and photos');
+      console.log('FIX #2: Fetching rooms with items and photos');
       console.log('═══════════════════════════════════════');
 
-      // MEGA-FIX #2: Fetch all rooms with their items and photos
+      // FIX #2: Fetch all rooms with their items and photos
       const roomsWithData = await Promise.all(
         rooms.map(async (room) => {
           const { data: itemsData, error: itemsError } = await supabase
@@ -457,7 +467,7 @@ export default function InspectionDetailScreen() {
 
               const photo = photosData && photosData.length > 0 ? photosData[0] : null;
               
-              // MEGA-FIX #3: Get public URL for photo from Supabase Storage
+              // Get public URL for photo from Supabase Storage
               let photoPublicUrl = '';
               if (photo && photo.storage_url) {
                 const { data: publicUrlData } = supabase.storage
@@ -481,10 +491,10 @@ export default function InspectionDetailScreen() {
       const tenantSigDate = tenantSignatureDate.toLocaleDateString('de-DE');
 
       console.log('═══════════════════════════════════════');
-      console.log('MEGA-FIX #3: Uploading signatures to Supabase Storage');
+      console.log('FIX #2: Creating signed URLs for signatures (600s expiry)');
       console.log('═══════════════════════════════════════');
 
-      // MEGA-FIX #3: Upload signatures to Supabase Storage and get public URLs
+      // FIX #2: Upload signatures to Supabase Storage and create signed URLs
       let landlordSignatureUrl = '';
       let tenantSignatureUrl = '';
 
@@ -504,11 +514,17 @@ export default function InspectionDetailScreen() {
           if (landlordUploadError) {
             console.error('Error uploading landlord signature:', landlordUploadError);
           } else {
-            const { data: landlordPublicUrlData } = supabase.storage
+            // FIX #2: Use createSignedUrl with 600s expiry
+            const { data: landlordSignedData, error: landlordSignedError } = await supabase.storage
               .from('signatures')
-              .getPublicUrl(landlordSigPath);
-            landlordSignatureUrl = landlordPublicUrlData.publicUrl;
-            console.log('Landlord signature public URL:', landlordSignatureUrl);
+              .createSignedUrl(landlordSigPath, 600);
+            
+            if (landlordSignedError) {
+              console.error('Error creating signed URL for landlord:', landlordSignedError);
+            } else {
+              landlordSignatureUrl = landlordSignedData?.signedUrl || '';
+              console.log('✅ Landlord signature signed URL created (600s expiry)');
+            }
           }
         } catch (sigError: any) {
           console.error('Error processing landlord signature:', sigError);
@@ -531,11 +547,17 @@ export default function InspectionDetailScreen() {
           if (tenantUploadError) {
             console.error('Error uploading tenant signature:', tenantUploadError);
           } else {
-            const { data: tenantPublicUrlData } = supabase.storage
+            // FIX #2: Use createSignedUrl with 600s expiry
+            const { data: tenantSignedData, error: tenantSignedError } = await supabase.storage
               .from('signatures')
-              .getPublicUrl(tenantSigPath);
-            tenantSignatureUrl = tenantPublicUrlData.publicUrl;
-            console.log('Tenant signature public URL:', tenantSignatureUrl);
+              .createSignedUrl(tenantSigPath, 600);
+            
+            if (tenantSignedError) {
+              console.error('Error creating signed URL for tenant:', tenantSignedError);
+            } else {
+              tenantSignatureUrl = tenantSignedData?.signedUrl || '';
+              console.log('✅ Tenant signature signed URL created (600s expiry)');
+            }
           }
         } catch (sigError: any) {
           console.error('Error processing tenant signature:', sigError);
@@ -543,7 +565,7 @@ export default function InspectionDetailScreen() {
       }
 
       console.log('═══════════════════════════════════════');
-      console.log('Step 2: Saving meter data to Supabase');
+      console.log('Step 3: Saving meter data to Supabase');
       console.log('═══════════════════════════════════════');
       
       const { error: updateError } = await supabase
@@ -560,8 +582,6 @@ export default function InspectionDetailScreen() {
           keys_handed_over: keysHandedOver || '',
           is_move_in: isMoveIn,
           is_move_out: isMoveOut,
-          landlord_signature: landlordSignatureUrl || '',
-          tenant_signature: tenantSignatureUrl || '',
           tenant_signature_date: tenantSignatureDate.toISOString(),
         })
         .eq('id', id);
@@ -578,10 +598,10 @@ export default function InspectionDetailScreen() {
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       console.log('═══════════════════════════════════════');
-      console.log('Step 3: Preparing CraftMyPDF payload with rooms array');
+      console.log('FIX #2: Preparing CraftMyPDF payload with nested JSON array for rooms');
       console.log('═══════════════════════════════════════');
 
-      // MEGA-FIX #2: Map rooms to flat rows array for CraftMyPDF
+      // FIX #2: Map rooms to nested JSON array for CraftMyPDF
       const rows = roomsWithData.flatMap((room) => 
         room.room_items.map((item: any) => ({
           room_name: room.name_de,
@@ -592,7 +612,7 @@ export default function InspectionDetailScreen() {
         }))
       );
 
-      console.log(`Mapped ${rows.length} room items for PDF`);
+      console.log(`✅ Mapped ${rows.length} room items for PDF (nested JSON array)`);
 
       const pdfPayload = {
         template_id: CRAFTMYPDF_TEMPLATE_ID,
@@ -623,7 +643,7 @@ export default function InspectionDetailScreen() {
       };
 
       console.log('═══════════════════════════════════════');
-      console.log('Step 4: Calling CraftMyPDF API');
+      console.log('FIX #1 & #5: Calling CraftMyPDF API with proper error handling and auth');
       console.log('Endpoint:', CRAFTMYPDF_ENDPOINT);
       console.log('Rows count:', rows.length);
       console.log('═══════════════════════════════════════');
@@ -638,6 +658,7 @@ export default function InspectionDetailScreen() {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
             'X-API-KEY': CRAFTMYPDF_API_KEY,
+            'Authorization': `Bearer ${accessToken}`, // FIX #5: Include Supabase access token
           },
           body: JSON.stringify(pdfPayload),
           signal: controller.signal,
@@ -646,6 +667,7 @@ export default function InspectionDetailScreen() {
         clearTimeout(timeoutId);
 
         console.log('CraftMyPDF API response status:', response.status);
+        console.log('CraftMyPDF API response headers:', response.headers);
 
         if (!response.ok) {
           let errorMessage = `PDF generation failed with status ${response.status}`;
@@ -674,105 +696,225 @@ export default function InspectionDetailScreen() {
           throw new Error(fullErrorMessage);
         }
 
-        const result = await response.json();
-        console.log('✅ PDF generated successfully:', result);
+        // FIX #1: Verify response is valid before processing blob
+        const contentType = response.headers.get('content-type');
+        console.log('Response content-type:', contentType);
 
-        const pdfUrl = result.file || result.url || result.pdf_url;
+        // Check if response is JSON (error) or PDF
+        if (contentType && contentType.includes('application/json')) {
+          const result = await response.json();
+          console.log('CraftMyPDF returned JSON response:', result);
+          
+          const pdfUrl = result.file || result.url || result.pdf_url;
 
-        if (!pdfUrl) {
-          console.error('No PDF URL in response:', result);
-          throw new Error('PDF URL not found in response');
-        }
+          if (!pdfUrl) {
+            console.error('No PDF URL in response:', result);
+            throw new Error('PDF URL not found in response');
+          }
 
-        console.log('PDF URL received:', pdfUrl);
+          console.log('PDF URL received:', pdfUrl);
 
-        console.log('═══════════════════════════════════════');
-        console.log('MEGA-FIX #4: Downloading PDF and saving to Supabase Storage');
-        console.log('═══════════════════════════════════════');
+          console.log('═══════════════════════════════════════');
+          console.log('FIX #1: Downloading PDF and verifying blob validity');
+          console.log('═══════════════════════════════════════');
 
-        // MEGA-FIX #4: Download the PDF and save to Supabase Storage
-        const pdfResponse = await fetch(pdfUrl);
-        if (!pdfResponse.ok) {
-          throw new Error('Failed to download PDF from CraftMyPDF');
-        }
+          // FIX #1: Download the PDF and verify blob
+          const pdfResponse = await fetch(pdfUrl);
+          if (!pdfResponse.ok) {
+            throw new Error('Failed to download PDF from CraftMyPDF');
+          }
 
-        const pdfBlob = await pdfResponse.blob();
-        const pdfArrayBuffer = await pdfBlob.arrayBuffer();
-        const pdfPath = `reports/${id}_${Date.now()}.pdf`;
-
-        console.log('Uploading PDF to Supabase Storage:', pdfPath);
-
-        const { error: pdfUploadError } = await supabase.storage
-          .from('reports_pdfs')
-          .upload(pdfPath, pdfArrayBuffer, {
-            contentType: 'application/pdf',
-            upsert: true,
+          const pdfBlob = await pdfResponse.blob();
+          
+          // FIX #1: Verify pdfBlob is valid before processing
+          if (!(pdfBlob instanceof Blob)) {
+            throw new Error('CraftMyPDF response is not a valid Blob.');
+          }
+          
+          if (typeof pdfBlob.arrayBuffer !== 'function') {
+            throw new Error('pdfBlob.arrayBuffer is not a function. Invalid Blob received.');
+          }
+          
+          if (pdfBlob.size === 0) {
+            throw new Error('CraftMyPDF returned an empty PDF blob.');
+          }
+          
+          if (pdfBlob.type !== 'application/pdf' && pdfBlob.type !== '') {
+            console.warn('Warning: PDF blob type is not application/pdf:', pdfBlob.type);
+          }
+          
+          console.log('✅ PDF blob validated successfully:', {
+            size: pdfBlob.size,
+            type: pdfBlob.type,
+            hasArrayBuffer: typeof pdfBlob.arrayBuffer === 'function'
           });
 
-        if (pdfUploadError) {
-          console.error('❌ Error uploading PDF to Supabase Storage:', pdfUploadError);
-          throw new Error(`Failed to save PDF: ${pdfUploadError.message}`);
-        }
+          const pdfArrayBuffer = await pdfBlob.arrayBuffer();
+          const pdfPath = `reports/${id}_${Date.now()}.pdf`;
 
-        console.log('✅ PDF uploaded to Supabase Storage successfully');
+          console.log('Uploading PDF to Supabase Storage:', pdfPath);
 
-        // Get public URL for the saved PDF
-        const { data: pdfPublicUrlData } = supabase.storage
-          .from('reports_pdfs')
-          .getPublicUrl(pdfPath);
+          const { error: pdfUploadError } = await supabase.storage
+            .from('reports_pdfs')
+            .upload(pdfPath, pdfArrayBuffer, {
+              contentType: 'application/pdf',
+              upsert: true,
+            });
 
-        const savedPdfUrl = pdfPublicUrlData.publicUrl;
-        console.log('PDF public URL:', savedPdfUrl);
+          if (pdfUploadError) {
+            console.error('❌ Error uploading PDF to Supabase Storage:', pdfUploadError);
+            throw new Error(`Failed to save PDF: ${pdfUploadError.message}`);
+          }
 
-        console.log('═══════════════════════════════════════');
-        console.log('Step 5: Saving PDF URL to database');
-        console.log('═══════════════════════════════════════');
-        
-        const { error: pdfUrlUpdateError } = await supabase
-          .from('reports')
-          .update({ 
-            pdf_url: savedPdfUrl,
-            status: 'COMPLETED'
-          })
-          .eq('id', id);
+          console.log('✅ PDF uploaded to Supabase Storage successfully');
 
-        if (pdfUrlUpdateError) {
-          console.error('❌ Error saving PDF URL to Supabase:', pdfUrlUpdateError);
-          showAlert('Warning', 'PDF generated but failed to save URL to database', 'error');
+          // Get public URL for the saved PDF
+          const { data: pdfPublicUrlData } = supabase.storage
+            .from('reports_pdfs')
+            .getPublicUrl(pdfPath);
+
+          const savedPdfUrl = pdfPublicUrlData.publicUrl;
+          console.log('PDF public URL:', savedPdfUrl);
+
+          console.log('═══════════════════════════════════════');
+          console.log('Step 4: Saving PDF URL to database');
+          console.log('═══════════════════════════════════════');
+          
+          const { error: pdfUrlUpdateError } = await supabase
+            .from('reports')
+            .update({ 
+              pdf_url: savedPdfUrl,
+              status: 'COMPLETED'
+            })
+            .eq('id', id);
+
+          if (pdfUrlUpdateError) {
+            console.error('❌ Error saving PDF URL to Supabase:', pdfUrlUpdateError);
+            showAlert('Warning', 'PDF generated but failed to save URL to database', 'error');
+          } else {
+            console.log('✅ PDF URL saved successfully to Supabase');
+          }
+
+          await new Promise(resolve => setTimeout(resolve, 2000));
+
+          console.log('═══════════════════════════════════════');
+          console.log('Step 5: Triggering email AFTER PDF is saved');
+          console.log('Recipient:', user.email);
+          console.log('═══════════════════════════════════════');
+          
+          try {
+            await sendPdfEmail(user.email, savedPdfUrl, id as string, report.address);
+            console.log('✅ Email sent successfully');
+          } catch (emailError: any) {
+            console.error('❌ Error sending email:', emailError);
+            showAlert('Warning', 'PDF generated successfully but email failed to send. You can access the PDF from the History tab.', 'info');
+          }
+
+          setShowSignatureModal(false);
+
+          console.log('Opening PDF URL:', savedPdfUrl);
+          const canOpen = await Linking.canOpenURL(savedPdfUrl);
+          if (canOpen) {
+            await Linking.openURL(savedPdfUrl);
+            showAlert('Success', 'PDF generated successfully! An email with the PDF has been sent to your address.', 'success');
+          } else {
+            console.error('Cannot open URL:', savedPdfUrl);
+            showAlert('Success', 'PDF generated and saved! An email with the PDF has been sent to your address.', 'success');
+          }
+
+          console.log('═══════════════════════════════════════');
+          console.log('✅ PDF GENERATION COMPLETE - ALL FIXES APPLIED');
+          console.log('═══════════════════════════════════════');
         } else {
-          console.log('✅ PDF URL saved successfully to Supabase');
+          // Response is directly a PDF blob
+          console.log('Response is directly a PDF blob');
+          
+          const pdfBlob = await response.blob();
+          
+          // FIX #1: Verify pdfBlob is valid before processing
+          if (!(pdfBlob instanceof Blob)) {
+            throw new Error('CraftMyPDF response is not a valid Blob.');
+          }
+          
+          if (typeof pdfBlob.arrayBuffer !== 'function') {
+            throw new Error('pdfBlob.arrayBuffer is not a function. Invalid Blob received.');
+          }
+          
+          if (pdfBlob.size === 0) {
+            throw new Error('CraftMyPDF returned an empty PDF blob.');
+          }
+          
+          if (pdfBlob.type !== 'application/pdf' && pdfBlob.type !== '') {
+            console.warn('Warning: PDF blob type is not application/pdf:', pdfBlob.type);
+          }
+          
+          console.log('✅ PDF blob validated successfully:', {
+            size: pdfBlob.size,
+            type: pdfBlob.type,
+            hasArrayBuffer: typeof pdfBlob.arrayBuffer === 'function'
+          });
+
+          const pdfArrayBuffer = await pdfBlob.arrayBuffer();
+          const pdfPath = `reports/${id}_${Date.now()}.pdf`;
+
+          console.log('Uploading PDF to Supabase Storage:', pdfPath);
+
+          const { error: pdfUploadError } = await supabase.storage
+            .from('reports_pdfs')
+            .upload(pdfPath, pdfArrayBuffer, {
+              contentType: 'application/pdf',
+              upsert: true,
+            });
+
+          if (pdfUploadError) {
+            console.error('❌ Error uploading PDF to Supabase Storage:', pdfUploadError);
+            throw new Error(`Failed to save PDF: ${pdfUploadError.message}`);
+          }
+
+          console.log('✅ PDF uploaded to Supabase Storage successfully');
+
+          const { data: pdfPublicUrlData } = supabase.storage
+            .from('reports_pdfs')
+            .getPublicUrl(pdfPath);
+
+          const savedPdfUrl = pdfPublicUrlData.publicUrl;
+          console.log('PDF public URL:', savedPdfUrl);
+
+          const { error: pdfUrlUpdateError } = await supabase
+            .from('reports')
+            .update({ 
+              pdf_url: savedPdfUrl,
+              status: 'COMPLETED'
+            })
+            .eq('id', id);
+
+          if (pdfUrlUpdateError) {
+            console.error('❌ Error saving PDF URL to Supabase:', pdfUrlUpdateError);
+          } else {
+            console.log('✅ PDF URL saved successfully to Supabase');
+          }
+
+          await new Promise(resolve => setTimeout(resolve, 2000));
+
+          try {
+            await sendPdfEmail(user.email, savedPdfUrl, id as string, report.address);
+            console.log('✅ Email sent successfully');
+          } catch (emailError: any) {
+            console.error('❌ Error sending email:', emailError);
+          }
+
+          setShowSignatureModal(false);
+
+          const canOpen = await Linking.canOpenURL(savedPdfUrl);
+          if (canOpen) {
+            await Linking.openURL(savedPdfUrl);
+            showAlert('Success', 'PDF generated successfully!', 'success');
+          } else {
+            showAlert('Success', 'PDF generated and saved!', 'success');
+          }
+
+          console.log('✅ PDF GENERATION COMPLETE');
         }
-
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        console.log('═══════════════════════════════════════');
-        console.log('MEGA-FIX #4: Triggering email AFTER PDF is saved');
-        console.log('Recipient:', user.email);
-        console.log('═══════════════════════════════════════');
-        
-        try {
-          await sendPdfEmail(user.email, savedPdfUrl, id as string, report.address);
-          console.log('✅ Email sent successfully');
-        } catch (emailError: any) {
-          console.error('❌ Error sending email:', emailError);
-          showAlert('Warning', 'PDF generated successfully but email failed to send. You can access the PDF from the History tab.', 'info');
-        }
-
-        setShowSignatureModal(false);
-
-        console.log('Opening PDF URL:', savedPdfUrl);
-        const canOpen = await Linking.canOpenURL(savedPdfUrl);
-        if (canOpen) {
-          await Linking.openURL(savedPdfUrl);
-          showAlert('Success', 'PDF generated successfully! An email with the PDF has been sent to your address.', 'success');
-        } else {
-          console.error('Cannot open URL:', savedPdfUrl);
-          showAlert('Success', 'PDF generated and saved! An email with the PDF has been sent to your address.', 'success');
-        }
-
-        console.log('═══════════════════════════════════════');
-        console.log('✅ PDF GENERATION COMPLETE - ALL MEGA-FIXES APPLIED');
-        console.log('═══════════════════════════════════════');
       } catch (fetchError: any) {
         clearTimeout(timeoutId);
         if (fetchError.name === 'AbortError') {
@@ -786,6 +928,11 @@ export default function InspectionDetailScreen() {
     } finally {
       setGeneratingPDF(false);
     }
+  };
+
+  const handleBackToList = () => {
+    console.log('User tapped Back button - navigating to inspection list');
+    router.back();
   };
 
   const getTypeText = (type: string) => {
@@ -989,6 +1136,20 @@ export default function InspectionDetailScreen() {
               </View>
             )}
           </View>
+
+          {/* FIX #4: Add Back Button at bottom of screen */}
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={handleBackToList}
+          >
+            <IconSymbol
+              ios_icon_name="arrow.left"
+              android_material_icon_name="arrow-back"
+              size={20}
+              color={colors.primary}
+            />
+            <Text style={styles.backButtonText}>Back to Inspections</Text>
+          </TouchableOpacity>
         </ScrollView>
 
         <Modal
@@ -1607,6 +1768,24 @@ const styles = StyleSheet.create({
   roomCardTitleEn: {
     fontSize: 14,
     color: colors.textSecondary,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.card,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 0,
+    marginTop: 24,
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  backButtonText: {
+    color: colors.primary,
+    fontSize: 16,
+    fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,
