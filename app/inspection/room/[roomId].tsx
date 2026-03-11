@@ -23,7 +23,6 @@ import { AlertModal, ConfirmModal } from "@/components/ui/Modal";
 import { supabase } from "@/app/integrations/supabase/client";
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Room item presets
 const ROOM_ITEMS = [
   { nameEn: 'Walls', nameDe: 'Wände' },
   { nameEn: 'Floor', nameDe: 'Boden' },
@@ -32,7 +31,6 @@ const ROOM_ITEMS = [
   { nameEn: 'Doors', nameDe: 'Türen' },
 ];
 
-// Status options
 const STATUS_OPTIONS = [
   { value: 'OK', label: 'OK' },
   { value: 'Defect', label: 'Defect / Mangelhaft' },
@@ -67,7 +65,6 @@ interface Photo {
   timestamp_verified: string;
 }
 
-// Helper to resolve image sources
 function resolveImageSource(source: string | number | undefined): { uri: string } | number {
   if (!source) return { uri: '' };
   if (typeof source === 'string') return { uri: source };
@@ -83,22 +80,18 @@ export default function RoomDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Log Condition modal state
   const [showLogConditionModal, setShowLogConditionModal] = useState(false);
   const [selectedItemPreset, setSelectedItemPreset] = useState<typeof ROOM_ITEMS[0] | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string>('OK');
   const [itemNotes, setItemNotes] = useState('');
   const [savingItem, setSavingItem] = useState(false);
   
-  // Edit state
   const [editingItem, setEditingItem] = useState<RoomItem | null>(null);
   
-  // Delete confirmation state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<RoomItem | null>(null);
   const [deletingItem, setDeletingItem] = useState(false);
   
-  // Camera state
   const [showCamera, setShowCamera] = useState(false);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
@@ -108,13 +101,11 @@ export default function RoomDetailScreen() {
   const [currentItemId, setCurrentItemId] = useState<string | null>(null);
   const cameraRef = useRef<CameraView>(null);
   
-  // Alert modal
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertTitle, setAlertTitle] = useState('');
   const [alertMessage, setAlertMessage] = useState('');
   const [alertType, setAlertType] = useState<'info' | 'error' | 'success'>('info');
   
-  // Lightbox state for full-screen image viewing
   const [lightboxVisible, setLightboxVisible] = useState(false);
   const [lightboxImageUrl, setLightboxImageUrl] = useState<string>('');
   
@@ -137,7 +128,6 @@ export default function RoomDetailScreen() {
     setLightboxImageUrl('');
   };
 
-  // Fetch room details and items
   const fetchRoomData = useCallback(async () => {
     if (!roomId) {
       console.log('RoomDetailScreen: No room ID provided');
@@ -149,7 +139,6 @@ export default function RoomDetailScreen() {
     setError(null);
 
     try {
-      // Fetch room
       const { data: roomData, error: roomError } = await supabase
         .from('rooms')
         .select('*')
@@ -165,7 +154,6 @@ export default function RoomDetailScreen() {
       console.log('RoomDetailScreen: Room loaded successfully');
       setRoom(roomData);
 
-      // Fetch room items
       const { data: itemsData, error: itemsError } = await supabase
         .from('room_items')
         .select('*')
@@ -178,7 +166,6 @@ export default function RoomDetailScreen() {
         console.log('RoomDetailScreen: Loaded items:', itemsData.length);
         setRoomItems(itemsData);
 
-        // Fetch photos for all items
         if (itemsData.length > 0) {
           const itemIds = itemsData.map(item => item.id);
           const { data: photosData, error: photosError } = await supabase
@@ -226,7 +213,6 @@ export default function RoomDetailScreen() {
       }
     }
 
-    // Request location permission
     console.log('Requesting location permission');
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
@@ -247,10 +233,9 @@ export default function RoomDetailScreen() {
     }
 
     try {
-      // Optimized camera settings for performance
       const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.3, // Reduced quality for speed
-        base64: false, // Disable base64 for performance - we'll read it later
+        quality: 0.3,
+        base64: false,
       });
 
       if (!photo) {
@@ -260,7 +245,6 @@ export default function RoomDetailScreen() {
 
       console.log('Photo captured:', photo.uri);
 
-      // Get GPS coordinates
       console.log('Getting GPS coordinates');
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
@@ -271,7 +255,6 @@ export default function RoomDetailScreen() {
         longitude: location.coords.longitude,
       };
 
-      // Get current timestamp in ISO 8601 format
       const timestamp = new Date().toISOString();
 
       console.log('GPS coordinates:', coords);
@@ -282,7 +265,6 @@ export default function RoomDetailScreen() {
       setPhotoTimestamp(timestamp);
       setShowCamera(false);
 
-      // Automatically upload the photo
       await uploadPhotoToSupabase(photo.uri, coords, timestamp);
     } catch (error) {
       console.error('Error capturing photo:', error);
@@ -304,7 +286,6 @@ export default function RoomDetailScreen() {
     setUploadingPhoto(true);
 
     try {
-      // Step 1: Read the photo URI as Base64
       console.log('Reading photo file as Base64');
       const base64Data = await FileSystem.readAsStringAsync(photoUri, {
         encoding: FileSystem.EncodingType.Base64,
@@ -316,7 +297,6 @@ export default function RoomDetailScreen() {
 
       console.log('Base64 data length:', base64Data.length);
 
-      // Step 2: Convert Base64 to ArrayBuffer
       console.log('Converting Base64 to ArrayBuffer');
       const arrayBuffer = decode(base64Data);
 
@@ -326,19 +306,17 @@ export default function RoomDetailScreen() {
 
       console.log('ArrayBuffer size:', arrayBuffer.byteLength, 'bytes');
 
-      // Step 3: Generate unique filename with timestamp
       const timestampForFilename = new Date().getTime();
       const fileName = `room_${timestampForFilename}.jpg`;
       const filePath = `${room.report_id}/${room.id}/${fileName}`;
 
       console.log('Uploading to path:', filePath);
 
-      // Step 4: Upload ArrayBuffer to Supabase Storage with explicit contentType
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('inspection-photos')
         .upload(filePath, arrayBuffer, {
-          contentType: 'image/jpeg', // Explicitly set content type
-          upsert: false, // Do not overwrite existing files
+          contentType: 'image/jpeg',
+          upsert: false,
         });
 
       if (uploadError) {
@@ -348,7 +326,6 @@ export default function RoomDetailScreen() {
 
       console.log('Photo uploaded successfully to Supabase Storage:', uploadData);
 
-      // Step 5: Get public URL ONLY after successful upload (200/OK status)
       const { data: urlData } = supabase.storage
         .from('inspection-photos')
         .getPublicUrl(filePath);
@@ -360,7 +337,6 @@ export default function RoomDetailScreen() {
       const publicUrl = urlData.publicUrl;
       console.log('Public URL retrieved:', publicUrl);
 
-      // Step 6: Save photo metadata to database ONLY after successful storage upload
       console.log('Saving photo metadata to database');
       const { data: photoData, error: photoError } = await supabase
         .from('photos')
@@ -380,12 +356,10 @@ export default function RoomDetailScreen() {
 
       console.log('Photo metadata saved successfully to database:', photoData);
 
-      // Refresh photos list
       await fetchRoomData();
 
       showAlert('Success', 'Photo uploaded successfully with GPS verification', 'success');
       
-      // Clear captured photo state
       setCapturedPhoto(null);
       setPhotoLocation(null);
       setPhotoTimestamp(null);
@@ -428,7 +402,6 @@ export default function RoomDetailScreen() {
       console.log('Adding room item to Supabase:', itemData);
 
       if (editingItem) {
-        // Update existing item
         const { data: updatedItem, error: updateError } = await supabase
           .from('room_items')
           .update(itemData)
@@ -445,7 +418,6 @@ export default function RoomDetailScreen() {
         console.log('Room item updated successfully:', updatedItem);
         showAlert('Success', 'Condition updated successfully', 'success');
       } else {
-        // Insert new item
         const { data: newItem, error: insertError } = await supabase
           .from('room_items')
           .insert([itemData])
@@ -462,7 +434,6 @@ export default function RoomDetailScreen() {
         showAlert('Success', 'Condition logged successfully', 'success');
       }
 
-      // Refresh the room data
       await fetchRoomData();
 
       setShowLogConditionModal(false);
@@ -482,7 +453,6 @@ export default function RoomDetailScreen() {
     console.log('User tapped Edit button for item:', item.id);
     setEditingItem(item);
     
-    // Find the preset that matches this item
     const preset = ROOM_ITEMS.find(p => p.nameEn === item.item_name_en);
     setSelectedItemPreset(preset || null);
     setSelectedStatus(item.condition_status);
@@ -504,7 +474,6 @@ export default function RoomDetailScreen() {
     setDeletingItem(true);
 
     try {
-      // Delete the item from Supabase
       const { error: deleteError } = await supabase
         .from('room_items')
         .delete()
@@ -519,7 +488,6 @@ export default function RoomDetailScreen() {
       console.log('Item deleted successfully');
       showAlert('Success', 'Item deleted successfully', 'success');
 
-      // Refresh the room data
       await fetchRoomData();
 
       setShowDeleteConfirm(false);
@@ -532,7 +500,11 @@ export default function RoomDetailScreen() {
     }
   };
 
-  // Show loading state
+  const handleBackToInspection = () => {
+    console.log('User tapped Back button - navigating to inspection detail');
+    router.back();
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -552,7 +524,6 @@ export default function RoomDetailScreen() {
     );
   }
 
-  // Show error state
   if (error || !room) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -693,7 +664,6 @@ export default function RoomDetailScreen() {
                         <Text style={styles.takePhotoButtonText}>Take Photo</Text>
                       </TouchableOpacity>
 
-                      {/* Evidence Gallery with 100x100 thumbnails and lightbox */}
                       {itemPhotos.length > 0 && (
                         <View style={styles.evidenceGallery}>
                           <Text style={styles.evidenceTitle}>Evidence Gallery</Text>
@@ -723,9 +693,22 @@ export default function RoomDetailScreen() {
               </View>
             )}
           </View>
+
+          {/* FIX #2: Universal Back Button */}
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={handleBackToInspection}
+          >
+            <IconSymbol
+              ios_icon_name="arrow.left"
+              android_material_icon_name="arrow-back"
+              size={20}
+              color={colors.primary}
+            />
+            <Text style={styles.backButtonText}>Back to Inspection</Text>
+          </TouchableOpacity>
         </ScrollView>
 
-        {/* Log Condition Modal */}
         <Modal
           visible={showLogConditionModal}
           animationType="slide"
@@ -848,7 +831,6 @@ export default function RoomDetailScreen() {
           </View>
         </Modal>
 
-        {/* Camera Modal */}
         <Modal
           visible={showCamera}
           animationType="slide"
@@ -879,7 +861,6 @@ export default function RoomDetailScreen() {
           </View>
         </Modal>
 
-        {/* Upload Progress Modal */}
         <Modal
           visible={uploadingPhoto}
           transparent={true}
@@ -894,7 +875,6 @@ export default function RoomDetailScreen() {
           </View>
         </Modal>
 
-        {/* Delete Confirmation Modal */}
         <ConfirmModal
           visible={showDeleteConfirm}
           title="Delete Item"
@@ -909,7 +889,6 @@ export default function RoomDetailScreen() {
           type="danger"
         />
 
-        {/* Full-Screen Lightbox Modal */}
         <Modal
           visible={lightboxVisible}
           transparent={true}
@@ -1108,7 +1087,6 @@ const styles = StyleSheet.create({
   thumbnailContainer: {
     marginHorizontal: 4,
   },
-  // 100x100 thumbnail size
   thumbnail: {
     width: 100,
     height: 100,
@@ -1117,7 +1095,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.border,
   },
-  // Full-screen lightbox styles
   lightboxOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.95)',
@@ -1134,6 +1111,24 @@ const styles = StyleSheet.create({
   lightboxImage: {
     width: '100%',
     height: '100%',
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.card,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 0,
+    marginTop: 24,
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  backButtonText: {
+    color: colors.primary,
+    fontSize: 16,
+    fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,

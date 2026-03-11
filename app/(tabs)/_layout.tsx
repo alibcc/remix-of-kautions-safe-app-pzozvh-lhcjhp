@@ -13,24 +13,24 @@ export default function TabLayout() {
           tabs={[
             {
               name: 'index',
-              title: 'Inspections',
-              icon: 'home',
+              title: 'List',
+              icon: '📋',
               route: '/(home)',
-              label: 'Inspections',
+              label: 'List',
             },
             {
               name: 'history',
-              title: 'Archive',
-              icon: 'archive',
+              title: 'Done',
+              icon: '✅',
               route: '/history',
-              label: 'Archive',
+              label: 'Done',
             },
             {
               name: 'profile',
-              title: 'Profile',
-              icon: 'person',
+              title: 'Me',
+              icon: '👤',
               route: '/profile',
-              label: 'Profile',
+              label: 'Me',
             },
           ]}
         />
@@ -43,21 +43,21 @@ export default function TabLayout() {
       <Tabs.Screen
         name="(home)"
         options={{
-          title: 'Inspections',
+          title: 'List',
           headerShown: false,
         }}
       />
       <Tabs.Screen
         name="history"
         options={{
-          title: 'Archive',
+          title: 'Done',
           headerShown: false,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
+          title: 'Me',
           headerShown: false,
         }}
       />

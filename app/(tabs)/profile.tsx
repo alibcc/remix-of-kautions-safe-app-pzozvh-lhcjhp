@@ -1,13 +1,13 @@
 
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Platform, TouchableOpacity, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Modal } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "expo-router";
 import { IconSymbol } from "@/components/IconSymbol";
 import { GlassView } from "expo-glass-effect";
 import { useTheme } from "@react-navigation/native";
-import { ConfirmModal } from "@/components/ui/Modal";
+import { ConfirmModal, AlertModal } from "@/components/ui/Modal";
 import { colors } from "@/styles/commonStyles";
 
 export default function ProfileScreen() {
@@ -16,6 +16,24 @@ export default function ProfileScreen() {
   const theme = useTheme();
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  
+  // Edit Profile modal state
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  
+  // Alert modal state
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState('');
+  const [alertMessage, setAlertMessage] = useState('');
+  const [alertType, setAlertType] = useState<'info' | 'error' | 'success'>('info');
+
+  const showAlert = (title: string, message: string, type: 'info' | 'error' | 'success' = 'info') => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertType(type);
+    setAlertVisible(true);
+  };
 
   const handleSignOut = async () => {
     setSigningOut(true);
@@ -32,6 +50,34 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleEditProfile = () => {
+    console.log('User tapped Edit Profile button');
+    const userName = user?.user_metadata?.name || '';
+    const userEmail = user?.email || '';
+    setEditName(userName);
+    setEditEmail(userEmail);
+    setShowEditProfileModal(true);
+  };
+
+  const handleSaveProfile = () => {
+    console.log('User tapped Save Profile button');
+    // TODO: Backend Integration - PUT /api/user/profile with { name, email }
+    showAlert('Coming Soon', 'Profile editing will be available soon!', 'info');
+    setShowEditProfileModal(false);
+  };
+
+  const handleChangePassword = () => {
+    console.log('User tapped Change Password button');
+    // TODO: Backend Integration - POST /api/user/change-password
+    showAlert('Coming Soon', 'Password change will be available soon!', 'info');
+  };
+
+  const handleContactSupport = () => {
+    console.log('User tapped Contact Support button');
+    // TODO: Backend Integration - POST /api/support/contact
+    showAlert('Contact Support', 'Please email us at support@kautions-safe.com for assistance.', 'info');
+  };
+
   const userEmail = user?.email || "No email";
   const userName = user?.user_metadata?.name || "User";
 
@@ -42,10 +88,57 @@ export default function ProfileScreen() {
         contentContainerStyle={styles.contentContainer}
       >
         <GlassView style={styles.profileHeader} glassEffectStyle="regular">
-          <IconSymbol ios_icon_name="person.circle.fill" android_material_icon_name="account-circle" size={80} color={theme.colors.primary} />
+          <Text style={styles.profileIcon}>👤</Text>
           <Text style={[styles.name, { color: theme.colors.text }]}>{userName}</Text>
           <Text style={[styles.email, { color: theme.dark ? '#98989D' : '#666' }]}>{userEmail}</Text>
         </GlassView>
+
+        {/* FIX #4: Profile Page Options */}
+        <View style={styles.optionsSection}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Account Settings</Text>
+          
+          <TouchableOpacity
+            style={[styles.optionButton, { backgroundColor: theme.dark ? 'rgba(255, 255, 255, 0.05)' : '#fff' }]}
+            onPress={handleEditProfile}
+          >
+            <View style={styles.optionIconContainer}>
+              <IconSymbol ios_icon_name="person.circle" android_material_icon_name="account-circle" size={24} color={colors.primary} />
+            </View>
+            <View style={styles.optionTextContainer}>
+              <Text style={[styles.optionTitle, { color: theme.colors.text }]}>Edit Profile</Text>
+              <Text style={[styles.optionSubtitle, { color: theme.dark ? '#98989D' : '#666' }]}>Update your name and email</Text>
+            </View>
+            <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron-right" size={20} color={theme.dark ? '#98989D' : '#666'} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.optionButton, { backgroundColor: theme.dark ? 'rgba(255, 255, 255, 0.05)' : '#fff' }]}
+            onPress={handleChangePassword}
+          >
+            <View style={styles.optionIconContainer}>
+              <IconSymbol ios_icon_name="lock.shield" android_material_icon_name="lock" size={24} color={colors.primary} />
+            </View>
+            <View style={styles.optionTextContainer}>
+              <Text style={[styles.optionTitle, { color: theme.colors.text }]}>Security</Text>
+              <Text style={[styles.optionSubtitle, { color: theme.dark ? '#98989D' : '#666' }]}>Change your password</Text>
+            </View>
+            <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron-right" size={20} color={theme.dark ? '#98989D' : '#666'} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.optionButton, { backgroundColor: theme.dark ? 'rgba(255, 255, 255, 0.05)' : '#fff' }]}
+            onPress={handleContactSupport}
+          >
+            <View style={styles.optionIconContainer}>
+              <IconSymbol ios_icon_name="questionmark.circle" android_material_icon_name="help" size={24} color={colors.primary} />
+            </View>
+            <View style={styles.optionTextContainer}>
+              <Text style={[styles.optionTitle, { color: theme.colors.text }]}>Support</Text>
+              <Text style={[styles.optionSubtitle, { color: theme.dark ? '#98989D' : '#666' }]}>Contact support team</Text>
+            </View>
+            <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron-right" size={20} color={theme.dark ? '#98989D' : '#666'} />
+          </TouchableOpacity>
+        </View>
 
         <TouchableOpacity
           style={[styles.signOutButton, { backgroundColor: colors.error }]}
@@ -63,6 +156,71 @@ export default function ProfileScreen() {
         </TouchableOpacity>
       </ScrollView>
 
+      {/* Edit Profile Modal */}
+      <Modal
+        visible={showEditProfileModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowEditProfileModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.colors.background }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Edit Profile</Text>
+              <TouchableOpacity onPress={() => setShowEditProfileModal(false)}>
+                <IconSymbol
+                  ios_icon_name="xmark.circle.fill"
+                  android_material_icon_name="close"
+                  size={28}
+                  color={theme.dark ? '#98989D' : '#666'}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              <View style={styles.inputGroup}>
+                <Text style={[styles.inputLabel, { color: theme.colors.text }]}>Name</Text>
+                <TextInput
+                  style={[styles.input, { 
+                    backgroundColor: theme.dark ? 'rgba(255, 255, 255, 0.05)' : '#f5f5f5',
+                    color: theme.colors.text,
+                    borderColor: theme.dark ? 'rgba(255, 255, 255, 0.1)' : '#e0e0e0'
+                  }]}
+                  placeholder="Enter your name"
+                  placeholderTextColor={theme.dark ? '#98989D' : '#999'}
+                  value={editName}
+                  onChangeText={setEditName}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={[styles.inputLabel, { color: theme.colors.text }]}>Email</Text>
+                <TextInput
+                  style={[styles.input, { 
+                    backgroundColor: theme.dark ? 'rgba(255, 255, 255, 0.05)' : '#f5f5f5',
+                    color: theme.colors.text,
+                    borderColor: theme.dark ? 'rgba(255, 255, 255, 0.1)' : '#e0e0e0'
+                  }]}
+                  placeholder="Enter your email"
+                  placeholderTextColor={theme.dark ? '#98989D' : '#999'}
+                  value={editEmail}
+                  onChangeText={setEditEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.modalSaveButton, { backgroundColor: colors.primary }]}
+              onPress={handleSaveProfile}
+            >
+              <Text style={styles.modalSaveButtonText}>Save Changes</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <ConfirmModal
         visible={showSignOutModal}
         title="Sign Out"
@@ -72,6 +230,14 @@ export default function ProfileScreen() {
         type="danger"
         onConfirm={handleSignOut}
         onCancel={() => setShowSignOutModal(false)}
+      />
+
+      <AlertModal
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        type={alertType}
+        onClose={() => setAlertVisible(false)}
       />
     </SafeAreaView>
   );
@@ -94,12 +260,52 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     gap: 12,
   },
+  profileIcon: {
+    fontSize: 80,
+  },
   name: {
     fontSize: 24,
     fontWeight: 'bold',
   },
   email: {
     fontSize: 16,
+  },
+  optionsSection: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  optionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  optionIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: `${colors.primary}15`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  optionTextContainer: {
+    flex: 1,
+  },
+  optionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  optionSubtitle: {
+    fontSize: 14,
   },
   signOutButton: {
     flexDirection: 'row',
@@ -112,6 +318,60 @@ const styles = StyleSheet.create({
   signOutText: {
     color: '#fff',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 20,
+    paddingBottom: 40,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    flex: 1,
+  },
+  modalBody: {
+    paddingHorizontal: 20,
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+  },
+  modalSaveButton: {
+    marginHorizontal: 20,
+    marginTop: 20,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modalSaveButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
     fontWeight: '600',
   },
 });

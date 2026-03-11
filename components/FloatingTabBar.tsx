@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { IconSymbol } from '@/components/IconSymbol';
 import { BlurView } from 'expo-blur';
 import { useTheme } from '@react-navigation/native';
 import Animated, {
@@ -19,7 +18,6 @@ import Animated, {
   withSpring,
   interpolate,
 } from 'react-native-reanimated';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Href } from 'expo-router';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -27,7 +25,7 @@ const { width: screenWidth } = Dimensions.get('window');
 export interface TabBarItem {
   name: string;
   route: Href;
-  icon: keyof typeof MaterialIcons.glyphMap;
+  icon: string;
   label: string;
 }
 
@@ -49,28 +47,22 @@ export default function FloatingTabBar({
   const theme = useTheme();
   const animatedValue = useSharedValue(0);
 
-  // Improved active tab detection with better path matching
   const activeTabIndex = React.useMemo(() => {
-    // Find the best matching tab based on the current pathname
     let bestMatch = -1;
     let bestMatchScore = 0;
 
     tabs.forEach((tab, index) => {
       let score = 0;
 
-      // Exact route match gets highest score
       if (pathname === tab.route) {
         score = 100;
       }
-      // Check if pathname starts with tab route (for nested routes)
       else if (pathname.startsWith(tab.route as string)) {
         score = 80;
       }
-      // Check if pathname contains the tab name
       else if (pathname.includes(tab.name)) {
         score = 60;
       }
-      // Check for partial matches in the route
       else if (tab.route.includes('/(tabs)/') && pathname.includes(tab.route.split('/(tabs)/')[1])) {
         score = 40;
       }
@@ -81,7 +73,6 @@ export default function FloatingTabBar({
       }
     });
 
-    // Default to first tab if no match found
     return bestMatch >= 0 ? bestMatch : 0;
   }, [pathname, tabs]);
 
@@ -117,7 +108,6 @@ export default function FloatingTabBar({
     };
   });
 
-  // Dynamic styles based on theme
   const dynamicStyles = {
     blurContainer: {
       ...styles.blurContainer,
@@ -173,6 +163,7 @@ export default function FloatingTabBar({
             {tabs.map((tab, index) => {
               const isActive = activeTabIndex === index;
               const labelText = tab.label;
+              const iconSymbol = tab.icon;
 
               return (
                 <React.Fragment key={index}>
@@ -183,12 +174,12 @@ export default function FloatingTabBar({
                   activeOpacity={0.7}
                 >
                   <View key={index} style={styles.tabContent}>
-                    <IconSymbol
-                      android_material_icon_name={tab.icon}
-                      ios_icon_name={tab.icon}
-                      size={24}
-                      color={isActive ? theme.colors.primary : (theme.dark ? '#98989D' : '#000000')}
-                    />
+                    <Text style={[
+                      styles.tabIcon,
+                      { color: isActive ? theme.colors.primary : (theme.dark ? '#98989D' : '#000000') }
+                    ]}>
+                      {iconSymbol}
+                    </Text>
                     <Text
                       style={[
                         styles.tabLabel,
@@ -253,6 +244,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
+  },
+  tabIcon: {
+    fontSize: 24,
   },
   tabLabel: {
     fontSize: 9,

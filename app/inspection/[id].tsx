@@ -1,6 +1,7 @@
 
-import { Stack, useRouter, useLocalSearchParams } from "expo-router";
-import React, { useState, useEffect, useRef } from "react";
+import { AlertModal } from "@/components/ui/Modal";
+import { sendPdfEmail } from "@/utils/api";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   StyleSheet,
   View,
@@ -15,34 +16,15 @@ import {
   KeyboardAvoidingView,
   ImageBackground,
 } from "react-native";
-import { colors, commonStyles } from "@/styles/commonStyles";
-import { IconSymbol } from "@/components/IconSymbol";
-import { AlertModal } from "@/components/ui/Modal";
-import { supabase } from "@/app/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { sendPdfEmail } from "@/utils/api";
-import SignatureCanvas from "react-native-signature-canvas";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { decode } from 'base64-arraybuffer';
-
-const ROOM_PRESETS = [
-  { nameEn: 'Living Room', nameDe: 'Wohnzimmer' },
-  { nameEn: 'Bedroom', nameDe: 'Schlafzimmer' },
-  { nameEn: 'Kitchen', nameDe: 'Küche' },
-  { nameEn: 'Bathroom', nameDe: 'Bad' },
-  { nameEn: 'Hallway', nameDe: 'Flur' },
-  { nameEn: 'Balcony', nameDe: 'Balkon' },
-  { nameEn: 'Basement', nameDe: 'Keller' },
-  { nameEn: 'Guest WC', nameDe: 'Gäste-WC' },
-  { nameEn: 'Storage Room', nameDe: 'Abstellraum' },
-  { nameEn: 'Garden', nameDe: 'Garten' },
-];
-
-const CRAFTMYPDF_API_KEY = '9cf6Mjg1MjM6Mjg2ODQ6a3ZWUDBhZ2lGUE9CU1UzdA=';
-const CRAFTMYPDF_TEMPLATE_ID = '5c477b23ea34170c';
-const CRAFTMYPDF_ENDPOINT = 'https://api-de.craftmypdf.com/v1/create';
-const CRAFTMYPDF_TIMEOUT = 30000;
+import SignatureCanvas from "react-native-signature-canvas";
+import { Stack, useRouter, useLocalSearchParams } from "expo-router";
+import { supabase } from "@/app/integrations/supabase/client";
+import { colors, commonStyles } from "@/styles/commonStyles";
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { IconSymbol } from "@/components/IconSymbol";
+import React, { useState, useEffect, useRef } from "react";
 
 interface Room {
   id: string;
@@ -86,6 +68,24 @@ interface Photo {
   } | null;
   timestamp_verified: string;
 }
+
+const ROOM_PRESETS = [
+  { nameEn: 'Living Room', nameDe: 'Wohnzimmer' },
+  { nameEn: 'Bedroom', nameDe: 'Schlafzimmer' },
+  { nameEn: 'Kitchen', nameDe: 'Küche' },
+  { nameEn: 'Bathroom', nameDe: 'Bad' },
+  { nameEn: 'Hallway', nameDe: 'Flur' },
+  { nameEn: 'Balcony', nameDe: 'Balkon' },
+  { nameEn: 'Basement', nameDe: 'Keller' },
+  { nameEn: 'Guest WC', nameDe: 'Gäste-WC' },
+  { nameEn: 'Storage Room', nameDe: 'Abstellraum' },
+  { nameEn: 'Garden', nameDe: 'Garten' },
+];
+
+const CRAFTMYPDF_API_KEY = '9cf6Mjg1MjM6Mjg2ODQ6a3ZWUDBhZ2lGUE9CU1UzdA=';
+const CRAFTMYPDF_TEMPLATE_ID = '5c477b23ea34170c';
+const CRAFTMYPDF_ENDPOINT = 'https://api-de.craftmypdf.com/v1/create';
+const CRAFTMYPDF_TIMEOUT = 30000;
 
 const createDotMatrixPattern = () => {
   return `data:image/svg+xml,%3Csvg width='20' height='20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='2' cy='2' r='1' fill='%23ED7B58' opacity='0.15'/%3E%3C/svg%3E`;
@@ -134,6 +134,10 @@ export default function InspectionDetailScreen() {
   const [alertTitle, setAlertTitle] = useState('');
   const [alertMessage, setAlertMessage] = useState('');
   const [alertType, setAlertType] = useState<'info' | 'error' | 'success'>('info');
+  
+  // FIX #5: PDF Download Link state
+  const [pdfDownloadUrl, setPdfDownloadUrl] = useState<string | null>(null);
+  const [showPdfDownloadModal, setShowPdfDownloadModal] = useState(false);
   
   const showAlert = (title: string, message: string, type: 'info' | 'error' | 'success' = 'info') => {
     setAlertTitle(title);
@@ -404,7 +408,6 @@ export default function InspectionDetailScreen() {
     try {
       console.log('Step 1: Getting Supabase access token for authentication');
       
-      // FIX #5: Get Supabase access token for CraftMyPDF authentication
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       if (sessionError || !session) {
         throw new Error('Failed to get Supabase session for PDF API call.');
@@ -433,10 +436,9 @@ export default function InspectionDetailScreen() {
       const tenantName = tenantParticipant?.name || '';
 
       console.log('═══════════════════════════════════════');
-      console.log('FIX #2: Fetching rooms with items and photos');
+      console.log('Fetching rooms with items and photos');
       console.log('═══════════════════════════════════════');
 
-      // FIX #2: Fetch all rooms with their items and photos
       const roomsWithData = await Promise.all(
         rooms.map(async (room) => {
           const { data: itemsData, error: itemsError } = await supabase
@@ -467,7 +469,6 @@ export default function InspectionDetailScreen() {
 
               const photo = photosData && photosData.length > 0 ? photosData[0] : null;
               
-              // Get public URL for photo from Supabase Storage
               let photoPublicUrl = '';
               if (photo && photo.storage_url) {
                 const { data: publicUrlData } = supabase.storage
@@ -491,10 +492,9 @@ export default function InspectionDetailScreen() {
       const tenantSigDate = tenantSignatureDate.toLocaleDateString('de-DE');
 
       console.log('═══════════════════════════════════════');
-      console.log('FIX #2: Creating signed URLs for signatures (600s expiry)');
+      console.log('Creating signed URLs for signatures (600s expiry)');
       console.log('═══════════════════════════════════════');
 
-      // FIX #2: Upload signatures to Supabase Storage and create signed URLs
       let landlordSignatureUrl = '';
       let tenantSignatureUrl = '';
 
@@ -514,7 +514,6 @@ export default function InspectionDetailScreen() {
           if (landlordUploadError) {
             console.error('Error uploading landlord signature:', landlordUploadError);
           } else {
-            // FIX #2: Use createSignedUrl with 600s expiry
             const { data: landlordSignedData, error: landlordSignedError } = await supabase.storage
               .from('signatures')
               .createSignedUrl(landlordSigPath, 600);
@@ -547,7 +546,6 @@ export default function InspectionDetailScreen() {
           if (tenantUploadError) {
             console.error('Error uploading tenant signature:', tenantUploadError);
           } else {
-            // FIX #2: Use createSignedUrl with 600s expiry
             const { data: tenantSignedData, error: tenantSignedError } = await supabase.storage
               .from('signatures')
               .createSignedUrl(tenantSigPath, 600);
@@ -598,10 +596,9 @@ export default function InspectionDetailScreen() {
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       console.log('═══════════════════════════════════════');
-      console.log('FIX #2: Preparing CraftMyPDF payload with nested JSON array for rooms');
+      console.log('Preparing CraftMyPDF payload with nested JSON array for rooms');
       console.log('═══════════════════════════════════════');
 
-      // FIX #2: Map rooms to nested JSON array for CraftMyPDF
       const rows = roomsWithData.flatMap((room) => 
         room.room_items.map((item: any) => ({
           room_name: room.name_de,
@@ -643,7 +640,7 @@ export default function InspectionDetailScreen() {
       };
 
       console.log('═══════════════════════════════════════');
-      console.log('FIX #1 & #5: Calling CraftMyPDF API with proper error handling and auth');
+      console.log('Calling CraftMyPDF API with proper error handling and auth');
       console.log('Endpoint:', CRAFTMYPDF_ENDPOINT);
       console.log('Rows count:', rows.length);
       console.log('═══════════════════════════════════════');
@@ -658,7 +655,7 @@ export default function InspectionDetailScreen() {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
             'X-API-KEY': CRAFTMYPDF_API_KEY,
-            'Authorization': `Bearer ${accessToken}`, // FIX #5: Include Supabase access token
+            'Authorization': `Bearer ${accessToken}`,
           },
           body: JSON.stringify(pdfPayload),
           signal: controller.signal,
@@ -696,11 +693,9 @@ export default function InspectionDetailScreen() {
           throw new Error(fullErrorMessage);
         }
 
-        // FIX #1: Verify response is valid before processing blob
         const contentType = response.headers.get('content-type');
         console.log('Response content-type:', contentType);
 
-        // Check if response is JSON (error) or PDF
         if (contentType && contentType.includes('application/json')) {
           const result = await response.json();
           console.log('CraftMyPDF returned JSON response:', result);
@@ -715,10 +710,9 @@ export default function InspectionDetailScreen() {
           console.log('PDF URL received:', pdfUrl);
 
           console.log('═══════════════════════════════════════');
-          console.log('FIX #1: Downloading PDF and verifying blob validity');
+          console.log('FIX #5: Downloading PDF and saving to Supabase');
           console.log('═══════════════════════════════════════');
 
-          // FIX #1: Download the PDF and verify blob
           const pdfResponse = await fetch(pdfUrl);
           if (!pdfResponse.ok) {
             throw new Error('Failed to download PDF from CraftMyPDF');
@@ -726,7 +720,6 @@ export default function InspectionDetailScreen() {
 
           const pdfBlob = await pdfResponse.blob();
           
-          // FIX #1: Verify pdfBlob is valid before processing
           if (!(pdfBlob instanceof Blob)) {
             throw new Error('CraftMyPDF response is not a valid Blob.');
           }
@@ -768,7 +761,6 @@ export default function InspectionDetailScreen() {
 
           console.log('✅ PDF uploaded to Supabase Storage successfully');
 
-          // Get public URL for the saved PDF
           const { data: pdfPublicUrlData } = supabase.storage
             .from('reports_pdfs')
             .getPublicUrl(pdfPath);
@@ -807,31 +799,20 @@ export default function InspectionDetailScreen() {
             console.log('✅ Email sent successfully');
           } catch (emailError: any) {
             console.error('❌ Error sending email:', emailError);
-            showAlert('Warning', 'PDF generated successfully but email failed to send. You can access the PDF from the History tab.', 'info');
           }
 
           setShowSignatureModal(false);
 
-          console.log('Opening PDF URL:', savedPdfUrl);
-          const canOpen = await Linking.canOpenURL(savedPdfUrl);
-          if (canOpen) {
-            await Linking.openURL(savedPdfUrl);
-            showAlert('Success', 'PDF generated successfully! An email with the PDF has been sent to your address.', 'success');
-          } else {
-            console.error('Cannot open URL:', savedPdfUrl);
-            showAlert('Success', 'PDF generated and saved! An email with the PDF has been sent to your address.', 'success');
-          }
+          // FIX #5: Show Download PDF link instead of opening immediately
+          setPdfDownloadUrl(savedPdfUrl);
+          setShowPdfDownloadModal(true);
 
           console.log('═══════════════════════════════════════');
           console.log('✅ PDF GENERATION COMPLETE - ALL FIXES APPLIED');
           console.log('═══════════════════════════════════════');
         } else {
-          // Response is directly a PDF blob
-          console.log('Response is directly a PDF blob');
-          
           const pdfBlob = await response.blob();
           
-          // FIX #1: Verify pdfBlob is valid before processing
           if (!(pdfBlob instanceof Blob)) {
             throw new Error('CraftMyPDF response is not a valid Blob.');
           }
@@ -905,13 +886,9 @@ export default function InspectionDetailScreen() {
 
           setShowSignatureModal(false);
 
-          const canOpen = await Linking.canOpenURL(savedPdfUrl);
-          if (canOpen) {
-            await Linking.openURL(savedPdfUrl);
-            showAlert('Success', 'PDF generated successfully!', 'success');
-          } else {
-            showAlert('Success', 'PDF generated and saved!', 'success');
-          }
+          // FIX #5: Show Download PDF link instead of opening immediately
+          setPdfDownloadUrl(savedPdfUrl);
+          setShowPdfDownloadModal(true);
 
           console.log('✅ PDF GENERATION COMPLETE');
         }
@@ -933,6 +910,25 @@ export default function InspectionDetailScreen() {
   const handleBackToList = () => {
     console.log('User tapped Back button - navigating to inspection list');
     router.back();
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!pdfDownloadUrl) return;
+    
+    console.log('User tapped Download PDF button');
+    try {
+      const canOpen = await Linking.canOpenURL(pdfDownloadUrl);
+      if (canOpen) {
+        await Linking.openURL(pdfDownloadUrl);
+        console.log('PDF opened successfully');
+      } else {
+        console.error('Cannot open URL:', pdfDownloadUrl);
+        showAlert('Error', 'Cannot open PDF URL. Please check your device settings.', 'error');
+      }
+    } catch (error: any) {
+      console.error('Error opening PDF:', error);
+      showAlert('Error', `Failed to open PDF: ${error.message}`, 'error');
+    }
   };
 
   const getTypeText = (type: string) => {
@@ -1137,7 +1133,7 @@ export default function InspectionDetailScreen() {
             )}
           </View>
 
-          {/* FIX #4: Add Back Button at bottom of screen */}
+          {/* FIX #2: Universal Back Button at bottom */}
           <TouchableOpacity
             style={styles.backButton}
             onPress={handleBackToList}
@@ -1148,7 +1144,7 @@ export default function InspectionDetailScreen() {
               size={20}
               color={colors.primary}
             />
-            <Text style={styles.backButtonText}>Back to Inspections</Text>
+            <Text style={styles.backButtonText}>Back to List</Text>
           </TouchableOpacity>
         </ScrollView>
 
@@ -1244,7 +1240,8 @@ export default function InspectionDetailScreen() {
                 style={styles.modalContent}
                 imageStyle={{ opacity: 0.2 }}
               >
-              <View style={styles.modalHeader}>
+              {/* FIX #1: Modal header moved down 40px */}
+              <View style={[styles.modalHeader, { marginTop: 40 }]}>
                 <Text style={styles.modalTitle}>Final Details</Text>
                 <TouchableOpacity onPress={() => setShowFinalDetailsModal(false)}>
                   <IconSymbol
@@ -1429,7 +1426,8 @@ export default function InspectionDetailScreen() {
               keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
             >
               <View style={styles.signatureModalContainer}>
-                <View style={styles.signatureModalHeader}>
+                {/* FIX #1: Signature modal header moved down 40px */}
+                <View style={[styles.signatureModalHeader, { paddingTop: 56 }]}>
                   <Text style={styles.signatureModalTitle}>Digital Signatures</Text>
                   <TouchableOpacity onPress={handleCloseSignatureModal}>
                     <IconSymbol
@@ -1588,6 +1586,50 @@ export default function InspectionDetailScreen() {
               </View>
             </KeyboardAvoidingView>
           </SafeAreaView>
+        </Modal>
+
+        {/* FIX #5: PDF Download Link Modal */}
+        <Modal
+          visible={showPdfDownloadModal}
+          animationType="fade"
+          transparent={true}
+          onRequestClose={() => setShowPdfDownloadModal(false)}
+        >
+          <View style={styles.downloadModalOverlay}>
+            <View style={styles.downloadModalContent}>
+              <IconSymbol
+                ios_icon_name="checkmark.circle.fill"
+                android_material_icon_name="check-circle"
+                size={64}
+                color={colors.success}
+              />
+              <Text style={styles.downloadModalTitle}>PDF Generated Successfully!</Text>
+              <Text style={styles.downloadModalMessage}>
+                Your inspection report has been saved. An email with the PDF has been sent to your address.
+              </Text>
+              <TouchableOpacity
+                style={styles.downloadButton}
+                onPress={handleDownloadPdf}
+              >
+                <IconSymbol
+                  ios_icon_name="arrow.down.doc"
+                  android_material_icon_name="download"
+                  size={24}
+                  color="#FFFFFF"
+                />
+                <Text style={styles.downloadButtonText}>Download PDF</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.closeDownloadButton}
+                onPress={() => {
+                  setShowPdfDownloadModal(false);
+                  setPdfDownloadUrl(null);
+                }}
+              >
+                <Text style={styles.closeDownloadButtonText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </Modal>
 
         <AlertModal
@@ -2046,5 +2088,61 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '700',
+  },
+  downloadModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  downloadModalContent: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    maxWidth: 400,
+    width: '100%',
+  },
+  downloadModalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text,
+    marginTop: 16,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  downloadModalMessage: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  downloadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    backgroundColor: colors.primary,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 0,
+    width: '100%',
+    marginBottom: 12,
+  },
+  downloadButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  closeDownloadButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+  closeDownloadButtonText: {
+    color: colors.textSecondary,
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
