@@ -386,7 +386,7 @@ export default function InspectionDetailScreen() {
 
   const handleGeneratePDF = async () => {
     console.log('═══════════════════════════════════════');
-    console.log('🚨 EMERGENCY FIX: PUBLIC URL CONVERSION + DATE FORMATTING');
+    console.log('🚨 FINAL FIX: Signatures at TOP LEVEL + Public URLs');
     console.log('User tapped Create Official Protocol button');
     console.log('═══════════════════════════════════════');
     
@@ -422,6 +422,76 @@ export default function InspectionDetailScreen() {
       
       const landlordName = landlordParticipant?.name || '';
       const tenantName = tenantParticipant?.name || '';
+
+      console.log('═══════════════════════════════════════');
+      console.log('🔧 CRITICAL: Processing signatures FIRST (top level)');
+      console.log('Using getPublicUrl() for BOTH signatures from "signatures" bucket');
+      console.log('═══════════════════════════════════════');
+
+      let landlordSignatureUrl = '';
+      let tenantSignatureUrl = '';
+
+      if (landlordSignature) {
+        try {
+          const landlordSigBase64 = landlordSignature.replace(/^data:image\/\w+;base64,/, '');
+          const landlordSigBuffer = decode(landlordSigBase64);
+          const landlordSigPath = `${id}_landlord_${Date.now()}.png`;
+          
+          console.log('Uploading landlord signature to "signatures" bucket:', landlordSigPath);
+          
+          const { error: landlordUploadError } = await supabase.storage
+            .from('signatures')
+            .upload(landlordSigPath, landlordSigBuffer, {
+              contentType: 'image/png',
+              upsert: true,
+            });
+
+          if (landlordUploadError) {
+            console.error('❌ Error uploading landlord signature:', landlordUploadError);
+          } else {
+            console.log('✅ Landlord signature uploaded, converting to PUBLIC URL using getPublicUrl()...');
+            const { data: landlordPublicUrlData } = supabase.storage
+              .from('signatures')
+              .getPublicUrl(landlordSigPath);
+            
+            landlordSignatureUrl = landlordPublicUrlData.publicUrl || '';
+            console.log('✅ Landlord signature PUBLIC URL created:', landlordSignatureUrl);
+          }
+        } catch (sigError: any) {
+          console.error('❌ Error processing landlord signature:', sigError);
+        }
+      }
+
+      if (tenantSignature) {
+        try {
+          const tenantSigBase64 = tenantSignature.replace(/^data:image\/\w+;base64,/, '');
+          const tenantSigBuffer = decode(tenantSigBase64);
+          const tenantSigPath = `${id}_tenant_${Date.now()}.png`;
+          
+          console.log('Uploading tenant signature to "signatures" bucket:', tenantSigPath);
+          
+          const { error: tenantUploadError } = await supabase.storage
+            .from('signatures')
+            .upload(tenantSigPath, tenantSigBuffer, {
+              contentType: 'image/png',
+              upsert: true,
+            });
+
+          if (tenantUploadError) {
+            console.error('❌ Error uploading tenant signature:', tenantUploadError);
+          } else {
+            console.log('✅ Tenant signature uploaded, converting to PUBLIC URL using getPublicUrl()...');
+            const { data: tenantPublicUrlData } = supabase.storage
+              .from('signatures')
+              .getPublicUrl(tenantSigPath);
+            
+            tenantSignatureUrl = tenantPublicUrlData.publicUrl || '';
+            console.log('✅ Tenant signature PUBLIC URL created:', tenantSignatureUrl);
+          }
+        } catch (sigError: any) {
+          console.error('❌ Error processing tenant signature:', sigError);
+        }
+      }
 
       console.log('═══════════════════════════════════════');
       console.log('🔧 Fetching rooms for report_id:', id);
@@ -547,77 +617,6 @@ export default function InspectionDetailScreen() {
       console.log(`✅ date: ${date}`);
 
       console.log('═══════════════════════════════════════');
-      console.log('🔧 CRITICAL: SIGNATURE PUBLIC URL CONVERSION using getPublicUrl()');
-      console.log('Using getPublicUrl() for BOTH signatures from "signatures" bucket');
-      console.log('Keys: landlord_signature, tenant_signature (top level)');
-      console.log('═══════════════════════════════════════');
-
-      let landlordSignatureUrl = '';
-      let tenantSignatureUrl = '';
-
-      if (landlordSignature) {
-        try {
-          const landlordSigBase64 = landlordSignature.replace(/^data:image\/\w+;base64,/, '');
-          const landlordSigBuffer = decode(landlordSigBase64);
-          const landlordSigPath = `${id}_landlord_${Date.now()}.png`;
-          
-          console.log('Uploading landlord signature to "signatures" bucket:', landlordSigPath);
-          
-          const { error: landlordUploadError } = await supabase.storage
-            .from('signatures')
-            .upload(landlordSigPath, landlordSigBuffer, {
-              contentType: 'image/png',
-              upsert: true,
-            });
-
-          if (landlordUploadError) {
-            console.error('❌ Error uploading landlord signature:', landlordUploadError);
-          } else {
-            console.log('✅ Landlord signature uploaded, converting to PUBLIC URL using getPublicUrl()...');
-            const { data: landlordPublicUrlData } = supabase.storage
-              .from('signatures')
-              .getPublicUrl(landlordSigPath);
-            
-            landlordSignatureUrl = landlordPublicUrlData.publicUrl || '';
-            console.log('✅ Landlord signature PUBLIC URL created:', landlordSignatureUrl);
-          }
-        } catch (sigError: any) {
-          console.error('❌ Error processing landlord signature:', sigError);
-        }
-      }
-
-      if (tenantSignature) {
-        try {
-          const tenantSigBase64 = tenantSignature.replace(/^data:image\/\w+;base64,/, '');
-          const tenantSigBuffer = decode(tenantSigBase64);
-          const tenantSigPath = `${id}_tenant_${Date.now()}.png`;
-          
-          console.log('Uploading tenant signature to "signatures" bucket:', tenantSigPath);
-          
-          const { error: tenantUploadError } = await supabase.storage
-            .from('signatures')
-            .upload(tenantSigPath, tenantSigBuffer, {
-              contentType: 'image/png',
-              upsert: true,
-            });
-
-          if (tenantUploadError) {
-            console.error('❌ Error uploading tenant signature:', tenantUploadError);
-          } else {
-            console.log('✅ Tenant signature uploaded, converting to PUBLIC URL using getPublicUrl()...');
-            const { data: tenantPublicUrlData } = supabase.storage
-              .from('signatures')
-              .getPublicUrl(tenantSigPath);
-            
-            tenantSignatureUrl = tenantPublicUrlData.publicUrl || '';
-            console.log('✅ Tenant signature PUBLIC URL created:', tenantSignatureUrl);
-          }
-        } catch (sigError: any) {
-          console.error('❌ Error processing tenant signature:', sigError);
-        }
-      }
-
-      console.log('═══════════════════════════════════════');
       console.log('Saving meter data to Supabase with user_id');
       console.log('═══════════════════════════════════════');
       
@@ -652,8 +651,10 @@ export default function InspectionDetailScreen() {
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       console.log('═══════════════════════════════════════');
-      console.log('🔧 Preparing CLEAN CraftMyPDF payload with PUBLIC URLs');
-      console.log('No extra text, comments, or JSON.stringify debug data');
+      console.log('🔧 Preparing CLEAN CraftMyPDF payload');
+      console.log('✅ landlord_signature and tenant_signature at TOP LEVEL (not in rooms)');
+      console.log('✅ All images use PUBLIC URLs via getPublicUrl()');
+      console.log('✅ No extra text, comments, or JSON.stringify debug data');
       console.log('═══════════════════════════════════════');
 
       const pdfPayload = {
@@ -685,12 +686,12 @@ export default function InspectionDetailScreen() {
         load_data_from_url: false,
       };
 
-      console.log('✅ CLEAN PDF Payload prepared with PUBLIC URLs:');
+      console.log('✅ CLEAN PDF Payload prepared:');
       console.log('  - inspection_date:', inspection_date);
       console.log('  - date:', date);
       console.log('  - Rooms count:', roomsWithData.length);
-      console.log('  - Landlord signature URL:', landlordSignatureUrl ? 'Present (Public URL)' : 'Empty string');
-      console.log('  - Tenant signature URL:', tenantSignatureUrl ? 'Present (Public URL)' : 'Empty string');
+      console.log('  - landlord_signature (TOP LEVEL):', landlordSignatureUrl ? 'Present (Public URL)' : 'Empty string');
+      console.log('  - tenant_signature (TOP LEVEL):', tenantSignatureUrl ? 'Present (Public URL)' : 'Empty string');
 
       console.log('═══════════════════════════════════════');
       console.log('Calling CraftMyPDF API');
@@ -789,11 +790,11 @@ export default function InspectionDetailScreen() {
         }
 
         console.log('═══════════════════════════════════════');
-        console.log('✅✅✅ PDF GENERATION COMPLETE - EMERGENCY FIX APPLIED ✅✅✅');
-        console.log('✅ Landlord signature: PUBLIC URL using getPublicUrl() from "signatures" bucket');
-        console.log('✅ Tenant signature: PUBLIC URL using getPublicUrl() from "signatures" bucket');
-        console.log('✅ Room photos: PUBLIC URL using getPublicUrl() from "room-photos" bucket (first photo only)');
-        console.log('✅ Keys sent to PDF: landlord_signature, tenant_signature, photo_url');
+        console.log('✅✅✅ PDF GENERATION COMPLETE - FINAL FIX APPLIED ✅✅✅');
+        console.log('✅ landlord_signature: TOP LEVEL, PUBLIC URL via getPublicUrl() from "signatures" bucket');
+        console.log('✅ tenant_signature: TOP LEVEL, PUBLIC URL via getPublicUrl() from "signatures" bucket');
+        console.log('✅ Room photos: PUBLIC URL via getPublicUrl() from "room-photos" bucket (first photo only)');
+        console.log('✅ Keys sent to PDF: landlord_signature, tenant_signature (TOP LEVEL), photo_url (in rooms)');
         console.log('✅ Room mapping: room_name, condition, comment (singular), photo_url (singular)');
         console.log('✅ Date fields: inspection_date and date in DD.MM.YYYY format');
         console.log('✅ Empty strings for missing data (no undefined)');
