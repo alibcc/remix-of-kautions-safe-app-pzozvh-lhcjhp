@@ -135,7 +135,6 @@ export default function InspectionDetailScreen() {
   const [alertMessage, setAlertMessage] = useState('');
   const [alertType, setAlertType] = useState<'info' | 'error' | 'success'>('info');
   
-  // FIX #5: PDF Download Link state
   const [pdfDownloadUrl, setPdfDownloadUrl] = useState<string | null>(null);
   const [showPdfDownloadModal, setShowPdfDownloadModal] = useState(false);
   
@@ -389,7 +388,7 @@ export default function InspectionDetailScreen() {
 
   const handleGeneratePDF = async () => {
     console.log('═══════════════════════════════════════');
-    console.log('PDF GENERATION STARTED - FINAL FIX VERSION');
+    console.log('PDF GENERATION STARTED - STORAGE BUCKET & CONTENT MAPPING FIX');
     console.log('User tapped Create Official Protocol button');
     console.log('═══════════════════════════════════════');
     
@@ -436,11 +435,13 @@ export default function InspectionDetailScreen() {
       const tenantName = tenantParticipant?.name || '';
 
       console.log('═══════════════════════════════════════');
-      console.log('Fetching rooms with items and photos');
+      console.log('FIX #3: Fetching rooms with items and photos - PROPER MAPPING');
       console.log('═══════════════════════════════════════');
 
       const roomsWithData = await Promise.all(
         rooms.map(async (room) => {
+          console.log(`Processing room: ${room.name_de} (${room.id})`);
+          
           const { data: itemsData, error: itemsError } = await supabase
             .from('room_items')
             .select('*')
@@ -448,51 +449,67 @@ export default function InspectionDetailScreen() {
 
           if (itemsError) {
             console.error(`Error fetching items for room ${room.id}:`, itemsError);
-            return { ...room, room_items: [] };
+            return { 
+              room_name: room.name_de, 
+              condition: 'Not Inspected',
+              photos: []
+            };
           }
 
           const items = itemsData || [];
-          console.log(`Room ${room.name_de}: ${items.length} items found`);
+          console.log(`  → Found ${items.length} items in ${room.name_de}`);
           
-          const itemsWithPhotos = await Promise.all(
-            items.map(async (item: RoomItem) => {
-              const { data: photosData, error: photosError } = await supabase
-                .from('photos')
-                .select('*')
-                .eq('item_id', item.id)
-                .limit(1);
+          const allPhotosForRoom: string[] = [];
+          
+          for (const item of items) {
+            const { data: photosData, error: photosError } = await supabase
+              .from('photos')
+              .select('*')
+              .eq('item_id', item.id);
 
-              if (photosError) {
-                console.error(`Error fetching photos for item ${item.id}:`, photosError);
-                return { ...item, photo_url: '' };
-              }
+            if (photosError) {
+              console.error(`Error fetching photos for item ${item.id}:`, photosError);
+              continue;
+            }
 
-              const photo = photosData && photosData.length > 0 ? photosData[0] : null;
-              
-              let photoPublicUrl = '';
-              if (photo && photo.storage_url) {
+            const photos = photosData || [];
+            console.log(`    → Item "${item.item_name_de}": ${photos.length} photos`);
+            
+            for (const photo of photos) {
+              if (photo.storage_url) {
                 const { data: publicUrlData } = supabase.storage
-                  .from('photos')
+                  .from('inspection-photos')
                   .getPublicUrl(photo.storage_url);
-                photoPublicUrl = publicUrlData.publicUrl;
-                console.log(`Photo public URL for item ${item.item_name_de}:`, photoPublicUrl);
+                
+                const photoPublicUrl = publicUrlData.publicUrl;
+                console.log(`      → Photo URL: ${photoPublicUrl}`);
+                allPhotosForRoom.push(photoPublicUrl);
               }
-              
-              return { ...item, photo_url: photoPublicUrl };
-            })
-          );
+            }
+          }
 
-          return { ...room, room_items: itemsWithPhotos };
+          const roomCondition = items.length > 0 
+            ? items.every((item: RoomItem) => item.condition_status === 'OK') ? 'OK' : 'Defects Found'
+            : 'Not Inspected';
+
+          console.log(`  → Room "${room.name_de}" final status: ${roomCondition}, ${allPhotosForRoom.length} total photos`);
+
+          return {
+            room_name: room.name_de,
+            condition: roomCondition,
+            photos: allPhotosForRoom
+          };
         })
       );
 
-      console.log('All rooms with items and photos fetched successfully');
+      console.log('✅ All rooms mapped successfully with photos');
+      console.log('Total rooms for PDF:', roomsWithData.length);
 
       const inspectionDate = new Date(report.created_at).toLocaleDateString('de-DE');
       const tenantSigDate = tenantSignatureDate.toLocaleDateString('de-DE');
 
       console.log('═══════════════════════════════════════');
-      console.log('Creating signed URLs for signatures (600s expiry)');
+      console.log('FIX #2: Creating PUBLIC URLs for signatures (using getPublicUrl)');
       console.log('═══════════════════════════════════════');
 
       let landlordSignatureUrl = '';
@@ -502,7 +519,9 @@ export default function InspectionDetailScreen() {
         try {
           const landlordSigBase64 = landlordSignature.replace(/^data:image\/\w+;base64,/, '');
           const landlordSigBuffer = decode(landlordSigBase64);
-          const landlordSigPath = `signatures/${id}_landlord_${Date.now()}.png`;
+          const landlordSigPath = `${id}_landlord_${Date.now()}.png`;
+          
+          console.log('Uploading landlord signature to "signatures" bucket:', landlordSigPath);
           
           const { error: landlordUploadError } = await supabase.storage
             .from('signatures')
@@ -512,18 +531,14 @@ export default function InspectionDetailScreen() {
             });
 
           if (landlordUploadError) {
-            console.error('Error uploading landlord signature:', landlordUploadError);
+            console.error('❌ Error uploading landlord signature:', landlordUploadError);
           } else {
-            const { data: landlordSignedData, error: landlordSignedError } = await supabase.storage
+            const { data: landlordPublicData } = supabase.storage
               .from('signatures')
-              .createSignedUrl(landlordSigPath, 600);
+              .getPublicUrl(landlordSigPath);
             
-            if (landlordSignedError) {
-              console.error('Error creating signed URL for landlord:', landlordSignedError);
-            } else {
-              landlordSignatureUrl = landlordSignedData?.signedUrl || '';
-              console.log('✅ Landlord signature signed URL created (600s expiry)');
-            }
+            landlordSignatureUrl = landlordPublicData.publicUrl;
+            console.log('✅ Landlord signature public URL:', landlordSignatureUrl);
           }
         } catch (sigError: any) {
           console.error('Error processing landlord signature:', sigError);
@@ -534,7 +549,9 @@ export default function InspectionDetailScreen() {
         try {
           const tenantSigBase64 = tenantSignature.replace(/^data:image\/\w+;base64,/, '');
           const tenantSigBuffer = decode(tenantSigBase64);
-          const tenantSigPath = `signatures/${id}_tenant_${Date.now()}.png`;
+          const tenantSigPath = `${id}_tenant_${Date.now()}.png`;
+          
+          console.log('Uploading tenant signature to "signatures" bucket:', tenantSigPath);
           
           const { error: tenantUploadError } = await supabase.storage
             .from('signatures')
@@ -544,18 +561,14 @@ export default function InspectionDetailScreen() {
             });
 
           if (tenantUploadError) {
-            console.error('Error uploading tenant signature:', tenantUploadError);
+            console.error('❌ Error uploading tenant signature:', tenantUploadError);
           } else {
-            const { data: tenantSignedData, error: tenantSignedError } = await supabase.storage
+            const { data: tenantPublicData } = supabase.storage
               .from('signatures')
-              .createSignedUrl(tenantSigPath, 600);
+              .getPublicUrl(tenantSigPath);
             
-            if (tenantSignedError) {
-              console.error('Error creating signed URL for tenant:', tenantSignedError);
-            } else {
-              tenantSignatureUrl = tenantSignedData?.signedUrl || '';
-              console.log('✅ Tenant signature signed URL created (600s expiry)');
-            }
+            tenantSignatureUrl = tenantPublicData.publicUrl;
+            console.log('✅ Tenant signature public URL:', tenantSignatureUrl);
           }
         } catch (sigError: any) {
           console.error('Error processing tenant signature:', sigError);
@@ -596,20 +609,8 @@ export default function InspectionDetailScreen() {
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       console.log('═══════════════════════════════════════');
-      console.log('Preparing CraftMyPDF payload with nested JSON array for rooms');
+      console.log('FIX #3: Preparing CraftMyPDF payload with CORRECT room array mapping');
       console.log('═══════════════════════════════════════');
-
-      const rows = roomsWithData.flatMap((room) => 
-        room.room_items.map((item: any) => ({
-          room_name: room.name_de,
-          item_name: item.item_name_de,
-          status: item.condition_status,
-          comment: item.notes || '',
-          photo_url: item.photo_url || '',
-        }))
-      );
-
-      console.log(`✅ Mapped ${rows.length} room items for PDF (nested JSON array)`);
 
       const pdfPayload = {
         template_id: CRAFTMYPDF_TEMPLATE_ID,
@@ -634,15 +635,22 @@ export default function InspectionDetailScreen() {
             heat_no: heatNo || '',
             heat_val: heatVal || ''
           },
-          rows: rows,
+          rooms: roomsWithData,
         },
         load_data_from_url: false,
       };
 
+      console.log('✅ PDF Payload prepared:');
+      console.log('  - Rooms count:', roomsWithData.length);
+      console.log('  - Landlord signature URL:', landlordSignatureUrl ? 'Present' : 'Missing');
+      console.log('  - Tenant signature URL:', tenantSignatureUrl ? 'Present' : 'Missing');
+      roomsWithData.forEach((room, index) => {
+        console.log(`  - Room ${index + 1}: ${room.room_name}, Condition: ${room.condition}, Photos: ${room.photos.length}`);
+      });
+
       console.log('═══════════════════════════════════════');
-      console.log('Calling CraftMyPDF API with proper error handling and auth');
+      console.log('Calling CraftMyPDF API');
       console.log('Endpoint:', CRAFTMYPDF_ENDPOINT);
-      console.log('Rows count:', rows.length);
       console.log('═══════════════════════════════════════');
 
       const controller = new AbortController();
@@ -664,7 +672,6 @@ export default function InspectionDetailScreen() {
         clearTimeout(timeoutId);
 
         console.log('CraftMyPDF API response status:', response.status);
-        console.log('CraftMyPDF API response headers:', response.headers);
 
         if (!response.ok) {
           let errorMessage = `PDF generation failed with status ${response.status}`;
@@ -710,7 +717,7 @@ export default function InspectionDetailScreen() {
           console.log('PDF URL received:', pdfUrl);
 
           console.log('═══════════════════════════════════════');
-          console.log('FIX #5: Downloading PDF and saving to Supabase');
+          console.log('FIX #1: Downloading PDF and saving to "reports" bucket');
           console.log('═══════════════════════════════════════');
 
           const pdfResponse = await fetch(pdfUrl);
@@ -732,23 +739,18 @@ export default function InspectionDetailScreen() {
             throw new Error('CraftMyPDF returned an empty PDF blob.');
           }
           
-          if (pdfBlob.type !== 'application/pdf' && pdfBlob.type !== '') {
-            console.warn('Warning: PDF blob type is not application/pdf:', pdfBlob.type);
-          }
-          
           console.log('✅ PDF blob validated successfully:', {
             size: pdfBlob.size,
             type: pdfBlob.type,
-            hasArrayBuffer: typeof pdfBlob.arrayBuffer === 'function'
           });
 
           const pdfArrayBuffer = await pdfBlob.arrayBuffer();
-          const pdfPath = `reports/${id}_${Date.now()}.pdf`;
+          const pdfPath = `${id}_${Date.now()}.pdf`;
 
-          console.log('Uploading PDF to Supabase Storage:', pdfPath);
+          console.log('Uploading PDF to "reports" bucket:', pdfPath);
 
           const { error: pdfUploadError } = await supabase.storage
-            .from('reports_pdfs')
+            .from('reports')
             .upload(pdfPath, pdfArrayBuffer, {
               contentType: 'application/pdf',
               upsert: true,
@@ -759,10 +761,10 @@ export default function InspectionDetailScreen() {
             throw new Error(`Failed to save PDF: ${pdfUploadError.message}`);
           }
 
-          console.log('✅ PDF uploaded to Supabase Storage successfully');
+          console.log('✅ PDF uploaded to "reports" bucket successfully');
 
           const { data: pdfPublicUrlData } = supabase.storage
-            .from('reports_pdfs')
+            .from('reports')
             .getPublicUrl(pdfPath);
 
           const savedPdfUrl = pdfPublicUrlData.publicUrl;
@@ -803,7 +805,6 @@ export default function InspectionDetailScreen() {
 
           setShowSignatureModal(false);
 
-          // FIX #5: Show Download PDF link instead of opening immediately
           setPdfDownloadUrl(savedPdfUrl);
           setShowPdfDownloadModal(true);
 
@@ -825,23 +826,18 @@ export default function InspectionDetailScreen() {
             throw new Error('CraftMyPDF returned an empty PDF blob.');
           }
           
-          if (pdfBlob.type !== 'application/pdf' && pdfBlob.type !== '') {
-            console.warn('Warning: PDF blob type is not application/pdf:', pdfBlob.type);
-          }
-          
           console.log('✅ PDF blob validated successfully:', {
             size: pdfBlob.size,
             type: pdfBlob.type,
-            hasArrayBuffer: typeof pdfBlob.arrayBuffer === 'function'
           });
 
           const pdfArrayBuffer = await pdfBlob.arrayBuffer();
-          const pdfPath = `reports/${id}_${Date.now()}.pdf`;
+          const pdfPath = `${id}_${Date.now()}.pdf`;
 
-          console.log('Uploading PDF to Supabase Storage:', pdfPath);
+          console.log('Uploading PDF to "reports" bucket:', pdfPath);
 
           const { error: pdfUploadError } = await supabase.storage
-            .from('reports_pdfs')
+            .from('reports')
             .upload(pdfPath, pdfArrayBuffer, {
               contentType: 'application/pdf',
               upsert: true,
@@ -852,10 +848,10 @@ export default function InspectionDetailScreen() {
             throw new Error(`Failed to save PDF: ${pdfUploadError.message}`);
           }
 
-          console.log('✅ PDF uploaded to Supabase Storage successfully');
+          console.log('✅ PDF uploaded to "reports" bucket successfully');
 
           const { data: pdfPublicUrlData } = supabase.storage
-            .from('reports_pdfs')
+            .from('reports')
             .getPublicUrl(pdfPath);
 
           const savedPdfUrl = pdfPublicUrlData.publicUrl;
@@ -886,7 +882,6 @@ export default function InspectionDetailScreen() {
 
           setShowSignatureModal(false);
 
-          // FIX #5: Show Download PDF link instead of opening immediately
           setPdfDownloadUrl(savedPdfUrl);
           setShowPdfDownloadModal(true);
 
@@ -1133,7 +1128,6 @@ export default function InspectionDetailScreen() {
             )}
           </View>
 
-          {/* FIX #2: Universal Back Button at bottom */}
           <TouchableOpacity
             style={styles.backButton}
             onPress={handleBackToList}
@@ -1240,8 +1234,7 @@ export default function InspectionDetailScreen() {
                 style={styles.modalContent}
                 imageStyle={{ opacity: 0.2 }}
               >
-              {/* FIX #1: Modal header moved down 40px */}
-              <View style={[styles.modalHeader, { marginTop: 40 }]}>
+              <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Final Details</Text>
                 <TouchableOpacity onPress={() => setShowFinalDetailsModal(false)}>
                   <IconSymbol
@@ -1426,8 +1419,7 @@ export default function InspectionDetailScreen() {
               keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
             >
               <View style={styles.signatureModalContainer}>
-                {/* FIX #1: Signature modal header moved down 40px */}
-                <View style={[styles.signatureModalHeader, { paddingTop: 56 }]}>
+                <View style={styles.signatureModalHeader}>
                   <Text style={styles.signatureModalTitle}>Digital Signatures</Text>
                   <TouchableOpacity onPress={handleCloseSignatureModal}>
                     <IconSymbol
@@ -1588,7 +1580,6 @@ export default function InspectionDetailScreen() {
           </SafeAreaView>
         </Modal>
 
-        {/* FIX #5: PDF Download Link Modal */}
         <Modal
           visible={showPdfDownloadModal}
           animationType="fade"
