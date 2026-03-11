@@ -386,7 +386,7 @@ export default function InspectionDetailScreen() {
 
   const handleGeneratePDF = async () => {
     console.log('═══════════════════════════════════════');
-    console.log('🚨 CRITICAL FIX: PUBLIC URL CONVERSION FOR ALL IMAGES');
+    console.log('🚨 FINAL FIX: PUBLIC URL CONVERSION FOR ALL IMAGES');
     console.log('User tapped Create Official Protocol button');
     console.log('═══════════════════════════════════════');
     
@@ -443,6 +443,11 @@ export default function InspectionDetailScreen() {
       const allRooms = allRoomsData || [];
       console.log(`✅ Found ${allRooms.length} rooms for this report`);
 
+      console.log('═══════════════════════════════════════');
+      console.log('🔧 CRITICAL: Processing rooms with PUBLIC URLs');
+      console.log('Mapping: room_name, condition, comment (singular), photo_url (singular, first photo)');
+      console.log('═══════════════════════════════════════');
+
       const roomsWithData = await Promise.all(
         allRooms.map(async (room) => {
           console.log(`Processing room: ${room.name_de} (${room.id})`);
@@ -473,7 +478,7 @@ export default function InspectionDetailScreen() {
           const roomComment = allNotesForRoom || '';
           console.log(`  → Room comment (aggregated notes): "${roomComment}"`);
           
-          console.log('🔧 CRITICAL FIX: Getting FIRST photo URL using getPublicUrl from room-photos bucket');
+          console.log('  → 🔧 CRITICAL: Getting FIRST photo URL using getPublicUrl from room-photos bucket');
           let firstPhotoUrl = '';
           
           for (const item of items) {
@@ -484,7 +489,7 @@ export default function InspectionDetailScreen() {
               .limit(1);
 
             if (photosError) {
-              console.error(`❌ Error fetching photos for item ${item.id}:`, photosError);
+              console.error(`    ❌ Error fetching photos for item ${item.id}:`, photosError);
               continue;
             }
 
@@ -507,7 +512,7 @@ export default function InspectionDetailScreen() {
             ? items.every((item: RoomItem) => item.condition_status === 'OK') ? 'OK' : 'Defects Found'
             : 'Not Inspected';
 
-          console.log(`  → Room "${room.name_de}" final mapping:`);
+          console.log(`  ✅ Room "${room.name_de}" final mapping:`);
           console.log(`    - room_name: ${room.name_de}`);
           console.log(`    - condition: ${roomCondition}`);
           console.log(`    - comment: "${roomComment}"`);
@@ -529,8 +534,9 @@ export default function InspectionDetailScreen() {
       const tenantSigDate = tenantSignatureDate.toLocaleDateString('de-DE');
 
       console.log('═══════════════════════════════════════');
-      console.log('🔧 CRITICAL FIX: SIGNATURE PUBLIC URL CONVERSION');
+      console.log('🔧 CRITICAL: SIGNATURE PUBLIC URL CONVERSION');
       console.log('Using getPublicUrl() for BOTH signatures from "signatures" bucket');
+      console.log('Keys: landlord_signature, tenant_signature (top level)');
       console.log('═══════════════════════════════════════');
 
       let landlordSignatureUrl = '';
@@ -640,10 +646,10 @@ export default function InspectionDetailScreen() {
         template_id: CRAFTMYPDF_TEMPLATE_ID,
         data: {
           property_address: report.address || '',
-          tenant_name: tenantName || '',
-          landlord_name: landlordName || '',
-          inspection_date: inspectionDate || '',
-          signature_date: tenantSigDate || '',
+          tenant_name: tenantName,
+          landlord_name: landlordName,
+          inspection_date: inspectionDate,
+          signature_date: tenantSigDate,
           is_move_in: isMoveIn,
           is_move_out: isMoveOut,
           keys_handed_over: keysHandedOver || '',
@@ -778,6 +784,8 @@ export default function InspectionDetailScreen() {
         console.log('✅ Tenant signature: PUBLIC URL from "signatures" bucket');
         console.log('✅ Room photos: PUBLIC URL from "room-photos" bucket (first photo only)');
         console.log('✅ Keys sent to PDF: landlord_signature, tenant_signature, photo_url');
+        console.log('✅ Room mapping: room_name, condition, comment (singular), photo_url (singular)');
+        console.log('✅ Empty strings for missing data (no undefined)');
         console.log('═══════════════════════════════════════');
       } catch (fetchError: any) {
         clearTimeout(timeoutId);
