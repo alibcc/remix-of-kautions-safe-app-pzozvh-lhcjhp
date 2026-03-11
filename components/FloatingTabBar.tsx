@@ -19,6 +19,7 @@ import Animated, {
   interpolate,
 } from 'react-native-reanimated';
 import { Href } from 'expo-router';
+import Svg, { Path, Rect, Circle } from 'react-native-svg';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -35,6 +36,38 @@ interface FloatingTabBarProps {
   borderRadius?: number;
   bottomMargin?: number;
 }
+
+const NanobananaIcon = ({ name, color, size = 24 }: { name: string; color: string; size?: number }) => {
+  if (name === 'floor-plans') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Rect x="3" y="3" width="18" height="5" stroke={color} strokeWidth="1.5" fill="none" />
+        <Rect x="3" y="10" width="18" height="5" stroke={color} strokeWidth="1.5" fill="none" />
+        <Rect x="3" y="17" width="18" height="4" stroke={color} strokeWidth="1.5" fill="none" />
+      </Svg>
+    );
+  }
+  
+  if (name === 'house-check') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path d="M3 12L12 3L21 12V20C21 20.5523 20.5523 21 20 21H4C3.44772 21 3 20.5523 3 20V12Z" stroke={color} strokeWidth="1.5" fill="none" />
+        <Path d="M9 15L11 17L15 13" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      </Svg>
+    );
+  }
+  
+  if (name === 'user-geometric') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Circle cx="12" cy="8" r="4" stroke={color} strokeWidth="1.5" fill="none" />
+        <Path d="M6 21V19C6 16.7909 7.79086 15 10 15H14C16.2091 15 18 16.7909 18 19V21" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+      </Svg>
+    );
+  }
+  
+  return null;
+};
 
 export default function FloatingTabBar({
   tabs,
@@ -144,13 +177,21 @@ export default function FloatingTabBar({
     },
   };
 
+  const getIconName = (icon: string): string => {
+    if (icon === '📋') return 'floor-plans';
+    if (icon === '✅') return 'house-check';
+    if (icon === '👤') return 'user-geometric';
+    return 'floor-plans';
+  };
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['bottom']}>
       <View style={[
         styles.container,
         {
           width: containerWidth,
-          marginBottom: bottomMargin ?? 20
+          marginBottom: bottomMargin ?? 20,
+          paddingBottom: 20,
         }
       ]}>
         <BlurView
@@ -163,7 +204,8 @@ export default function FloatingTabBar({
             {tabs.map((tab, index) => {
               const isActive = activeTabIndex === index;
               const labelText = tab.label;
-              const iconSymbol = tab.icon;
+              const iconName = getIconName(tab.icon);
+              const iconColor = isActive ? '#ED7B58' : (theme.dark ? '#98989D' : '#8E8E93');
 
               return (
                 <React.Fragment key={index}>
@@ -174,17 +216,12 @@ export default function FloatingTabBar({
                   activeOpacity={0.7}
                 >
                   <View key={index} style={styles.tabContent}>
-                    <Text style={[
-                      styles.tabIcon,
-                      { color: isActive ? theme.colors.primary : (theme.dark ? '#98989D' : '#000000') }
-                    ]}>
-                      {iconSymbol}
-                    </Text>
+                    <NanobananaIcon name={iconName} color={iconColor} size={24} />
                     <Text
                       style={[
                         styles.tabLabel,
-                        { color: theme.dark ? '#98989D' : '#8E8E93' },
-                        isActive && { color: theme.colors.primary, fontWeight: '600' },
+                        { color: iconColor },
+                        isActive && { fontWeight: '600' },
                       ]}
                     >
                       {labelText}
@@ -244,9 +281,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
-  },
-  tabIcon: {
-    fontSize: 24,
   },
   tabLabel: {
     fontSize: 9,

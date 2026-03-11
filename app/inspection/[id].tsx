@@ -39,6 +39,7 @@ interface Report {
   inspection_type: string;
   status: string;
   created_at: string;
+  user_id: string;
 }
 
 interface Participant {
@@ -134,9 +135,6 @@ export default function InspectionDetailScreen() {
   const [alertTitle, setAlertTitle] = useState('');
   const [alertMessage, setAlertMessage] = useState('');
   const [alertType, setAlertType] = useState<'info' | 'error' | 'success'>('info');
-  
-  const [pdfDownloadUrl, setPdfDownloadUrl] = useState<string | null>(null);
-  const [showPdfDownloadModal, setShowPdfDownloadModal] = useState(false);
   
   const showAlert = (title: string, message: string, type: 'info' | 'error' | 'success' = 'info') => {
     setAlertTitle(title);
@@ -388,7 +386,7 @@ export default function InspectionDetailScreen() {
 
   const handleGeneratePDF = async () => {
     console.log('═══════════════════════════════════════');
-    console.log('PDF GENERATION STARTED - STORAGE BUCKET & CONTENT MAPPING FIX');
+    console.log('PDF GENERATION STARTED - FINAL STABILITY PHASE');
     console.log('User tapped Create Official Protocol button');
     console.log('═══════════════════════════════════════');
     
@@ -397,24 +395,15 @@ export default function InspectionDetailScreen() {
       return;
     }
 
-    if (!user || !user.email) {
-      showAlert('Error', 'User email is not available', 'error');
+    if (!user || !user.id) {
+      showAlert('Error', 'User authentication is not available', 'error');
       return;
     }
 
     setGeneratingPDF(true);
 
     try {
-      console.log('Step 1: Getting Supabase access token for authentication');
-      
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !session) {
-        throw new Error('Failed to get Supabase session for PDF API call.');
-      }
-      const accessToken = session.access_token;
-      console.log('✅ Access token retrieved successfully');
-
-      console.log('Step 2: Fetching all data for PDF generation');
+      console.log('Step 1: Fetching all data for PDF generation');
 
       const { data: participantsData, error: participantsError } = await supabase
         .from('participants')
@@ -435,7 +424,7 @@ export default function InspectionDetailScreen() {
       const tenantName = tenantParticipant?.name || '';
 
       console.log('═══════════════════════════════════════');
-      console.log('FIX #3: Fetching rooms with items and photos - PROPER MAPPING');
+      console.log('FIX #2: Fetching rooms with items and photos - PUBLIC URLs');
       console.log('═══════════════════════════════════════');
 
       const roomsWithData = await Promise.all(
@@ -502,14 +491,14 @@ export default function InspectionDetailScreen() {
         })
       );
 
-      console.log('✅ All rooms mapped successfully with photos');
+      console.log('✅ All rooms mapped successfully with PUBLIC URLs');
       console.log('Total rooms for PDF:', roomsWithData.length);
 
       const inspectionDate = new Date(report.created_at).toLocaleDateString('de-DE');
       const tenantSigDate = tenantSignatureDate.toLocaleDateString('de-DE');
 
       console.log('═══════════════════════════════════════');
-      console.log('FIX #2: Creating PUBLIC URLs for signatures (using getPublicUrl)');
+      console.log('FIX #2: Creating PUBLIC URLs for signatures (getPublicUrl)');
       console.log('═══════════════════════════════════════');
 
       let landlordSignatureUrl = '';
@@ -576,12 +565,13 @@ export default function InspectionDetailScreen() {
       }
 
       console.log('═══════════════════════════════════════');
-      console.log('Step 3: Saving meter data to Supabase');
+      console.log('FIX #3: Saving meter data to Supabase with user_id');
       console.log('═══════════════════════════════════════');
       
       const { error: updateError } = await supabase
         .from('reports')
         .update({
+          user_id: user.id,
           electricity_no: electricityNo || '',
           electricity_val: electricityVal || '',
           gas_no: gasNo || '',
@@ -603,13 +593,13 @@ export default function InspectionDetailScreen() {
         setGeneratingPDF(false);
         return;
       } else {
-        console.log('✅ Data saved successfully to Supabase');
+        console.log('✅ Data saved successfully to Supabase with user_id');
       }
 
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       console.log('═══════════════════════════════════════');
-      console.log('FIX #3: Preparing CraftMyPDF payload with CORRECT room array mapping');
+      console.log('FIX #1: Preparing CraftMyPDF payload');
       console.log('═══════════════════════════════════════');
 
       const pdfPayload = {
@@ -663,7 +653,6 @@ export default function InspectionDetailScreen() {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
             'X-API-KEY': CRAFTMYPDF_API_KEY,
-            'Authorization': `Bearer ${accessToken}`,
           },
           body: JSON.stringify(pdfPayload),
           signal: controller.signal,
@@ -696,197 +685,58 @@ export default function InspectionDetailScreen() {
             }
           }
           
-          const fullErrorMessage = `${errorMessage}\n\nError Details:\n${errorDetails}`;
+          const fullErrorMessage = errorDetails || errorMessage;
           throw new Error(fullErrorMessage);
         }
 
-        const contentType = response.headers.get('content-type');
-        console.log('Response content-type:', contentType);
+        const result = await response.json();
+        console.log('CraftMyPDF returned JSON response:', result);
+        
+        const pdfUrl = result.file || result.url || result.pdf_url || result.file_url;
 
-        if (contentType && contentType.includes('application/json')) {
-          const result = await response.json();
-          console.log('CraftMyPDF returned JSON response:', result);
-          
-          const pdfUrl = result.file || result.url || result.pdf_url;
-
-          if (!pdfUrl) {
-            console.error('No PDF URL in response:', result);
-            throw new Error('PDF URL not found in response');
-          }
-
-          console.log('PDF URL received:', pdfUrl);
-
-          console.log('═══════════════════════════════════════');
-          console.log('FIX #1: Downloading PDF and saving to "reports" bucket');
-          console.log('═══════════════════════════════════════');
-
-          const pdfResponse = await fetch(pdfUrl);
-          if (!pdfResponse.ok) {
-            throw new Error('Failed to download PDF from CraftMyPDF');
-          }
-
-          const pdfBlob = await pdfResponse.blob();
-          
-          if (!(pdfBlob instanceof Blob)) {
-            throw new Error('CraftMyPDF response is not a valid Blob.');
-          }
-          
-          if (typeof pdfBlob.arrayBuffer !== 'function') {
-            throw new Error('pdfBlob.arrayBuffer is not a function. Invalid Blob received.');
-          }
-          
-          if (pdfBlob.size === 0) {
-            throw new Error('CraftMyPDF returned an empty PDF blob.');
-          }
-          
-          console.log('✅ PDF blob validated successfully:', {
-            size: pdfBlob.size,
-            type: pdfBlob.type,
-          });
-
-          const pdfArrayBuffer = await pdfBlob.arrayBuffer();
-          const pdfPath = `${id}_${Date.now()}.pdf`;
-
-          console.log('Uploading PDF to "reports" bucket:', pdfPath);
-
-          const { error: pdfUploadError } = await supabase.storage
-            .from('reports')
-            .upload(pdfPath, pdfArrayBuffer, {
-              contentType: 'application/pdf',
-              upsert: true,
-            });
-
-          if (pdfUploadError) {
-            console.error('❌ Error uploading PDF to Supabase Storage:', pdfUploadError);
-            throw new Error(`Failed to save PDF: ${pdfUploadError.message}`);
-          }
-
-          console.log('✅ PDF uploaded to "reports" bucket successfully');
-
-          const { data: pdfPublicUrlData } = supabase.storage
-            .from('reports')
-            .getPublicUrl(pdfPath);
-
-          const savedPdfUrl = pdfPublicUrlData.publicUrl;
-          console.log('PDF public URL:', savedPdfUrl);
-
-          console.log('═══════════════════════════════════════');
-          console.log('Step 4: Saving PDF URL to database');
-          console.log('═══════════════════════════════════════');
-          
-          const { error: pdfUrlUpdateError } = await supabase
-            .from('reports')
-            .update({ 
-              pdf_url: savedPdfUrl,
-              status: 'COMPLETED'
-            })
-            .eq('id', id);
-
-          if (pdfUrlUpdateError) {
-            console.error('❌ Error saving PDF URL to Supabase:', pdfUrlUpdateError);
-            showAlert('Warning', 'PDF generated but failed to save URL to database', 'error');
-          } else {
-            console.log('✅ PDF URL saved successfully to Supabase');
-          }
-
-          await new Promise(resolve => setTimeout(resolve, 2000));
-
-          console.log('═══════════════════════════════════════');
-          console.log('Step 5: Triggering email AFTER PDF is saved');
-          console.log('Recipient:', user.email);
-          console.log('═══════════════════════════════════════');
-          
-          try {
-            await sendPdfEmail(user.email, savedPdfUrl, id as string, report.address);
-            console.log('✅ Email sent successfully');
-          } catch (emailError: any) {
-            console.error('❌ Error sending email:', emailError);
-          }
-
-          setShowSignatureModal(false);
-
-          setPdfDownloadUrl(savedPdfUrl);
-          setShowPdfDownloadModal(true);
-
-          console.log('═══════════════════════════════════════');
-          console.log('✅ PDF GENERATION COMPLETE - ALL FIXES APPLIED');
-          console.log('═══════════════════════════════════════');
-        } else {
-          const pdfBlob = await response.blob();
-          
-          if (!(pdfBlob instanceof Blob)) {
-            throw new Error('CraftMyPDF response is not a valid Blob.');
-          }
-          
-          if (typeof pdfBlob.arrayBuffer !== 'function') {
-            throw new Error('pdfBlob.arrayBuffer is not a function. Invalid Blob received.');
-          }
-          
-          if (pdfBlob.size === 0) {
-            throw new Error('CraftMyPDF returned an empty PDF blob.');
-          }
-          
-          console.log('✅ PDF blob validated successfully:', {
-            size: pdfBlob.size,
-            type: pdfBlob.type,
-          });
-
-          const pdfArrayBuffer = await pdfBlob.arrayBuffer();
-          const pdfPath = `${id}_${Date.now()}.pdf`;
-
-          console.log('Uploading PDF to "reports" bucket:', pdfPath);
-
-          const { error: pdfUploadError } = await supabase.storage
-            .from('reports')
-            .upload(pdfPath, pdfArrayBuffer, {
-              contentType: 'application/pdf',
-              upsert: true,
-            });
-
-          if (pdfUploadError) {
-            console.error('❌ Error uploading PDF to Supabase Storage:', pdfUploadError);
-            throw new Error(`Failed to save PDF: ${pdfUploadError.message}`);
-          }
-
-          console.log('✅ PDF uploaded to "reports" bucket successfully');
-
-          const { data: pdfPublicUrlData } = supabase.storage
-            .from('reports')
-            .getPublicUrl(pdfPath);
-
-          const savedPdfUrl = pdfPublicUrlData.publicUrl;
-          console.log('PDF public URL:', savedPdfUrl);
-
-          const { error: pdfUrlUpdateError } = await supabase
-            .from('reports')
-            .update({ 
-              pdf_url: savedPdfUrl,
-              status: 'COMPLETED'
-            })
-            .eq('id', id);
-
-          if (pdfUrlUpdateError) {
-            console.error('❌ Error saving PDF URL to Supabase:', pdfUrlUpdateError);
-          } else {
-            console.log('✅ PDF URL saved successfully to Supabase');
-          }
-
-          await new Promise(resolve => setTimeout(resolve, 2000));
-
-          try {
-            await sendPdfEmail(user.email, savedPdfUrl, id as string, report.address);
-            console.log('✅ Email sent successfully');
-          } catch (emailError: any) {
-            console.error('❌ Error sending email:', emailError);
-          }
-
-          setShowSignatureModal(false);
-
-          setPdfDownloadUrl(savedPdfUrl);
-          setShowPdfDownloadModal(true);
-
-          console.log('✅ PDF GENERATION COMPLETE');
+        if (!pdfUrl) {
+          console.error('No PDF URL in response:', result);
+          throw new Error('PDF URL not found in response');
         }
+
+        console.log('✅ PDF URL received from CraftMyPDF:', pdfUrl);
+
+        console.log('═══════════════════════════════════════');
+        console.log('FIX #1: Opening PDF directly in native browser');
+        console.log('═══════════════════════════════════════');
+
+        const { error: pdfUrlUpdateError } = await supabase
+          .from('reports')
+          .update({ 
+            pdf_url: pdfUrl,
+            status: 'COMPLETED'
+          })
+          .eq('id', id);
+
+        if (pdfUrlUpdateError) {
+          console.error('❌ Error saving PDF URL to Supabase:', pdfUrlUpdateError);
+        } else {
+          console.log('✅ PDF URL saved successfully to Supabase');
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        setShowSignatureModal(false);
+
+        console.log('Opening PDF in native browser:', pdfUrl);
+        const canOpen = await Linking.canOpenURL(pdfUrl);
+        if (canOpen) {
+          await Linking.openURL(pdfUrl);
+          console.log('✅ PDF opened successfully in native browser');
+          showAlert('Success', 'PDF generated successfully! Opening in your browser...', 'success');
+        } else {
+          console.error('Cannot open URL:', pdfUrl);
+          showAlert('Error', 'Cannot open PDF URL. Please check your device settings.', 'error');
+        }
+
+        console.log('═══════════════════════════════════════');
+        console.log('✅ PDF GENERATION COMPLETE - ALL FIXES APPLIED');
+        console.log('═══════════════════════════════════════');
       } catch (fetchError: any) {
         clearTimeout(timeoutId);
         if (fetchError.name === 'AbortError') {
@@ -905,25 +755,6 @@ export default function InspectionDetailScreen() {
   const handleBackToList = () => {
     console.log('User tapped Back button - navigating to inspection list');
     router.back();
-  };
-
-  const handleDownloadPdf = async () => {
-    if (!pdfDownloadUrl) return;
-    
-    console.log('User tapped Download PDF button');
-    try {
-      const canOpen = await Linking.canOpenURL(pdfDownloadUrl);
-      if (canOpen) {
-        await Linking.openURL(pdfDownloadUrl);
-        console.log('PDF opened successfully');
-      } else {
-        console.error('Cannot open URL:', pdfDownloadUrl);
-        showAlert('Error', 'Cannot open PDF URL. Please check your device settings.', 'error');
-      }
-    } catch (error: any) {
-      console.error('Error opening PDF:', error);
-      showAlert('Error', `Failed to open PDF: ${error.message}`, 'error');
-    }
   };
 
   const getTypeText = (type: string) => {
@@ -1580,49 +1411,6 @@ export default function InspectionDetailScreen() {
           </SafeAreaView>
         </Modal>
 
-        <Modal
-          visible={showPdfDownloadModal}
-          animationType="fade"
-          transparent={true}
-          onRequestClose={() => setShowPdfDownloadModal(false)}
-        >
-          <View style={styles.downloadModalOverlay}>
-            <View style={styles.downloadModalContent}>
-              <IconSymbol
-                ios_icon_name="checkmark.circle.fill"
-                android_material_icon_name="check-circle"
-                size={64}
-                color={colors.success}
-              />
-              <Text style={styles.downloadModalTitle}>PDF Generated Successfully!</Text>
-              <Text style={styles.downloadModalMessage}>
-                Your inspection report has been saved. An email with the PDF has been sent to your address.
-              </Text>
-              <TouchableOpacity
-                style={styles.downloadButton}
-                onPress={handleDownloadPdf}
-              >
-                <IconSymbol
-                  ios_icon_name="arrow.down.doc"
-                  android_material_icon_name="download"
-                  size={24}
-                  color="#FFFFFF"
-                />
-                <Text style={styles.downloadButtonText}>Download PDF</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.closeDownloadButton}
-                onPress={() => {
-                  setShowPdfDownloadModal(false);
-                  setPdfDownloadUrl(null);
-                }}
-              >
-                <Text style={styles.closeDownloadButtonText}>Close</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-
         <AlertModal
           visible={alertVisible}
           title={alertTitle}
@@ -2079,61 +1867,5 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '700',
-  },
-  downloadModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  downloadModalContent: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 32,
-    alignItems: 'center',
-    maxWidth: 400,
-    width: '100%',
-  },
-  downloadModalTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.text,
-    marginTop: 16,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  downloadModalMessage: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 22,
-  },
-  downloadButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    backgroundColor: colors.primary,
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 0,
-    width: '100%',
-    marginBottom: 12,
-  },
-  downloadButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  closeDownloadButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-  },
-  closeDownloadButtonText: {
-    color: colors.textSecondary,
-    fontSize: 16,
-    fontWeight: '600',
   },
 });
