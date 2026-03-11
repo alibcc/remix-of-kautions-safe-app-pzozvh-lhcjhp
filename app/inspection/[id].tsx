@@ -386,7 +386,7 @@ export default function InspectionDetailScreen() {
 
   const handleGeneratePDF = async () => {
     console.log('═══════════════════════════════════════');
-    console.log('PDF GENERATION STARTED - FINAL STABILITY PHASE');
+    console.log('PDF GENERATION STARTED - FINAL DATA MAPPING & SIGNATURE FIX');
     console.log('User tapped Create Official Protocol button');
     console.log('═══════════════════════════════════════');
     
@@ -424,11 +424,28 @@ export default function InspectionDetailScreen() {
       const tenantName = tenantParticipant?.name || '';
 
       console.log('═══════════════════════════════════════');
-      console.log('FIX #2: Fetching rooms with items and photos - PUBLIC URLs');
+      console.log('FIX #2: Fetching ALL rooms with items and photos');
+      console.log('Fetching rooms for report_id:', id);
       console.log('═══════════════════════════════════════');
 
+      const { data: allRoomsData, error: allRoomsError } = await supabase
+        .from('rooms')
+        .select('*')
+        .eq('report_id', id)
+        .order('name_de', { ascending: true });
+
+      if (allRoomsError) {
+        console.error('❌ Error fetching rooms:', allRoomsError);
+        showAlert('Error', `Failed to fetch rooms: ${allRoomsError.message}`, 'error');
+        setGeneratingPDF(false);
+        return;
+      }
+
+      const allRooms = allRoomsData || [];
+      console.log(`✅ Found ${allRooms.length} rooms for this report`);
+
       const roomsWithData = await Promise.all(
-        rooms.map(async (room) => {
+        allRooms.map(async (room) => {
           console.log(`Processing room: ${room.name_de} (${room.id})`);
           
           const { data: itemsData, error: itemsError } = await supabase
@@ -437,7 +454,7 @@ export default function InspectionDetailScreen() {
             .eq('room_id', room.id);
 
           if (itemsError) {
-            console.error(`Error fetching items for room ${room.id}:`, itemsError);
+            console.error(`❌ Error fetching items for room ${room.id}:`, itemsError);
             return { 
               room_name: room.name_de, 
               condition: 'Not Inspected',
@@ -457,7 +474,7 @@ export default function InspectionDetailScreen() {
               .eq('item_id', item.id);
 
             if (photosError) {
-              console.error(`Error fetching photos for item ${item.id}:`, photosError);
+              console.error(`❌ Error fetching photos for item ${item.id}:`, photosError);
               continue;
             }
 
@@ -491,14 +508,15 @@ export default function InspectionDetailScreen() {
         })
       );
 
-      console.log('✅ All rooms mapped successfully with PUBLIC URLs');
+      console.log('✅ All rooms mapped successfully');
       console.log('Total rooms for PDF:', roomsWithData.length);
+      console.log('Rooms array structure:', JSON.stringify(roomsWithData, null, 2));
 
       const inspectionDate = new Date(report.created_at).toLocaleDateString('de-DE');
       const tenantSigDate = tenantSignatureDate.toLocaleDateString('de-DE');
 
       console.log('═══════════════════════════════════════');
-      console.log('FIX #2: Creating PUBLIC URLs for signatures (getPublicUrl)');
+      console.log('FIX #1: Creating SIGNED URLs for signatures (createSignedUrl with 600s expiry)');
       console.log('═══════════════════════════════════════');
 
       let landlordSignatureUrl = '';
@@ -522,15 +540,20 @@ export default function InspectionDetailScreen() {
           if (landlordUploadError) {
             console.error('❌ Error uploading landlord signature:', landlordUploadError);
           } else {
-            const { data: landlordPublicData } = supabase.storage
+            console.log('✅ Landlord signature uploaded, creating signed URL...');
+            const { data: landlordSignedData, error: landlordSignedError } = await supabase.storage
               .from('signatures')
-              .getPublicUrl(landlordSigPath);
+              .createSignedUrl(landlordSigPath, 600);
             
-            landlordSignatureUrl = landlordPublicData.publicUrl;
-            console.log('✅ Landlord signature public URL:', landlordSignatureUrl);
+            if (landlordSignedError) {
+              console.error('❌ Error creating signed URL for landlord signature:', landlordSignedError);
+            } else if (landlordSignedData) {
+              landlordSignatureUrl = landlordSignedData.signedUrl;
+              console.log('✅ Landlord signature signed URL created (600s expiry):', landlordSignatureUrl);
+            }
           }
         } catch (sigError: any) {
-          console.error('Error processing landlord signature:', sigError);
+          console.error('❌ Error processing landlord signature:', sigError);
         }
       }
 
@@ -552,20 +575,25 @@ export default function InspectionDetailScreen() {
           if (tenantUploadError) {
             console.error('❌ Error uploading tenant signature:', tenantUploadError);
           } else {
-            const { data: tenantPublicData } = supabase.storage
+            console.log('✅ Tenant signature uploaded, creating signed URL...');
+            const { data: tenantSignedData, error: tenantSignedError } = await supabase.storage
               .from('signatures')
-              .getPublicUrl(tenantSigPath);
+              .createSignedUrl(tenantSigPath, 600);
             
-            tenantSignatureUrl = tenantPublicData.publicUrl;
-            console.log('✅ Tenant signature public URL:', tenantSignatureUrl);
+            if (tenantSignedError) {
+              console.error('❌ Error creating signed URL for tenant signature:', tenantSignedError);
+            } else if (tenantSignedData) {
+              tenantSignatureUrl = tenantSignedData.signedUrl;
+              console.log('✅ Tenant signature signed URL created (600s expiry):', tenantSignatureUrl);
+            }
           }
         } catch (sigError: any) {
-          console.error('Error processing tenant signature:', sigError);
+          console.error('❌ Error processing tenant signature:', sigError);
         }
       }
 
       console.log('═══════════════════════════════════════');
-      console.log('FIX #3: Saving meter data to Supabase with user_id');
+      console.log('Saving meter data to Supabase with user_id');
       console.log('═══════════════════════════════════════');
       
       const { error: updateError } = await supabase
@@ -599,7 +627,7 @@ export default function InspectionDetailScreen() {
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       console.log('═══════════════════════════════════════');
-      console.log('FIX #1: Preparing CraftMyPDF payload');
+      console.log('FIX #3: Preparing CraftMyPDF payload with rooms array');
       console.log('═══════════════════════════════════════');
 
       const pdfPayload = {
@@ -632,8 +660,8 @@ export default function InspectionDetailScreen() {
 
       console.log('✅ PDF Payload prepared:');
       console.log('  - Rooms count:', roomsWithData.length);
-      console.log('  - Landlord signature URL:', landlordSignatureUrl ? 'Present' : 'Missing');
-      console.log('  - Tenant signature URL:', tenantSignatureUrl ? 'Present' : 'Missing');
+      console.log('  - Landlord signature URL:', landlordSignatureUrl ? 'Present (Signed URL)' : 'Missing');
+      console.log('  - Tenant signature URL:', tenantSignatureUrl ? 'Present (Signed URL)' : 'Missing');
       roomsWithData.forEach((room, index) => {
         console.log(`  - Room ${index + 1}: ${room.room_name}, Condition: ${room.condition}, Photos: ${room.photos.length}`);
       });
@@ -702,7 +730,7 @@ export default function InspectionDetailScreen() {
         console.log('✅ PDF URL received from CraftMyPDF:', pdfUrl);
 
         console.log('═══════════════════════════════════════');
-        console.log('FIX #1: Opening PDF directly in native browser');
+        console.log('Opening PDF directly in native browser');
         console.log('═══════════════════════════════════════');
 
         const { error: pdfUrlUpdateError } = await supabase
@@ -736,6 +764,9 @@ export default function InspectionDetailScreen() {
 
         console.log('═══════════════════════════════════════');
         console.log('✅ PDF GENERATION COMPLETE - ALL FIXES APPLIED');
+        console.log('✅ FIX #1: Signatures using createSignedUrl (600s expiry)');
+        console.log('✅ FIX #2: All rooms fetched and mapped with photos');
+        console.log('✅ FIX #3: Rooms sent as proper JSON array');
         console.log('═══════════════════════════════════════');
       } catch (fetchError: any) {
         clearTimeout(timeoutId);
