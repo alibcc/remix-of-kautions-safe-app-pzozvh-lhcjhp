@@ -386,7 +386,7 @@ export default function InspectionDetailScreen() {
 
   const handleGeneratePDF = async () => {
     console.log('═══════════════════════════════════════');
-    console.log('🚨 FINAL FIX: PUBLIC URL CONVERSION FOR ALL IMAGES');
+    console.log('🚨 EMERGENCY FIX: PUBLIC URL CONVERSION + DATE FORMATTING');
     console.log('User tapped Create Official Protocol button');
     console.log('═══════════════════════════════════════');
     
@@ -444,7 +444,7 @@ export default function InspectionDetailScreen() {
       console.log(`✅ Found ${allRooms.length} rooms for this report`);
 
       console.log('═══════════════════════════════════════');
-      console.log('🔧 CRITICAL: Processing rooms with PUBLIC URLs');
+      console.log('🔧 CRITICAL: Processing rooms with PUBLIC URLs using getPublicUrl()');
       console.log('Mapping: room_name, condition, comment (singular), photo_url (singular, first photo)');
       console.log('═══════════════════════════════════════');
 
@@ -478,7 +478,7 @@ export default function InspectionDetailScreen() {
           const roomComment = allNotesForRoom || '';
           console.log(`  → Room comment (aggregated notes): "${roomComment}"`);
           
-          console.log('  → 🔧 CRITICAL: Getting FIRST photo URL using getPublicUrl from room-photos bucket');
+          console.log('  → 🔧 CRITICAL: Getting FIRST photo URL using getPublicUrl() from room-photos bucket');
           let firstPhotoUrl = '';
           
           for (const item of items) {
@@ -530,11 +530,24 @@ export default function InspectionDetailScreen() {
       console.log('✅ All rooms mapped successfully');
       console.log('Total rooms for PDF:', roomsWithData.length);
 
-      const inspectionDate = new Date(report.created_at).toLocaleDateString('de-DE');
-      const tenantSigDate = tenantSignatureDate.toLocaleDateString('de-DE');
+      console.log('═══════════════════════════════════════');
+      console.log('🔧 CRITICAL: Formatting dates as DD.MM.YYYY');
+      console.log('═══════════════════════════════════════');
+
+      const currentDate = new Date();
+      const day = String(currentDate.getDate()).padStart(2, '0');
+      const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+      const year = currentDate.getFullYear();
+      const formattedCurrentDate = `${day}.${month}.${year}`;
+      
+      const inspection_date = formattedCurrentDate;
+      const date = formattedCurrentDate;
+
+      console.log(`✅ inspection_date: ${inspection_date}`);
+      console.log(`✅ date: ${date}`);
 
       console.log('═══════════════════════════════════════');
-      console.log('🔧 CRITICAL: SIGNATURE PUBLIC URL CONVERSION');
+      console.log('🔧 CRITICAL: SIGNATURE PUBLIC URL CONVERSION using getPublicUrl()');
       console.log('Using getPublicUrl() for BOTH signatures from "signatures" bucket');
       console.log('Keys: landlord_signature, tenant_signature (top level)');
       console.log('═══════════════════════════════════════');
@@ -560,7 +573,7 @@ export default function InspectionDetailScreen() {
           if (landlordUploadError) {
             console.error('❌ Error uploading landlord signature:', landlordUploadError);
           } else {
-            console.log('✅ Landlord signature uploaded, converting to PUBLIC URL...');
+            console.log('✅ Landlord signature uploaded, converting to PUBLIC URL using getPublicUrl()...');
             const { data: landlordPublicUrlData } = supabase.storage
               .from('signatures')
               .getPublicUrl(landlordSigPath);
@@ -591,7 +604,7 @@ export default function InspectionDetailScreen() {
           if (tenantUploadError) {
             console.error('❌ Error uploading tenant signature:', tenantUploadError);
           } else {
-            console.log('✅ Tenant signature uploaded, converting to PUBLIC URL...');
+            console.log('✅ Tenant signature uploaded, converting to PUBLIC URL using getPublicUrl()...');
             const { data: tenantPublicUrlData } = supabase.storage
               .from('signatures')
               .getPublicUrl(tenantSigPath);
@@ -639,7 +652,8 @@ export default function InspectionDetailScreen() {
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       console.log('═══════════════════════════════════════');
-      console.log('🔧 Preparing CraftMyPDF payload with PUBLIC URLs');
+      console.log('🔧 Preparing CLEAN CraftMyPDF payload with PUBLIC URLs');
+      console.log('No extra text, comments, or JSON.stringify debug data');
       console.log('═══════════════════════════════════════');
 
       const pdfPayload = {
@@ -648,8 +662,9 @@ export default function InspectionDetailScreen() {
           property_address: report.address || '',
           tenant_name: tenantName,
           landlord_name: landlordName,
-          inspection_date: inspectionDate,
-          signature_date: tenantSigDate,
+          inspection_date: inspection_date,
+          date: date,
+          signature_date: date,
           is_move_in: isMoveIn,
           is_move_out: isMoveOut,
           keys_handed_over: keysHandedOver || '',
@@ -670,17 +685,12 @@ export default function InspectionDetailScreen() {
         load_data_from_url: false,
       };
 
-      console.log('✅ PDF Payload prepared with PUBLIC URLs:');
+      console.log('✅ CLEAN PDF Payload prepared with PUBLIC URLs:');
+      console.log('  - inspection_date:', inspection_date);
+      console.log('  - date:', date);
       console.log('  - Rooms count:', roomsWithData.length);
       console.log('  - Landlord signature URL:', landlordSignatureUrl ? 'Present (Public URL)' : 'Empty string');
       console.log('  - Tenant signature URL:', tenantSignatureUrl ? 'Present (Public URL)' : 'Empty string');
-      roomsWithData.forEach((room, index) => {
-        console.log(`  - Room ${index + 1}:`);
-        console.log(`    • room_name: ${room.room_name}`);
-        console.log(`    • condition: ${room.condition}`);
-        console.log(`    • comment: "${room.comment}"`);
-        console.log(`    • photo_url: "${room.photo_url}"`);
-      });
 
       console.log('═══════════════════════════════════════');
       console.log('Calling CraftMyPDF API');
@@ -779,13 +789,15 @@ export default function InspectionDetailScreen() {
         }
 
         console.log('═══════════════════════════════════════');
-        console.log('✅✅✅ PDF GENERATION COMPLETE - ALL IMAGES USING PUBLIC URLs ✅✅✅');
-        console.log('✅ Landlord signature: PUBLIC URL from "signatures" bucket');
-        console.log('✅ Tenant signature: PUBLIC URL from "signatures" bucket');
-        console.log('✅ Room photos: PUBLIC URL from "room-photos" bucket (first photo only)');
+        console.log('✅✅✅ PDF GENERATION COMPLETE - EMERGENCY FIX APPLIED ✅✅✅');
+        console.log('✅ Landlord signature: PUBLIC URL using getPublicUrl() from "signatures" bucket');
+        console.log('✅ Tenant signature: PUBLIC URL using getPublicUrl() from "signatures" bucket');
+        console.log('✅ Room photos: PUBLIC URL using getPublicUrl() from "room-photos" bucket (first photo only)');
         console.log('✅ Keys sent to PDF: landlord_signature, tenant_signature, photo_url');
         console.log('✅ Room mapping: room_name, condition, comment (singular), photo_url (singular)');
+        console.log('✅ Date fields: inspection_date and date in DD.MM.YYYY format');
         console.log('✅ Empty strings for missing data (no undefined)');
+        console.log('✅ Clean JSON payload (no extra text, comments, or debug data)');
         console.log('═══════════════════════════════════════');
       } catch (fetchError: any) {
         clearTimeout(timeoutId);
