@@ -749,36 +749,26 @@ try {
 
         console.log('CraftMyPDF API response status:', response.status);
 
-        if (!response.ok) {
-          let errorMessage = `PDF generation failed with status ${response.status}`;
-          let errorDetails = '';
-          
-          try {
-            const errorData = await response.json();
-            console.error('CraftMyPDF API error response:', errorData);
-            
-            if (errorData.message) {
-              errorDetails = errorData.message;
-            } else if (errorData.error) {
-              errorDetails = errorData.error;
-            } else if (errorData.errors && Array.isArray(errorData.errors)) {
-              errorDetails = errorData.errors.join(', ');
-            }
-          } catch (parseError) {
-            const errorText = await response.text();
-            console.error('CraftMyPDF API error text:', errorText);
-            if (errorText) {
-              errorDetails = errorText;
-            }
-          }
-          
-          const fullErrorMessage = errorDetails || errorMessage;
-          throw new Error(fullErrorMessage);
-        }
+      const responseText = await response.text();
 
-        const result = await response.json();
-        console.log('CraftMyPDF returned JSON response:', result);
-        
+if (!response.ok) {
+  let errorDetails = '';
+  try {
+    const errorData = JSON.parse(responseText);
+    errorDetails = errorData.message || errorData.error || responseText;
+  } catch {
+    errorDetails = responseText;
+  }
+  throw new Error(errorDetails || `PDF generation failed with status ${response.status}`);
+}
+
+let result;
+try {
+  result = JSON.parse(responseText);
+} catch {
+  throw new Error('Invalid response from PDF server');
+}
+
 const pdfUrl = result.url;
         if (!pdfUrl) {
           console.error('No PDF URL in response:', result);
