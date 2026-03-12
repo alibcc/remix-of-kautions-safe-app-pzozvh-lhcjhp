@@ -698,20 +698,52 @@ export default function InspectionDetailScreen() {
       console.log('Endpoint:', CRAFTMYPDF_ENDPOINT);
       console.log('═══════════════════════════════════════');
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), CRAFTMYPDF_TIMEOUT);
+     const controller = new AbortController();
+const timeoutId = setTimeout(() => controller.abort(), CRAFTMYPDF_TIMEOUT);
 
-      try {
-        const response = await fetch(CRAFTMYPDF_ENDPOINT, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'X-API-KEY': CRAFTMYPDF_API_KEY,
-          },
-          body: JSON.stringify(pdfPayload),
-          signal: controller.signal,
-        });
+try {
+  const response = await fetch('https://movproof-pdf-api.vercel.app/api/generate-pdf', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      protocol: {
+        id: id,
+        date: formattedCurrentDate,
+        tenant: {
+          name: tenantName,
+          email: '',
+        },
+        landlord: {
+          name: landlordName,
+          email: '',
+        },
+        property: {
+          address: report.address || '',
+          city: '',
+        },
+        rooms: roomsWithData.map(r => ({
+          name: r.room_name,
+          condition: r.condition,
+          notes: r.comment,
+          damages: r.photo_url ? [{
+            description: r.comment,
+            photoUrl: r.photo_url,
+          }] : [],
+        })),
+        meterReadings: [
+          electricityNo ? { type: 'Strom', value: `${electricityNo} / ${electricityVal}` } : null,
+          gasNo ? { type: 'Gas', value: `${gasNo} / ${gasVal}` } : null,
+          waterNo ? { type: 'Wasser', value: `${waterNo} / ${waterVal}` } : null,
+          heatNo ? { type: 'Heizung', value: `${heatNo} / ${heatVal}` } : null,
+        ].filter(Boolean),
+        landlordSignature: landlordSignatureUrl,
+        tenantSignature: tenantSignatureUrl,
+      }
+    }),
+    signal: controller.signal,
+  });
 
         clearTimeout(timeoutId);
 
@@ -747,8 +779,7 @@ export default function InspectionDetailScreen() {
         const result = await response.json();
         console.log('CraftMyPDF returned JSON response:', result);
         
-        const pdfUrl = result.file || result.url || result.pdf_url || result.file_url;
-
+const pdfUrl = result.url;
         if (!pdfUrl) {
           console.error('No PDF URL in response:', result);
           throw new Error('PDF URL not found in response');
