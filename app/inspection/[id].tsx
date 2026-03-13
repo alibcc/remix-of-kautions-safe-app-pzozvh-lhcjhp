@@ -1379,7 +1379,7 @@ onEnd={() => {
                         descriptionText="Sign above"
                         clearText="Clear"
                         confirmText="Save"
-webStyle={`.m-signature-pad {box-shadow: none; border: 1px solid ${colors.border};} .m-signature-pad--body {border: none;} .m-signature-pad--footer {display: flex; padding: 8px;} .m-signature-pad--footer .button {background: #ED7B58; color: white; border: none; padding: 8px 16px; font-size: 14px;}`}
+webStyle={`.m-signature-pad {box-shadow: none; border: 1px solid ${colors.border};} .m-signature-pad--body {border: none;} .m-signature-pad--footer {display: none;}`}
                         style={styles.signatureCanvas}
                       />
                     </View>
