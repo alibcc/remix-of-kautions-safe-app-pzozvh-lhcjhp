@@ -1369,9 +1369,12 @@ const pdfUrl = result.url;
                       <SignatureCanvas
                         ref={landlordSignatureRef}
                         onOK={(signature) => {
-                          console.log('Landlord signature captured');
-                          setLandlordSignature(signature);
-                        }}
+  console.log('Landlord signature captured');
+  setLandlordSignature(signature);
+}}
+onEnd={() => {
+  landlordSignatureRef.current?.readSignature();
+}}
                         onEmpty={() => console.log('Landlord signature is empty')}
                         descriptionText="Sign above"
                         clearText="Clear"
@@ -1415,10 +1418,13 @@ webStyle={`.m-signature-pad {box-shadow: none; border: 1px solid ${colors.border
                     >
                       <SignatureCanvas
                         ref={tenantSignatureRef}
-                        onOK={(signature) => {
-                          console.log('Tenant signature captured');
-                          setTenantSignature(signature);
-                        }}
+                      onOK={(signature) => {
+  console.log('Tenant signature captured');
+  setTenantSignature(signature);
+}}
+onEnd={() => {
+  tenantSignatureRef.current?.readSignature();
+}}
                         onEmpty={() => console.log('Tenant signature is empty')}
                         descriptionText="Sign above"
                         clearText="Clear"
