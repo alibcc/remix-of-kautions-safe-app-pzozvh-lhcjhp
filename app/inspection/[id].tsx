@@ -1883,7 +1883,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   signatureCanvasContainer: {
-    height: 200,
+    height: 300,
     borderWidth: 2,
     borderColor: colors.border,
     borderRadius: 0,
