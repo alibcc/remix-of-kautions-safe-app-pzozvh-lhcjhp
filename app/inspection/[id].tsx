@@ -314,13 +314,11 @@ await new Promise(resolve => setTimeout(resolve, 1500));
           const allPhotoUrls: string[] = [];
           for (const item of items) {
             const { data: photosData } = await supabase.from('photos').select('*').eq('item_id', item.id);
-            for (const photo of (photosData || [])) {
-              if (photo.storage_url) {
-                const { data: publicUrlData } = supabase.storage
-                  .from('room-photos')
-                  .getPublicUrl(photo.storage_url);
-                if (publicUrlData.publicUrl) allPhotoUrls.push(publicUrlData.publicUrl);
-              }
+        for (const photo of (photosData || [])) {
+  if (photo.storage_url) {
+    allPhotoUrls.push(photo.storage_url);
+  }
+}
             }
           }
 
