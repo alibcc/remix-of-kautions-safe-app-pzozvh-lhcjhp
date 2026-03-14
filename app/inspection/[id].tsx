@@ -260,9 +260,9 @@ export default function InspectionDetailScreen() {
   const handleGeneratePDF = async () => {
     // Read all signatures first
     landlordSignatureRef.current?.readSignature();
-    tenantSignatureRef.current?.readSignature();
-    witnessSignatureRef.current?.readSignature();
-    await new Promise(resolve => setTimeout(resolve, 500));
+tenantSignatureRef.current?.readSignature();
+witnessSignatureRef.current?.readSignature();
+await new Promise(resolve => setTimeout(resolve, 1500));
 
     if (!id || !report) { showAlert('Error', 'Report data is not available', 'error'); return; }
     if (!user || !user.id) { showAlert('Error', 'User authentication is not available', 'error'); return; }
@@ -317,7 +317,7 @@ export default function InspectionDetailScreen() {
             for (const photo of (photosData || [])) {
               if (photo.storage_url) {
                 const { data: publicUrlData } = supabase.storage
-                  .from('inspection-photos')
+                  .from('room-photos')
                   .getPublicUrl(photo.storage_url);
                 if (publicUrlData.publicUrl) allPhotoUrls.push(publicUrlData.publicUrl);
               }
