@@ -311,14 +311,13 @@ await new Promise(resolve => setTimeout(resolve, 1500));
             : 'Not Inspected';
 
           // Fetch ALL photos for this room
-          const allPhotoUrls: string[] = [];
+ const allPhotoUrls: string[] = [];
           for (const item of items) {
             const { data: photosData } = await supabase.from('photos').select('*').eq('item_id', item.id);
-        for (const photo of (photosData || [])) {
-  if (photo.storage_url) {
-    allPhotoUrls.push(photo.storage_url);
-  }
-}
+            for (const photo of (photosData || [])) {
+              if (photo.storage_url) {
+                allPhotoUrls.push(photo.storage_url);
+              }
             }
           }
 
