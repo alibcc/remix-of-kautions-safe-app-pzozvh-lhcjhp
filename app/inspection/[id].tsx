@@ -679,7 +679,7 @@ await new Promise(resolve => setTimeout(resolve, 1500));
 
         {/* Signature Modal */}
         <Modal visible={showSignatureModal} animationType="slide" transparent={false} onRequestClose={handleCloseSignatureModal}>
-          <SafeAreaView style={styles.signatureSafeArea} edges={['top', 'bottom']}>
+          <SafeAreaView style={styles.signatureSafeArea} edges={['top', 'bottom']} style={{ flex: 1, paddingTop: 8 }}>
             <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
               <View style={styles.signatureModalContainer}>
                 <View style={styles.signatureModalHeader}>
