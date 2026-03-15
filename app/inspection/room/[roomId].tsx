@@ -10,6 +10,8 @@ import {
   Modal,
   TextInput,
   Image,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
@@ -282,11 +284,20 @@ export default function RoomDetailScreen() {
     );
   }
 
-  return (
+return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <Stack.Screen options={{ title: room.name_de, headerStyle: { backgroundColor: colors.primary }, headerTintColor: '#FFFFFF', headerBackTitle: 'Back' }} />
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={90}
+      >
       <View style={commonStyles.container}>
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
 
           <View style={commonStyles.card}>
             <Text style={styles.roomNameDe}>{room.name_de}</Text>
@@ -407,9 +418,10 @@ export default function RoomDetailScreen() {
 
         <AlertModal visible={alertVisible} title={alertTitle} message={alertMessage} type={alertType} onClose={() => setAlertVisible(false)} />
       </View>
+</View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
-}
 
 const conditionColors: Record<string, string> = {
   'OK': colors.success,
