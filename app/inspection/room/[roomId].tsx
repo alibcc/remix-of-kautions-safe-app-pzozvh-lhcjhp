@@ -1,4 +1,3 @@
-
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
@@ -11,7 +10,6 @@ import {
   Modal,
   TextInput,
   Image,
-  Platform,
 } from "react-native";
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
@@ -19,7 +17,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
 import { colors, commonStyles } from "@/styles/commonStyles";
 import { IconSymbol } from "@/components/IconSymbol";
-import { AlertModal, ConfirmModal } from "@/components/ui/Modal";
+import { AlertModal } from "@/components/ui/Modal";
 import { supabase } from "@/app/integrations/supabase/client";
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -29,12 +27,6 @@ const ROOM_ITEMS = [
   { nameEn: 'Windows', nameDe: 'Fenster' },
   { nameEn: 'Ceiling', nameDe: 'Decke' },
   { nameEn: 'Doors', nameDe: 'Türen' },
-];
-
-const STATUS_OPTIONS = [
-  { value: 'OK', label: 'OK' },
-  { value: 'Defect', label: 'Defect / Mangelhaft' },
-  { value: 'Wear & Tear', label: 'Wear & Tear / Abnutzung' },
 ];
 
 interface Room {
@@ -58,448 +50,222 @@ interface Photo {
   id: string;
   item_id: string;
   storage_url: string;
-  gps_coords: {
-    latitude: number;
-    longitude: number;
-  } | null;
+  gps_coords: { latitude: number; longitude: number } | null;
   timestamp_verified: string;
 }
 
-function resolveImageSource(source: string | number | undefined): { uri: string } | number {
-  if (!source) return { uri: '' };
-  if (typeof source === 'string') return { uri: source };
-  return source as number;
+interface ItemState {
+  dbItem: RoomItem | null;
+  condition: string;
+  notes: string;
+  saving: boolean;
 }
 
 export default function RoomDetailScreen() {
   const router = useRouter();
   const { roomId } = useLocalSearchParams();
   const [room, setRoom] = useState<Room | null>(null);
-  const [roomItems, setRoomItems] = useState<RoomItem[]>([]);
+  const [itemStates, setItemStates] = useState<Record<string, ItemState>>({});
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
-  const [showLogConditionModal, setShowLogConditionModal] = useState(false);
-  const [selectedItemPreset, setSelectedItemPreset] = useState<typeof ROOM_ITEMS[0] | null>(null);
-  const [selectedStatus, setSelectedStatus] = useState<string>('OK');
-  const [itemNotes, setItemNotes] = useState('');
-  const [savingItem, setSavingItem] = useState(false);
-  
-  const [editingItem, setEditingItem] = useState<RoomItem | null>(null);
-  
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState<RoomItem | null>(null);
-  const [deletingItem, setDeletingItem] = useState(false);
-  
+
   const [showCamera, setShowCamera] = useState(false);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
-  const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
   const [photoLocation, setPhotoLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [photoTimestamp, setPhotoTimestamp] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [currentItemId, setCurrentItemId] = useState<string | null>(null);
+  const [currentItemKey, setCurrentItemKey] = useState<string | null>(null);
+
   const cameraRef = useRef<CameraView>(null);
-  
+
+  const [lightboxVisible, setLightboxVisible] = useState(false);
+  const [lightboxImageUrl, setLightboxImageUrl] = useState('');
+
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertTitle, setAlertTitle] = useState('');
   const [alertMessage, setAlertMessage] = useState('');
   const [alertType, setAlertType] = useState<'info' | 'error' | 'success'>('info');
-  
-  const [lightboxVisible, setLightboxVisible] = useState(false);
-  const [lightboxImageUrl, setLightboxImageUrl] = useState<string>('');
-  
+
   const showAlert = (title: string, message: string, type: 'info' | 'error' | 'success' = 'info') => {
-    setAlertTitle(title);
-    setAlertMessage(message);
-    setAlertType(type);
-    setAlertVisible(true);
-  };
-
-  const openLightbox = (imageUrl: string) => {
-    console.log('Opening lightbox for image:', imageUrl);
-    setLightboxImageUrl(imageUrl);
-    setLightboxVisible(true);
-  };
-
-  const closeLightbox = () => {
-    console.log('Closing lightbox');
-    setLightboxVisible(false);
-    setLightboxImageUrl('');
+    setAlertTitle(title); setAlertMessage(message); setAlertType(type); setAlertVisible(true);
   };
 
   const fetchRoomData = useCallback(async () => {
-    if (!roomId) {
-      console.log('RoomDetailScreen: No room ID provided');
-      return;
-    }
-
-    console.log('RoomDetailScreen: Loading room data for ID:', roomId);
+    if (!roomId) return;
     setLoading(true);
-    setError(null);
-
     try {
-      const { data: roomData, error: roomError } = await supabase
-        .from('rooms')
-        .select('*')
-        .eq('id', roomId)
-        .single();
-
-      if (roomError) {
-        console.error('RoomDetailScreen: Error loading room:', roomError);
-        setError(`Failed to load room: ${roomError.message}`);
-        return;
-      }
-
-      console.log('RoomDetailScreen: Room loaded successfully');
+      const { data: roomData, error: roomError } = await supabase.from('rooms').select('*').eq('id', roomId).single();
+      if (roomError) { setError(`Failed to load room: ${roomError.message}`); return; }
       setRoom(roomData);
 
-      const { data: itemsData, error: itemsError } = await supabase
-        .from('room_items')
-        .select('*')
-        .eq('room_id', roomId)
-        .order('item_name_de', { ascending: true });
+      const { data: itemsData } = await supabase.from('room_items').select('*').eq('room_id', roomId);
+      const items = itemsData || [];
 
-      if (itemsError) {
-        console.error('RoomDetailScreen: Error loading items:', itemsError);
-      } else if (itemsData) {
-        console.log('RoomDetailScreen: Loaded items:', itemsData.length);
-        setRoomItems(itemsData);
+      // Build itemStates from DB
+      const states: Record<string, ItemState> = {};
+      for (const preset of ROOM_ITEMS) {
+        const dbItem = items.find(i => i.item_name_en === preset.nameEn) || null;
+        states[preset.nameEn] = {
+          dbItem,
+          condition: dbItem?.condition_status || 'OK',
+          notes: dbItem?.notes || '',
+          saving: false,
+        };
+      }
+      setItemStates(states);
 
-        if (itemsData.length > 0) {
-          const itemIds = itemsData.map(item => item.id);
-          const { data: photosData, error: photosError } = await supabase
-            .from('photos')
-            .select('*')
-            .in('item_id', itemIds)
-            .order('timestamp_verified', { ascending: false });
-
-          if (photosError) {
-            console.error('RoomDetailScreen: Error loading photos:', photosError);
-          } else if (photosData) {
-            console.log('RoomDetailScreen: Loaded photos:', photosData.length);
-            setPhotos(photosData);
-          }
-        }
+      if (items.length > 0) {
+        const { data: photosData } = await supabase.from('photos').select('*').in('item_id', items.map(i => i.id));
+        setPhotos(photosData || []);
+      } else {
+        setPhotos([]);
       }
     } catch (err: any) {
-      console.error('RoomDetailScreen: Unexpected error:', err);
       setError(`An unexpected error occurred: ${err.message}`);
     } finally {
       setLoading(false);
     }
   }, [roomId]);
 
-  useEffect(() => {
-    fetchRoomData();
-  }, [fetchRoomData]);
+  useEffect(() => { fetchRoomData(); }, [fetchRoomData]);
 
-  const handleOpenCamera = async (itemId: string) => {
-    setCurrentItemId(itemId);
+  const handleConditionChange = async (presetNameEn: string, condition: string) => {
+    if (!roomId) return;
+    const preset = ROOM_ITEMS.find(p => p.nameEn === presetNameEn)!;
+    const state = itemStates[presetNameEn];
 
-    if (!cameraPermission?.granted) {
-      const result = await requestCameraPermission();
-      if (!result.granted) {
-        showAlert('Permission Required', 'Camera permission is required.', 'error');
-        return;
+    setItemStates(prev => ({ ...prev, [presetNameEn]: { ...prev[presetNameEn], condition, saving: true } }));
+
+    try {
+      if (state.dbItem) {
+        await supabase.from('room_items').update({
+          condition_status: condition,
+          requires_repair: condition === 'Defect',
+        }).eq('id', state.dbItem.id);
+        setItemStates(prev => ({
+          ...prev,
+          [presetNameEn]: { ...prev[presetNameEn], condition, saving: false, dbItem: { ...prev[presetNameEn].dbItem!, condition_status: condition } }
+        }));
+      } else {
+        const { data: newItem } = await supabase.from('room_items').insert([{
+          room_id: roomId,
+          item_name_en: preset.nameEn,
+          item_name_de: preset.nameDe,
+          condition_status: condition,
+          notes: state.notes || null,
+          requires_repair: condition === 'Defect',
+        }]).select().single();
+        setItemStates(prev => ({
+          ...prev,
+          [presetNameEn]: { ...prev[presetNameEn], condition, saving: false, dbItem: newItem }
+        }));
+      }
+    } catch (err: any) {
+      showAlert('Error', `Failed to save: ${err.message}`, 'error');
+      setItemStates(prev => ({ ...prev, [presetNameEn]: { ...prev[presetNameEn], saving: false } }));
+    }
+  };
+
+  const handleNotesChange = (presetNameEn: string, notes: string) => {
+    setItemStates(prev => ({ ...prev, [presetNameEn]: { ...prev[presetNameEn], notes } }));
+  };
+
+  const handleNotesSave = async (presetNameEn: string) => {
+    const state = itemStates[presetNameEn];
+    if (!state.dbItem || !roomId) return;
+    try {
+      await supabase.from('room_items').update({ notes: state.notes || null }).eq('id', state.dbItem.id);
+    } catch (err: any) {
+      showAlert('Error', `Failed to save notes: ${err.message}`, 'error');
+    }
+  };
+
+  const handleOpenCamera = async (presetNameEn: string) => {
+    // Ensure item exists in DB first
+    const state = itemStates[presetNameEn];
+    let itemId = state.dbItem?.id;
+
+    if (!itemId && roomId) {
+      const preset = ROOM_ITEMS.find(p => p.nameEn === presetNameEn)!;
+      const { data: newItem } = await supabase.from('room_items').insert([{
+        room_id: roomId,
+        item_name_en: preset.nameEn,
+        item_name_de: preset.nameDe,
+        condition_status: state.condition,
+        notes: state.notes || null,
+        requires_repair: state.condition === 'Defect',
+      }]).select().single();
+      if (newItem) {
+        itemId = newItem.id;
+        setItemStates(prev => ({ ...prev, [presetNameEn]: { ...prev[presetNameEn], dbItem: newItem } }));
       }
     }
 
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      showAlert('Permission Required', 'Location permission is required for legal proof.', 'error');
-      return;
+    if (!itemId) return;
+    setCurrentItemKey(presetNameEn);
+
+    if (!cameraPermission?.granted) {
+      const result = await requestCameraPermission();
+      if (!result.granted) { showAlert('Permission Required', 'Camera permission is required.', 'error'); return; }
     }
 
-    // Fetch GPS in background while user frames the shot
-    Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Balanced,
-    }).then(location => {
-      setPhotoLocation({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-      });
-    }).catch(() => {
-      setPhotoLocation(null);
-    });
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') { showAlert('Permission Required', 'Location permission is required.', 'error'); return; }
+
+    Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+      .then(loc => setPhotoLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude }))
+      .catch(() => setPhotoLocation(null));
 
     setShowCamera(true);
   };
 
-const handleTakePhoto = async () => {
-    if (!cameraRef.current) return;
-
+  const handleTakePhoto = async () => {
+    if (!cameraRef.current || !currentItemKey) return;
     try {
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.3,
-        base64: false,
-      });
-
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.3, base64: false });
       if (!photo) return;
-
       const timestamp = new Date().toISOString();
-      setCapturedPhoto(photo.uri);
-      setPhotoTimestamp(timestamp);
       setShowCamera(false);
 
-      await uploadPhotoToSupabase(
-        photo.uri,
-        photoLocation || { latitude: 0, longitude: 0 },
-        timestamp
-      );
-    } catch (error) {
-      console.error('Error capturing photo:', error);
-      showAlert('Error', 'Failed to capture photo. Please try again.', 'error');
-    }
-  };
+      const state = itemStates[currentItemKey];
+      const itemId = state.dbItem?.id;
+      if (!itemId || !room) return;
 
-  const uploadPhotoToSupabase = async (
-    photoUri: string,
-    coords: { latitude: number; longitude: number },
-    timestamp: string
-  ) => {
-    if (!currentItemId || !room) {
-      console.error('Missing item ID or room data');
-      return;
-    }
-
-    console.log('Uploading photo to Supabase Storage');
-    setUploadingPhoto(true);
-
-    try {
-      console.log('Reading photo file as Base64');
-      const base64Data = await FileSystem.readAsStringAsync(photoUri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-
-      if (!base64Data) {
-        throw new Error('Failed to read photo file');
-      }
-
-      console.log('Base64 data length:', base64Data.length);
-
-      console.log('Converting Base64 to ArrayBuffer');
+      setUploadingPhoto(true);
+      const base64Data = await FileSystem.readAsStringAsync(photo.uri, { encoding: FileSystem.EncodingType.Base64 });
       const arrayBuffer = decode(base64Data);
+      const filePath = `${room.report_id}/${room.id}/room_${Date.now()}.jpg`;
 
-      if (!arrayBuffer || arrayBuffer.byteLength === 0) {
-        throw new Error('Failed to convert Base64 to ArrayBuffer');
-      }
+      const { error: uploadError } = await supabase.storage.from('inspection-photos').upload(filePath, arrayBuffer, { contentType: 'image/jpeg', upsert: false });
+      if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
 
-      console.log('ArrayBuffer size:', arrayBuffer.byteLength, 'bytes');
-
-      const timestampForFilename = new Date().getTime();
-      const fileName = `room_${timestampForFilename}.jpg`;
-      const filePath = `${room.report_id}/${room.id}/${fileName}`;
-
-      console.log('Uploading to path:', filePath);
-
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('inspection-photos')
-        .upload(filePath, arrayBuffer, {
-          contentType: 'image/jpeg',
-          upsert: false,
-        });
-
-      if (uploadError) {
-        console.error('Supabase Storage Upload Error:', uploadError);
-        throw new Error(`Photo upload failed: ${uploadError.message}`);
-      }
-
-      console.log('Photo uploaded successfully to Supabase Storage:', uploadData);
-
-      const { data: urlData } = supabase.storage
-        .from('inspection-photos')
-        .getPublicUrl(filePath);
-
-      if (!urlData || !urlData.publicUrl) {
-        throw new Error('Failed to get public URL for uploaded photo');
-      }
-
+      const { data: urlData } = supabase.storage.from('inspection-photos').getPublicUrl(filePath);
       const publicUrl = urlData.publicUrl;
-      console.log('Public URL retrieved:', publicUrl);
 
-      console.log('Saving photo metadata to database');
-      const { data: photoData, error: photoError } = await supabase
-        .from('photos')
-        .insert([{
-          item_id: currentItemId,
-          storage_url: publicUrl,
-          gps_coords: coords,
-          timestamp_verified: timestamp,
-        }])
-        .select()
-        .single();
-
-      if (photoError) {
-        console.error('Database sync error:', photoError);
-        throw new Error(`Failed to save photo URL to database: ${photoError.message}`);
-      }
-
-      console.log('Photo metadata saved successfully to database:', photoData);
+      await supabase.from('photos').insert([{
+        item_id: itemId,
+        storage_url: publicUrl,
+        gps_coords: photoLocation || { latitude: 0, longitude: 0 },
+        timestamp_verified: timestamp,
+      }]);
 
       await fetchRoomData();
-
-      showAlert('Success', 'Photo uploaded successfully with GPS verification', 'success');
-      
-      setCapturedPhoto(null);
-      setPhotoLocation(null);
-      setPhotoTimestamp(null);
-      setCurrentItemId(null);
-    } catch (error: any) {
-      console.error('Unexpected error uploading photo:', error);
-      showAlert('Error', `Failed to upload photo: ${error.message}`, 'error');
+      showAlert('Success', 'Photo saved!', 'success');
+    } catch (err: any) {
+      showAlert('Error', `Failed to save photo: ${err.message}`, 'error');
     } finally {
       setUploadingPhoto(false);
+      setCurrentItemKey(null);
     }
-  };
-
-  const handleLogCondition = async () => {
-    console.log('User tapped Save Condition button');
-    
-    if (!selectedItemPreset) {
-      console.log('Validation failed: Item preset is required');
-      showAlert('Validation Error', 'Please select an item type', 'error');
-      return;
-    }
-
-    if (!roomId) {
-      console.log('Error: No room ID available');
-      showAlert('Error', 'Room ID is missing', 'error');
-      return;
-    }
-
-    setSavingItem(true);
-
-    try {
-      const itemData = {
-        room_id: roomId,
-        item_name_en: selectedItemPreset.nameEn,
-        item_name_de: selectedItemPreset.nameDe,
-        condition_status: selectedStatus,
-        notes: itemNotes || null,
-        requires_repair: selectedStatus === 'Defect',
-      };
-
-      console.log('Adding room item to Supabase:', itemData);
-
-      if (editingItem) {
-        const { data: updatedItem, error: updateError } = await supabase
-          .from('room_items')
-          .update(itemData)
-          .eq('id', editingItem.id)
-          .select()
-          .single();
-
-        if (updateError) {
-          console.error('Error updating room item:', updateError);
-          showAlert('Error', `Failed to update item: ${updateError.message}`, 'error');
-          return;
-        }
-
-        console.log('Room item updated successfully:', updatedItem);
-        showAlert('Success', 'Condition updated successfully', 'success');
-      } else {
-        const { data: newItem, error: insertError } = await supabase
-          .from('room_items')
-          .insert([itemData])
-          .select()
-          .single();
-
-        if (insertError) {
-          console.error('Error inserting room item:', insertError);
-          showAlert('Error', `Failed to add item: ${insertError.message}`, 'error');
-          return;
-        }
-
-        console.log('Room item added successfully:', newItem);
-        showAlert('Success', 'Condition logged successfully', 'success');
-      }
-
-      await fetchRoomData();
-
-      setShowLogConditionModal(false);
-      setSelectedItemPreset(null);
-      setSelectedStatus('OK');
-      setItemNotes('');
-      setEditingItem(null);
-    } catch (error: any) {
-      console.error('Unexpected error saving room item:', error);
-      showAlert('Error', `Failed to save item: ${error.message}`, 'error');
-    } finally {
-      setSavingItem(false);
-    }
-  };
-
-  const handleEditItem = (item: RoomItem) => {
-    console.log('User tapped Edit button for item:', item.id);
-    setEditingItem(item);
-    
-    const preset = ROOM_ITEMS.find(p => p.nameEn === item.item_name_en);
-    setSelectedItemPreset(preset || null);
-    setSelectedStatus(item.condition_status);
-    setItemNotes(item.notes || '');
-    
-    setShowLogConditionModal(true);
-  };
-
-  const handleDeleteItem = (item: RoomItem) => {
-    console.log('User tapped Delete button for item:', item.id);
-    setItemToDelete(item);
-    setShowDeleteConfirm(true);
-  };
-
-  const confirmDeleteItem = async () => {
-    if (!itemToDelete) return;
-
-    console.log('Deleting item:', itemToDelete.id);
-    setDeletingItem(true);
-
-    try {
-      const { error: deleteError } = await supabase
-        .from('room_items')
-        .delete()
-        .eq('id', itemToDelete.id);
-
-      if (deleteError) {
-        console.error('Error deleting item:', deleteError);
-        showAlert('Error', `Failed to delete item: ${deleteError.message}`, 'error');
-        return;
-      }
-
-      console.log('Item deleted successfully');
-      showAlert('Success', 'Item deleted successfully', 'success');
-
-      await fetchRoomData();
-
-      setShowDeleteConfirm(false);
-      setItemToDelete(null);
-    } catch (error: any) {
-      console.error('Unexpected error deleting item:', error);
-      showAlert('Error', `Failed to delete item: ${error.message}`, 'error');
-    } finally {
-      setDeletingItem(false);
-    }
-  };
-
-  const handleBackToInspection = () => {
-    console.log('User tapped Back button - navigating to inspection detail');
-    router.back();
   };
 
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-        <Stack.Screen
-          options={{
-            title: "Room Details",
-            headerStyle: { backgroundColor: colors.primary },
-            headerTintColor: '#FFFFFF',
-            headerBackTitle: 'Back',
-          }}
-        />
+        <Stack.Screen options={{ title: "Room", headerStyle: { backgroundColor: colors.primary }, headerTintColor: '#FFFFFF' }} />
         <View style={[commonStyles.container, styles.centerContent]}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading room details...</Text>
+          <Text style={styles.loadingText}>Loading...</Text>
         </View>
       </SafeAreaView>
     );
@@ -508,798 +274,186 @@ const handleTakePhoto = async () => {
   if (error || !room) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-        <Stack.Screen
-          options={{
-            title: "Room Details",
-            headerStyle: { backgroundColor: colors.primary },
-            headerTintColor: '#FFFFFF',
-            headerBackTitle: 'Back',
-          }}
-        />
+        <Stack.Screen options={{ title: "Room", headerStyle: { backgroundColor: colors.primary }, headerTintColor: '#FFFFFF' }} />
         <View style={[commonStyles.container, styles.centerContent]}>
-          <IconSymbol
-            ios_icon_name="exclamationmark.triangle"
-            android_material_icon_name="error"
-            size={64}
-            color={colors.error}
-          />
           <Text style={styles.errorText}>{error || 'Room not found'}</Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  const hasItems = roomItems.length > 0;
-
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <Stack.Screen
-        options={{
-          title: room.name_de,
-          headerStyle: { backgroundColor: colors.primary },
-          headerTintColor: '#FFFFFF',
-          headerBackTitle: 'Back',
-        }}
-      />
+      <Stack.Screen options={{ title: room.name_de, headerStyle: { backgroundColor: colors.primary }, headerTintColor: '#FFFFFF', headerBackTitle: 'Back' }} />
       <View style={commonStyles.container}>
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+
           <View style={commonStyles.card}>
             <Text style={styles.roomNameDe}>{room.name_de}</Text>
             <Text style={styles.roomNameEn}>{room.name_en}</Text>
           </View>
 
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Logged Conditions</Text>
-              <TouchableOpacity
-                style={styles.addButton}
-                onPress={() => {
-                  console.log('User tapped Log Condition button');
-                  setEditingItem(null);
-                  setSelectedItemPreset(null);
-                  setSelectedStatus('OK');
-                  setItemNotes('');
-                  setShowLogConditionModal(true);
-                }}
-              >
-                <IconSymbol
-                  ios_icon_name="plus.circle.fill"
-                  android_material_icon_name="add-circle"
-                  size={24}
-                  color={colors.primary}
-                />
-              </TouchableOpacity>
-            </View>
+          {ROOM_ITEMS.map((preset) => {
+            const state = itemStates[preset.nameEn] || { condition: 'OK', notes: '', saving: false, dbItem: null };
+            const itemPhotos = state.dbItem ? photos.filter(p => p.item_id === state.dbItem!.id) : [];
+            const isDefect = state.condition !== 'OK';
 
-            {!hasItems && (
-              <View style={styles.emptyState}>
-                <IconSymbol
-                  ios_icon_name="doc.text"
-                  android_material_icon_name="description"
-                  size={48}
-                  color={colors.textSecondary}
-                />
-                <Text style={styles.emptyText}>No conditions logged yet</Text>
-              </View>
-            )}
+            return (
+              <View key={preset.nameEn} style={[styles.itemCard, isDefect && styles.itemCardDefect]}>
+                {/* Item name */}
+                <View style={styles.itemHeader}>
+                  <View>
+                    <Text style={styles.itemNameDe}>{preset.nameDe}</Text>
+                    <Text style={styles.itemNameEn}>{preset.nameEn}</Text>
+                  </View>
+                  {state.saving && <ActivityIndicator size="small" color={colors.primary} />}
+                </View>
 
-            {hasItems && (
-              <View style={styles.itemsList}>
-                {roomItems.map((item) => {
-                  const itemPhotos = photos.filter(p => p.item_id === item.id);
-                  const statusColor = item.condition_status === 'OK' ? colors.success : 
-                                     item.condition_status === 'Defect' ? colors.error : 
-                                     colors.warning;
-                  
-                  return (
-                    <View key={item.id} style={styles.itemCard}>
-                      <View style={styles.itemHeader}>
-                        <View style={styles.itemTitleContainer}>
-                          <Text style={styles.itemNameDe}>{item.item_name_de}</Text>
-                          <Text style={styles.itemNameEn}>{item.item_name_en}</Text>
-                        </View>
-                        <View style={styles.itemActions}>
-                          <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
-                            <Text style={styles.statusText}>{item.condition_status}</Text>
-                          </View>
-                          <TouchableOpacity
-                            style={styles.actionButton}
-                            onPress={() => handleEditItem(item)}
-                          >
-                            <IconSymbol
-                              ios_icon_name="pencil"
-                              android_material_icon_name="edit"
-                              size={20}
-                              color={colors.primary}
-                            />
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.actionButton}
-                            onPress={() => handleDeleteItem(item)}
-                          >
-                            <IconSymbol
-                              ios_icon_name="trash"
-                              android_material_icon_name="delete"
-                              size={20}
-                              color={colors.error}
-                            />
-                          </TouchableOpacity>
-                        </View>
-                      </View>
+                {/* Condition buttons */}
+                <View style={styles.conditionRow}>
+                  {['OK', 'Defect', 'Wear & Tear'].map(c => (
+                    <TouchableOpacity
+                      key={c}
+                      style={[styles.conditionBtn, state.condition === c && styles.conditionBtnActive(c)]}
+                      onPress={() => handleConditionChange(preset.nameEn, c)}
+                    >
+                      <Text style={[styles.conditionBtnText, state.condition === c && styles.conditionBtnTextActive]}>
+                        {c === 'Wear & Tear' ? 'Wear' : c}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
 
-                      {item.notes && (
-                        <Text style={styles.itemNotes}>{item.notes}</Text>
-                      )}
+                {/* Notes — only show if defect or wear */}
+                {state.condition !== 'OK' && (
+                  <TextInput
+                    style={styles.notesInput}
+                    placeholder="Bemerkungen / Notes..."
+                    placeholderTextColor={colors.textSecondary}
+                    value={state.notes}
+                    onChangeText={(t) => handleNotesChange(preset.nameEn, t)}
+                    onBlur={() => handleNotesSave(preset.nameEn)}
+                    multiline
+                  />
+                )}
 
-                      <TouchableOpacity
-                        style={styles.takePhotoButton}
-                        onPress={() => handleOpenCamera(item.id)}
-                        disabled={uploadingPhoto}
-                      >
-                        <IconSymbol
-                          ios_icon_name="camera.fill"
-                          android_material_icon_name="camera"
-                          size={20}
-                          color="#FFFFFF"
-                        />
-                        <Text style={styles.takePhotoButtonText}>Take Photo</Text>
+                {/* Photo button */}
+                <TouchableOpacity
+                  style={styles.photoBtn}
+                  onPress={() => handleOpenCamera(preset.nameEn)}
+                  disabled={uploadingPhoto}
+                >
+                  <IconSymbol ios_icon_name="camera.fill" android_material_icon_name="camera" size={18} color="#FFFFFF" />
+                  <Text style={styles.photoBtnText}>
+                    {itemPhotos.length > 0 ? `${itemPhotos.length} Foto(s) — Add More` : 'Foto aufnehmen / Take Photo'}
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Photo thumbnails */}
+                {itemPhotos.length > 0 && (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoScroll}>
+                    {itemPhotos.map(photo => (
+                      <TouchableOpacity key={photo.id} onPress={() => { setLightboxImageUrl(photo.storage_url); setLightboxVisible(true); }}>
+                        <Image source={{ uri: photo.storage_url }} style={styles.thumbnail} resizeMode="cover" />
                       </TouchableOpacity>
-
-                      {itemPhotos.length > 0 && (
-                        <View style={styles.evidenceGallery}>
-                          <Text style={styles.evidenceTitle}>Evidence Gallery</Text>
-                          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoScroll}>
-                            {itemPhotos.map((photo) => {
-                              return (
-                                <TouchableOpacity
-                                  key={photo.id}
-                                  style={styles.thumbnailContainer}
-                                  onPress={() => openLightbox(photo.storage_url)}
-                                  activeOpacity={0.7}
-                                >
-                                  <Image
-                                    source={resolveImageSource(photo.storage_url)}
-                                    style={styles.thumbnail}
-                                    resizeMode="cover"
-                                  />
-                                </TouchableOpacity>
-                              );
-                            })}
-                          </ScrollView>
-                        </View>
-                      )}
-                    </View>
-                  );
-                })}
+                    ))}
+                  </ScrollView>
+                )}
               </View>
-            )}
-          </View>
+            );
+          })}
 
-          {/* FIX #2: Universal Back Button */}
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={handleBackToInspection}
-          >
-            <IconSymbol
-              ios_icon_name="arrow.left"
-              android_material_icon_name="arrow-back"
-              size={20}
-              color={colors.primary}
-            />
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <IconSymbol ios_icon_name="arrow.left" android_material_icon_name="arrow-back" size={20} color={colors.primary} />
             <Text style={styles.backButtonText}>Back to Inspection</Text>
           </TouchableOpacity>
         </ScrollView>
 
-        <Modal
-          visible={showLogConditionModal}
-          animationType="slide"
-          transparent={true}
-          onRequestClose={() => setShowLogConditionModal(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>
-                  {editingItem ? 'Edit Condition' : 'Log Condition'}
-                </Text>
-                <TouchableOpacity onPress={() => setShowLogConditionModal(false)}>
-                  <IconSymbol
-                    ios_icon_name="xmark.circle.fill"
-                    android_material_icon_name="close"
-                    size={28}
-                    color={colors.textSecondary}
-                  />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView style={styles.modalScroll}>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Select Item *</Text>
-                  <View style={styles.itemPresetList}>
-                    {ROOM_ITEMS.map((preset) => {
-                      const isSelected = selectedItemPreset?.nameEn === preset.nameEn;
-                      return (
-                        <TouchableOpacity
-                          key={preset.nameEn}
-                          style={[
-                            styles.presetButton,
-                            isSelected && styles.presetButtonActive,
-                          ]}
-                          onPress={() => {
-                            console.log('User selected item preset:', preset.nameDe);
-                            setSelectedItemPreset(preset);
-                          }}
-                        >
-                          <Text style={[
-                            styles.presetNameDe,
-                            isSelected && styles.presetNameDeActive,
-                          ]}>
-                            {preset.nameDe}
-                          </Text>
-                          <Text style={[
-                            styles.presetNameEn,
-                            isSelected && styles.presetNameEnActive,
-                          ]}>
-                            {preset.nameEn}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Condition Status *</Text>
-                  <View style={styles.statusList}>
-                    {STATUS_OPTIONS.map((status) => {
-                      const isSelected = selectedStatus === status.value;
-                      return (
-                        <TouchableOpacity
-                          key={status.value}
-                          style={[
-                            styles.statusButton,
-                            isSelected && styles.statusButtonActive,
-                          ]}
-                          onPress={() => {
-                            console.log('User selected status:', status.value);
-                            setSelectedStatus(status.value);
-                          }}
-                        >
-                          <Text style={[
-                            styles.statusButtonText,
-                            isSelected && styles.statusButtonTextActive,
-                          ]}>
-                            {status.label}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Notes (Optional)</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="Add any additional notes..."
-                    placeholderTextColor={colors.textSecondary}
-                    value={itemNotes}
-                    onChangeText={setItemNotes}
-                    multiline
-                    numberOfLines={4}
-                    textAlignVertical="top"
-                  />
-                </View>
-              </ScrollView>
-
-              <TouchableOpacity
-                style={[
-                  styles.modalSaveButton,
-                  (!selectedItemPreset || savingItem) && styles.modalSaveButtonDisabled,
-                ]}
-                onPress={handleLogCondition}
-                disabled={!selectedItemPreset || savingItem}
-              >
-                {savingItem ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.modalSaveButtonText}>
-                    {editingItem ? 'Update Condition' : 'Save Condition'}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-
-        <Modal
-          visible={showCamera}
-          animationType="slide"
-          transparent={false}
-          onRequestClose={() => setShowCamera(false)}
-        >
+        {/* Camera Modal */}
+        <Modal visible={showCamera} animationType="slide" transparent={false} onRequestClose={() => setShowCamera(false)}>
           <View style={styles.cameraContainer}>
-            <CameraView
-              ref={cameraRef}
-              style={styles.camera}
-              facing="back"
-            />
+            <CameraView ref={cameraRef} style={styles.camera} facing="back" />
             <View style={styles.cameraControls}>
-              <TouchableOpacity
-                style={styles.cancelCameraButton}
-                onPress={() => setShowCamera(false)}
-              >
+              <TouchableOpacity style={styles.cancelCameraButton} onPress={() => setShowCamera(false)}>
                 <Text style={styles.cancelCameraText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.captureButton}
-                onPress={handleTakePhoto}
-              >
+              <TouchableOpacity style={styles.captureButton} onPress={handleTakePhoto}>
                 <View style={styles.captureButtonInner} />
               </TouchableOpacity>
-              <View style={styles.cancelCameraButton} />
+              <View style={{ width: 80 }} />
             </View>
           </View>
         </Modal>
 
-        <Modal
-          visible={uploadingPhoto}
-          transparent={true}
-          animationType="fade"
-        >
+        {/* Uploading overlay */}
+        <Modal visible={uploadingPhoto} transparent={true} animationType="fade">
           <View style={styles.uploadOverlay}>
             <View style={styles.uploadModal}>
               <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={styles.uploadText}>Processing...</Text>
-              <Text style={styles.uploadSubtext}>Uploading photo with GPS verification</Text>
+              <Text style={styles.uploadText}>Saving photo...</Text>
             </View>
           </View>
         </Modal>
 
-        <ConfirmModal
-          visible={showDeleteConfirm}
-          title="Delete Item"
-          message={`Are you sure you want to delete "${itemToDelete?.item_name_de}"? This action cannot be undone.`}
-          confirmText={deletingItem ? "Deleting..." : "Delete"}
-          cancelText="Cancel"
-          onConfirm={confirmDeleteItem}
-          onCancel={() => {
-            setShowDeleteConfirm(false);
-            setItemToDelete(null);
-          }}
-          type="danger"
-        />
-
-        <Modal
-          visible={lightboxVisible}
-          transparent={true}
-          animationType="fade"
-          onRequestClose={closeLightbox}
-        >
+        {/* Lightbox */}
+        <Modal visible={lightboxVisible} transparent={true} animationType="fade" onRequestClose={() => setLightboxVisible(false)}>
           <View style={styles.lightboxOverlay}>
-            <TouchableOpacity
-              style={styles.lightboxCloseButton}
-              onPress={closeLightbox}
-              activeOpacity={0.8}
-            >
-              <IconSymbol
-                ios_icon_name="xmark.circle.fill"
-                android_material_icon_name="close"
-                size={36}
-                color="#FFFFFF"
-              />
+            <TouchableOpacity style={styles.lightboxCloseButton} onPress={() => setLightboxVisible(false)}>
+              <IconSymbol ios_icon_name="xmark.circle.fill" android_material_icon_name="close" size={36} color="#FFFFFF" />
             </TouchableOpacity>
-            <Image
-              source={resolveImageSource(lightboxImageUrl)}
-              style={styles.lightboxImage}
-              resizeMode="contain"
-            />
+            <Image source={{ uri: lightboxImageUrl }} style={styles.lightboxImage} resizeMode="contain" />
           </View>
         </Modal>
 
-        <AlertModal
-          visible={alertVisible}
-          title={alertTitle}
-          message={alertMessage}
-          type={alertType}
-          onClose={() => setAlertVisible(false)}
-        />
+        <AlertModal visible={alertVisible} title={alertTitle} message={alertMessage} type={alertType} onClose={() => setAlertVisible(false)} />
       </View>
     </SafeAreaView>
   );
 }
 
+const conditionColors: Record<string, string> = {
+  'OK': colors.success,
+  'Defect': colors.error,
+  'Wear & Tear': colors.warning || '#F59E0B',
+};
+
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 32,
-  },
-  centerContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    marginTop: 12,
-  },
-  errorText: {
-    fontSize: 16,
-    color: colors.error,
-    textAlign: 'center',
-    marginTop: 12,
-  },
-  roomNameDe: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  roomNameEn: {
-    fontSize: 16,
-    color: colors.textSecondary,
-  },
-  section: {
-    marginTop: 24,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  addButton: {
-    padding: 4,
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 40,
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderStyle: 'dashed',
-  },
-  emptyText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 12,
-  },
-  itemsList: {
-    gap: 16,
-  },
-  itemCard: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  itemHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  itemTitleContainer: {
-    flex: 1,
-  },
-  itemNameDe: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 2,
-  },
-  itemNameEn: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  itemActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  actionButton: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: colors.background,
-  },
-  itemNotes: {
-    fontSize: 14,
-    color: colors.text,
-    marginBottom: 12,
-    fontStyle: 'italic',
-  },
-  takePhotoButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: colors.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginTop: 8,
-  },
-  takePhotoButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  evidenceGallery: {
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  evidenceTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 12,
-  },
-  photoScroll: {
-    marginHorizontal: -4,
-  },
-  thumbnailContainer: {
-    marginHorizontal: 4,
-  },
-  thumbnail: {
-    width: 100,
-    height: 100,
-    borderRadius: 8,
-    backgroundColor: colors.background,
-    borderWidth: 2,
-    borderColor: colors.border,
-  },
-  lightboxOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.95)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  lightboxCloseButton: {
-    position: 'absolute',
-    top: 50,
-    right: 20,
-    zIndex: 10,
-    padding: 8,
-  },
-  lightboxImage: {
-    width: '100%',
-    height: '100%',
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: colors.card,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 0,
-    marginTop: 24,
-    borderWidth: 2,
-    borderColor: colors.primary,
-  },
-  backButtonText: {
-    color: colors.primary,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: colors.background,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingTop: 20,
-    paddingBottom: 40,
-    maxHeight: '90%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-    flex: 1,
-  },
-  modalScroll: {
-    paddingHorizontal: 20,
-    maxHeight: 500,
-  },
-  inputGroup: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  itemPresetList: {
-    gap: 12,
-  },
-  presetButton: {
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-  },
-  presetButtonActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  presetNameDe: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  presetNameDeActive: {
-    color: '#FFFFFF',
-  },
-  presetNameEn: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  presetNameEnActive: {
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
-  statusList: {
-    gap: 12,
-  },
-  statusButton: {
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-  },
-  statusButtonActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  statusButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.text,
-    textAlign: 'center',
-  },
-  statusButtonTextActive: {
-    color: '#FFFFFF',
-  },
-  textInput: {
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: colors.text,
-    minHeight: 100,
-  },
-  modalSaveButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    marginHorizontal: 20,
-    marginTop: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 52,
-  },
-  modalSaveButtonDisabled: {
-    backgroundColor: colors.textSecondary,
-    opacity: 0.5,
-  },
-  modalSaveButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  cameraContainer: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  camera: {
-    flex: 1,
-  },
-  cameraControls: {
-    position: 'absolute',
-    bottom: 40,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  cancelCameraButton: {
-    width: 80,
-  },
-  cancelCameraText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  captureButton: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 4,
-    borderColor: 'rgba(255, 255, 255, 0.5)',
-  },
-  captureButtonInner: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#FFFFFF',
-  },
-  uploadOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  uploadModal: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 32,
-    alignItems: 'center',
-    minWidth: 200,
-  },
-  uploadText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-    marginTop: 16,
-  },
-  uploadSubtext: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 8,
-    textAlign: 'center',
-  },
+  safeArea: { flex: 1, backgroundColor: colors.background },
+  scrollView: { flex: 1 },
+  scrollContent: { padding: 16, paddingBottom: 32, gap: 12 },
+  centerContent: { justifyContent: 'center', alignItems: 'center', padding: 20 },
+  loadingText: { fontSize: 16, color: colors.textSecondary, marginTop: 12 },
+  errorText: { fontSize: 16, color: colors.error, textAlign: 'center', marginTop: 12 },
+  roomNameDe: { fontSize: 24, fontWeight: '700', color: colors.text, marginBottom: 4 },
+  roomNameEn: { fontSize: 16, color: colors.textSecondary },
+  itemCard: { backgroundColor: colors.card, borderRadius: 0, padding: 16, borderWidth: 1, borderColor: colors.border },
+  itemCardDefect: { borderColor: colors.error, borderLeftWidth: 4 },
+  itemHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  itemNameDe: { fontSize: 17, fontWeight: '700', color: colors.text },
+  itemNameEn: { fontSize: 13, color: colors.textSecondary, marginTop: 1 },
+  conditionRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  conditionBtn: { flex: 1, paddingVertical: 10, borderRadius: 0, borderWidth: 2, borderColor: colors.border, alignItems: 'center', backgroundColor: colors.background },
+  conditionBtnActive: (c: string) => ({ backgroundColor: conditionColors[c] || colors.primary, borderColor: conditionColors[c] || colors.primary }),
+  conditionBtnText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
+  conditionBtnTextActive: { color: '#FFFFFF' },
+  notesInput: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 0, padding: 10, fontSize: 14, color: colors.text, minHeight: 60, textAlignVertical: 'top', marginBottom: 10 },
+  photoBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.primary, paddingVertical: 10, borderRadius: 0, marginTop: 4 },
+  photoBtnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
+  photoScroll: { marginTop: 10 },
+  thumbnail: { width: 80, height: 80, borderRadius: 0, marginRight: 8, borderWidth: 1, borderColor: colors.border },
+  backButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.card, paddingVertical: 14, paddingHorizontal: 20, borderRadius: 0, marginTop: 8, borderWidth: 2, borderColor: colors.primary },
+  backButtonText: { color: colors.primary, fontSize: 16, fontWeight: '600' },
+  cameraContainer: { flex: 1, backgroundColor: '#000' },
+  camera: { flex: 1 },
+  cameraControls: { position: 'absolute', bottom: 40, left: 0, right: 0, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 40 },
+  cancelCameraButton: { width: 80 },
+  cancelCameraText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+  captureButton: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', borderWidth: 4, borderColor: 'rgba(255,255,255,0.5)' },
+  captureButtonInner: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#FFFFFF' },
+  uploadOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },
+  uploadModal: { backgroundColor: colors.card, borderRadius: 16, padding: 32, alignItems: 'center' },
+  uploadText: { fontSize: 16, fontWeight: '600', color: colors.text, marginTop: 12 },
+  lightboxOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' },
+  lightboxCloseButton: { position: 'absolute', top: 50, right: 20, zIndex: 10, padding: 8 },
+  lightboxImage: { width: '100%', height: '100%' },
 });
