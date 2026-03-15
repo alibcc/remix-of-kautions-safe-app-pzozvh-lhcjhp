@@ -195,42 +195,39 @@ export default function RoomDetailScreen() {
   }, [fetchRoomData]);
 
   const handleOpenCamera = async (itemId: string) => {
-    console.log('User tapped Take Photo button for item:', itemId);
     setCurrentItemId(itemId);
-    
-    if (!cameraPermission) {
-      console.log('Camera permission not loaded yet');
-      return;
-    }
 
-    if (!cameraPermission.granted) {
-      console.log('Requesting camera permission');
+    if (!cameraPermission?.granted) {
       const result = await requestCameraPermission();
       if (!result.granted) {
-        console.log('Camera permission denied');
-        showAlert('Permission Required', 'Kautions-Safe möchte auf Ihre Kamera zugreifen, um Fotos für das Protokoll zu machen.', 'error');
+        showAlert('Permission Required', 'Camera permission is required.', 'error');
         return;
       }
     }
 
-    console.log('Requesting location permission');
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
-      console.log('Location permission denied');
-      showAlert('Permission Required', 'Location permission is required for legal proof', 'error');
+      showAlert('Permission Required', 'Location permission is required for legal proof.', 'error');
       return;
     }
+
+    // Fetch GPS in background while user frames the shot
+    Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    }).then(location => {
+      setPhotoLocation({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+    }).catch(() => {
+      setPhotoLocation(null);
+    });
 
     setShowCamera(true);
   };
 
-  const handleTakePhoto = async () => {
-    console.log('Capturing photo');
-    
-    if (!cameraRef.current) {
-      console.log('Camera ref not available');
-      return;
-    }
+const handleTakePhoto = async () => {
+    if (!cameraRef.current) return;
 
     try {
       const photo = await cameraRef.current.takePictureAsync({
@@ -238,34 +235,18 @@ export default function RoomDetailScreen() {
         base64: false,
       });
 
-      if (!photo) {
-        console.log('Failed to capture photo');
-        return;
-      }
-
-      console.log('Photo captured:', photo.uri);
-
-      console.log('Getting GPS coordinates');
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-      });
-
-      const coords = {
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-      };
+      if (!photo) return;
 
       const timestamp = new Date().toISOString();
-
-      console.log('GPS coordinates:', coords);
-      console.log('Timestamp:', timestamp);
-
       setCapturedPhoto(photo.uri);
-      setPhotoLocation(coords);
       setPhotoTimestamp(timestamp);
       setShowCamera(false);
 
-      await uploadPhotoToSupabase(photo.uri, coords, timestamp);
+      await uploadPhotoToSupabase(
+        photo.uri,
+        photoLocation || { latitude: 0, longitude: 0 },
+        timestamp
+      );
     } catch (error) {
       console.error('Error capturing photo:', error);
       showAlert('Error', 'Failed to capture photo. Please try again.', 'error');
