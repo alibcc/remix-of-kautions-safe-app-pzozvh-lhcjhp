@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Remix of Kautions-Safe",
-    "slug": "remix-of-kautions-safe",
+    "name": "MoveProof",
+    "slug": "moveproof",
     "version": "3.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/app-icon-xdh.png",
@@ -56,7 +56,7 @@
         }
       ]
     ],
-    "scheme": "remixofkautionssafe",
+    "scheme": "moveproof",
     "experiments": {
       "typedRoutes": true
     },
