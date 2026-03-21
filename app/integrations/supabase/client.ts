@@ -6,7 +6,7 @@ import 'react-native-url-polyfill/auto';
 
 // CRITICAL FIX: Wait for environment variables to load before exporting client
 const SUPABASE_URL = "https://uxcqlvlealowlsmrxmrn.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV4Y3FsdmxlYWxvd2xzbXJ4bXJuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA1NDMxMDgsImV4cCI6MjA4NjExOTEwOH0.2NeIt74RNfwolOjwnvV1V96NW6IKJq8P0SoQpyLKJ5k";
+const SUPABASE_ANON_KEY = "sb_publishable_DOyxoXZG52Iq9YLDjuP2_g_nUaaaib0";
 
 // Validate that credentials are loaded
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
