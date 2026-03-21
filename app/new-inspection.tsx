@@ -1,4 +1,3 @@
-
 import { Stack, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -20,10 +19,11 @@ export default function NewInspectionScreen() {
   const [propertyAddress, setPropertyAddress] = useState('');
   const [inspectionType, setInspectionType] = useState<'Move In' | 'Move Out'>('Move In');
   const [landlordName, setLandlordName] = useState('');
+  const [landlordEmail, setLandlordEmail] = useState('');
   const [tenantName, setTenantName] = useState('');
+  const [tenantEmail, setTenantEmail] = useState('');
   const [loading, setLoading] = useState(false);
-  
-  // Alert modal state
+
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertTitle, setAlertTitle] = useState('');
   const [alertMessage, setAlertMessage] = useState('');
@@ -38,112 +38,73 @@ export default function NewInspectionScreen() {
 
   const handleCreate = async () => {
     console.log('User tapped Create Inspection button');
-    
+
     if (!propertyAddress.trim()) {
-      console.log('Validation failed: Property address is required');
       showAlert('Validation Error', 'Please enter a property address', 'error');
       return;
     }
 
     setLoading(true);
     try {
-      console.log('Creating new report with Supabase:', { 
-        propertyAddress, 
-        inspectionType, 
-        landlordName, 
-        tenantName 
-      });
-
-      // CRITICAL FIX: Get current user and verify session
       const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
+
       if (userError) {
-        console.error('Supabase auth error:', {
-          message: userError.message,
-          status: userError.status,
-          name: userError.name,
-        });
         showAlert('Authentication Error', `Failed to get user: ${userError.message}`, 'error');
         setLoading(false);
         return;
       }
 
       if (!user) {
-        console.error('No authenticated user found');
         showAlert('Authentication Error', 'You must be logged in to create an inspection', 'error');
         setLoading(false);
         return;
       }
 
-      console.log('Authenticated user ID:', user.id);
+      const mappedInspectionType = inspectionType === 'Move In' ? 'Einzug' :
+                                   inspectionType === 'Move Out' ? 'Auszug' :
+                                   'Einzug';
 
-      // Map inspection type to German database values
-      const mappedInspectionType = inspectionType === 'Move In' ? 'Einzug' : 
-                                   inspectionType === 'Move Out' ? 'Auszug' : 
-                                   'Einzug'; // Default to 'Einzug'
-
-      console.log('Mapped inspection type:', inspectionType, '->', mappedInspectionType);
-
-      // CRITICAL FIX: Use .select('id').single() to get the new report ID before navigating
       const { data: reportData, error: reportError } = await supabase
         .from('reports')
-        .insert([
-          {
-            address: propertyAddress,
-            inspection_type: mappedInspectionType,
-            status: 'IN PROGRESS', // Auto-set status to 'IN PROGRESS'
-            user_id: user.id,
-          }
-        ])
+        .insert([{
+          address: propertyAddress,
+          inspection_type: mappedInspectionType,
+          status: 'IN PROGRESS',
+          user_id: user.id,
+        }])
         .select('id')
         .single();
 
       if (reportError) {
-        console.error('Supabase insert error:', {
-          message: reportError.message,
-          details: reportError.details,
-          hint: reportError.hint,
-          code: reportError.code,
-        });
-        showAlert(
-          'Database Error', 
-          `Failed to create report: ${reportError.message}`,
-          'error'
-        );
+        showAlert('Database Error', `Failed to create report: ${reportError.message}`, 'error');
         setLoading(false);
         return;
       }
 
       if (!reportData || !reportData.id) {
-        console.error('No data returned from Supabase insert');
         showAlert('Error', 'Failed to create report: No data returned', 'error');
         setLoading(false);
         return;
       }
 
-      console.log('Report created successfully with IN PROGRESS status. Report ID:', reportData.id);
-
-      // CRITICAL FIX #4: Handle participants with correct 'role' column (not 'type')
-      // Only save name and email (no 'type' column)
       if (landlordName.trim() || tenantName.trim()) {
-        console.log('Inserting participants');
         const participantsToInsert = [];
 
         if (landlordName.trim()) {
           participantsToInsert.push({
             report_id: reportData.id,
-            role: 'Landlord', // FIXED: Use 'role' instead of 'type'
+            role: 'Landlord',
             name: landlordName.trim(),
-            email: '', // Empty email as per requirement
+            email: landlordEmail.trim(),
           });
         }
 
         if (tenantName.trim()) {
           participantsToInsert.push({
             report_id: reportData.id,
-            role: 'Tenant', // FIXED: Use 'role' instead of 'type'
+            role: 'Tenant',
             name: tenantName.trim(),
-            email: '', // Empty email as per requirement
+            email: tenantEmail.trim(),
           });
         }
 
@@ -152,33 +113,19 @@ export default function NewInspectionScreen() {
           .insert(participantsToInsert);
 
         if (participantsError) {
-          console.error('Failed to insert participants:', participantsError);
-          // Don't fail the whole operation, just log the error
           console.warn('Participants not saved, but report was created successfully');
-        } else {
-          console.log('Participants inserted successfully');
         }
       }
 
-      // CRITICAL FIX: Use router.replace() to prevent back button loops
-      console.log('Navigating to inspection overview for report ID:', reportData.id);
       router.replace(`/inspection/${reportData.id}`);
     } catch (err: any) {
-      console.error('Unexpected error creating report:', {
-        message: err.message,
-        stack: err.stack,
-        name: err.name,
-      });
       showAlert('Unexpected Error', `An unexpected error occurred: ${err.message}`, 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCancel = () => {
-    console.log('User tapped Cancel button');
-    router.back();
-  };
+  const handleCancel = () => router.back();
 
   return (
     <>
@@ -192,9 +139,11 @@ export default function NewInspectionScreen() {
       />
       <View style={commonStyles.container}>
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+
+          {/* ── Property Details ── */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Property Details</Text>
-            
+
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Property Address *</Text>
               <TextInput
@@ -211,111 +160,98 @@ export default function NewInspectionScreen() {
               <Text style={styles.label}>Inspection Type *</Text>
               <View style={styles.typeButtons}>
                 <TouchableOpacity
-                  style={[
-                    styles.typeButton,
-                    inspectionType === 'Move In' && styles.typeButtonActive,
-                  ]}
-                  onPress={() => {
-                    console.log('User selected Move In inspection type');
-                    setInspectionType('Move In');
-                  }}
+                  style={[styles.typeButton, inspectionType === 'Move In' && styles.typeButtonActive]}
+                  onPress={() => setInspectionType('Move In')}
                 >
-                  <IconSymbol
-                    ios_icon_name="arrow.down.circle"
-                    android_material_icon_name="arrow-downward"
-                    size={24}
-                    color={inspectionType === 'Move In' ? '#FFFFFF' : colors.primary}
-                  />
-                  <Text
-                    style={[
-                      styles.typeButtonText,
-                      inspectionType === 'Move In' && styles.typeButtonTextActive,
-                    ]}
-                  >
-                    Move In
-                  </Text>
+                  <IconSymbol ios_icon_name="arrow.down.circle" android_material_icon_name="arrow-downward" size={24} color={inspectionType === 'Move In' ? '#FFFFFF' : colors.primary} />
+                  <Text style={[styles.typeButtonText, inspectionType === 'Move In' && styles.typeButtonTextActive]}>Move In</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[
-                    styles.typeButton,
-                    inspectionType === 'Move Out' && styles.typeButtonActive,
-                  ]}
-                  onPress={() => {
-                    console.log('User selected Move Out inspection type');
-                    setInspectionType('Move Out');
-                  }}
+                  style={[styles.typeButton, inspectionType === 'Move Out' && styles.typeButtonActive]}
+                  onPress={() => setInspectionType('Move Out')}
                 >
-                  <IconSymbol
-                    ios_icon_name="arrow.up.circle"
-                    android_material_icon_name="arrow-upward"
-                    size={24}
-                    color={inspectionType === 'Move Out' ? '#FFFFFF' : colors.primary}
-                  />
-                  <Text
-                    style={[
-                      styles.typeButtonText,
-                      inspectionType === 'Move Out' && styles.typeButtonTextActive,
-                    ]}
-                  >
-                    Move Out
-                  </Text>
+                  <IconSymbol ios_icon_name="arrow.up.circle" android_material_icon_name="arrow-upward" size={24} color={inspectionType === 'Move Out' ? '#FFFFFF' : colors.primary} />
+                  <Text style={[styles.typeButtonText, inspectionType === 'Move Out' && styles.typeButtonTextActive]}>Move Out</Text>
                 </TouchableOpacity>
               </View>
             </View>
           </View>
 
+          {/* ── Participants ── */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Participants (Optional)</Text>
-            
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Landlord Name</Text>
-              <TextInput
-                style={commonStyles.input}
-                placeholder="e.g., Max Mustermann"
-                value={landlordName}
-                onChangeText={setLandlordName}
-              />
+
+            {/* Landlord */}
+            <View style={styles.participantGroup}>
+              <Text style={styles.participantGroupTitle}>Landlord / Vermieter</Text>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Name</Text>
+                <TextInput
+                  style={commonStyles.input}
+                  placeholder="e.g., Max Mustermann"
+                  value={landlordName}
+                  onChangeText={setLandlordName}
+                />
+              </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Email</Text>
+                <TextInput
+                  style={commonStyles.input}
+                  placeholder="e.g., landlord@email.com"
+                  value={landlordEmail}
+                  onChangeText={setLandlordEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Tenant Name</Text>
-              <TextInput
-                style={commonStyles.input}
-                placeholder="e.g., Anna Schmidt"
-                value={tenantName}
-                onChangeText={setTenantName}
-              />
+            {/* Tenant */}
+            <View style={styles.participantGroup}>
+              <Text style={styles.participantGroupTitle}>Tenant / Mieter</Text>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Name</Text>
+                <TextInput
+                  style={commonStyles.input}
+                  placeholder="e.g., Anna Schmidt"
+                  value={tenantName}
+                  onChangeText={setTenantName}
+                />
+              </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Email</Text>
+                <TextInput
+                  style={commonStyles.input}
+                  placeholder="e.g., tenant@email.com"
+                  value={tenantEmail}
+                  onChangeText={setTenantEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
             </View>
           </View>
 
           <View style={styles.infoBox}>
-            <IconSymbol
-              ios_icon_name="info.circle"
-              android_material_icon_name="info"
-              size={20}
-              color={colors.primary}
-            />
+            <IconSymbol ios_icon_name="info.circle" android_material_icon_name="info" size={20} color={colors.primary} />
             <Text style={styles.infoText}>
               You can add rooms, meters, and signatures after creating the inspection.
+              {'\n'}Emails are used to send the final PDF automatically.
             </Text>
           </View>
+
         </ScrollView>
 
         <View style={styles.footer}>
-          <TouchableOpacity
-            style={styles.cancelButton}
-            onPress={handleCancel}
-            disabled={loading}
-          >
+          <TouchableOpacity style={styles.cancelButton} onPress={handleCancel} disabled={loading}>
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[
-              styles.createButton,
-              (!propertyAddress.trim() || loading) && styles.createButtonDisabled,
-            ]}
+            style={[styles.createButton, (!propertyAddress.trim() || loading) && styles.createButtonDisabled]}
             onPress={handleCreate}
             disabled={!propertyAddress.trim() || loading}
           >
@@ -323,60 +259,41 @@ export default function NewInspectionScreen() {
               <ActivityIndicator color="#FFFFFF" />
             ) : (
               <>
-                <IconSymbol
-                  ios_icon_name="checkmark.circle"
-                  android_material_icon_name="check-circle"
-                  size={20}
-                  color="#FFFFFF"
-                />
+                <IconSymbol ios_icon_name="checkmark.circle" android_material_icon_name="check-circle" size={20} color="#FFFFFF" />
                 <Text style={styles.createButtonText}>Create Inspection</Text>
               </>
             )}
           </TouchableOpacity>
         </View>
 
-        <AlertModal
-          visible={alertVisible}
-          title={alertTitle}
-          message={alertMessage}
-          type={alertType}
-          onClose={() => setAlertVisible(false)}
-        />
+        <AlertModal visible={alertVisible} title={alertTitle} message={alertMessage} type={alertType} onClose={() => setAlertVisible(false)} />
       </View>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
+  scrollView: { flex: 1 },
+  scrollContent: { padding: 16, paddingBottom: 100 },
+  section: { marginBottom: 24 },
+  sectionTitle: { fontSize: 20, fontWeight: '600', color: colors.text, marginBottom: 16 },
+  inputGroup: { marginBottom: 16 },
+  label: { fontSize: 14, fontWeight: '600', color: colors.text, marginBottom: 8 },
+  participantGroup: {
+    marginBottom: 20,
     padding: 16,
-    paddingBottom: 100,
+    backgroundColor: colors.card,
+    borderRadius: 0,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  section: {
-    marginBottom: 24,
+  participantGroupTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.primary,
+    marginBottom: 12,
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 16,
-  },
-  inputGroup: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  typeButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
+  typeButtons: { flexDirection: 'row', gap: 12 },
   typeButton: {
     flex: 1,
     flexDirection: 'row',
@@ -390,18 +307,9 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     backgroundColor: '#FFFFFF',
   },
-  typeButtonActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  typeButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  typeButtonTextActive: {
-    color: '#FFFFFF',
-  },
+  typeButtonActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  typeButtonText: { fontSize: 16, fontWeight: '600', color: colors.primary },
+  typeButtonTextActive: { color: '#FFFFFF' },
   infoBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -412,12 +320,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  infoText: {
-    flex: 1,
-    fontSize: 14,
-    color: colors.textSecondary,
-    lineHeight: 20,
-  },
+  infoText: { flex: 1, fontSize: 14, color: colors.textSecondary, lineHeight: 20 },
   footer: {
     position: 'absolute',
     bottom: 0,
@@ -445,11 +348,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-  },
+  cancelButtonText: { fontSize: 16, fontWeight: '600', color: colors.text },
   createButton: {
     flex: 2,
     flexDirection: 'row',
@@ -461,13 +360,6 @@ const styles = StyleSheet.create({
     borderRadius: 0,
     backgroundColor: colors.primary,
   },
-  createButtonDisabled: {
-    backgroundColor: colors.textSecondary,
-    opacity: 0.5,
-  },
-  createButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
+  createButtonDisabled: { backgroundColor: colors.textSecondary, opacity: 0.5 },
+  createButtonText: { fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
 });
