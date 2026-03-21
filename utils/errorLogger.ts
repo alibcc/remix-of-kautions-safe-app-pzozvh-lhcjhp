@@ -117,7 +117,7 @@ const flushLogs = async () => {
           fetchErrorLogged = true;
           // Use a different method to avoid recursion - write directly without going through our intercept
           if (typeof window !== 'undefined' && window.console) {
-            (window.console as any).__proto__.log.call(console, '[Natively] Fetch error (will not repeat):', e.message || e);
+         (window.console as any).__proto__?.log?.call(console, '[Natively] Fetch error (will not repeat):', e.message || e);
           }
         }
       });
