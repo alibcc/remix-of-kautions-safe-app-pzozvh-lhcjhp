@@ -336,6 +336,7 @@ if (!session || sessionError) {
       async function uploadSignature(sigData: string | null, path: string): Promise<string> {
         if (!sigData) return '';
         try {
+          await supabase.auth.getSession();
           const base64 = sigData.replace(/^data:image\/\w+;base64,/, '');
           const buffer = decode(base64);
           const { error } = await supabase.storage.from('signatures').upload(path, buffer, {
