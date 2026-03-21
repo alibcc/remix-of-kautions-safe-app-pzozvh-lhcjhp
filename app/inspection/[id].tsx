@@ -310,8 +310,12 @@ export default function InspectionDetailScreen() {
     try {
       // ── CRITICAL: Refresh Supabase session before storage uploads ──────────
       // Prevents "Invalid Compact JWS" error when JWT expires during signing.
-      const { error: sessionError } = await supabase.auth.refreshSession();
-      if (sessionError) console.warn('Session refresh (non-fatal):', sessionError.message);
+const { data: { session }, error: sessionError } = await supabase.auth.refreshSession();
+if (!session || sessionError) {
+  showAlert('Error', 'Session expired. Please log in again.', 'error');
+  setGeneratingPDF(false);
+  return;
+}
       // ─────────────────────────────────────────────────────────────────────
 
       const { data: participantsData } = await supabase.from('participants').select('*').eq('report_id', id);
