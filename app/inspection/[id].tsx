@@ -1,5 +1,4 @@
 import { AlertModal } from "@/components/ui/Modal";
-import { sendPdfEmail } from "@/utils/api";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   StyleSheet,
@@ -46,6 +45,7 @@ interface Participant {
   report_id: string;
   role: string;
   name: string;
+  email?: string; // ← added for email feature
 }
 
 interface RoomItem {
@@ -67,6 +67,17 @@ interface Photo {
     longitude: number;
   } | null;
   timestamp_verified: string;
+}
+
+// ── Email modal state type ────────────────────────────────────────────────────
+type EmailStatus = 'idle' | 'sending' | 'success' | 'error';
+
+interface EmailModalState {
+  visible: boolean;
+  tenantEmail: string;
+  landlordEmail: string;
+  status: EmailStatus;
+  errorMsg: string;
 }
 
 const ROOM_PRESETS = [
@@ -136,6 +147,23 @@ export default function InspectionDetailScreen() {
   const [alertMessage, setAlertMessage] = useState('');
   const [alertType, setAlertType] = useState<'info' | 'error' | 'success'>('info');
 
+  // ── Generated PDF URL — stored after generation so email can use it ─────────
+  const [generatedPdfUrl, setGeneratedPdfUrl] = useState<string | null>(null);
+  const [generatedDocSerial, setGeneratedDocSerial] = useState<string>('');
+
+  // ── Participant names (populated during PDF generation, reused for email) ───
+  const [tenantName, setTenantName] = useState('');
+  const [landlordName, setLandlordName] = useState('');
+
+  // ── Email modal state ────────────────────────────────────────────────────────
+  const [emailModal, setEmailModal] = useState<EmailModalState>({
+    visible: false,
+    tenantEmail: '',
+    landlordEmail: '',
+    status: 'idle',
+    errorMsg: '',
+  });
+
   const showAlert = (title: string, message: string, type: 'info' | 'error' | 'success' = 'info') => {
     setAlertTitle(title);
     setAlertMessage(message);
@@ -179,6 +207,23 @@ export default function InspectionDetailScreen() {
             .eq('report_id', id)
             .order('name_de', { ascending: true });
           if (!roomsError && roomsData) setRooms(roomsData);
+
+          // Pre-fill email addresses if stored on participants
+          const { data: participantsData } = await supabase
+            .from('participants')
+            .select('*')
+            .eq('report_id', id);
+          if (participantsData) {
+            const t = participantsData.find((p: Participant) => p.role === 'Tenant');
+            const l = participantsData.find((p: Participant) => p.role === 'Landlord');
+            setTenantName(t?.name || '');
+            setLandlordName(l?.name || '');
+            setEmailModal(s => ({
+              ...s,
+              tenantEmail: t?.email || '',
+              landlordEmail: l?.email || '',
+            }));
+          }
         } else {
           setError('Inspection not found.');
         }
@@ -257,12 +302,70 @@ export default function InspectionDetailScreen() {
   const handleClearWitnessSignature = () => { setWitnessSignature(null); witnessSignatureRef.current?.clearSignature(); };
   const handleCloseSignatureModal = () => setShowSignatureModal(false);
 
+  // ── Send email ───────────────────────────────────────────────────────────────
+  const sendProtocolEmail = async () => {
+    if (!emailModal.tenantEmail || !emailModal.landlordEmail) {
+      setEmailModal(s => ({
+        ...s,
+        errorMsg: 'Bitte beide E-Mail-Adressen eingeben.\nPlease enter both email addresses.',
+      }));
+      return;
+    }
+
+    if (!generatedPdfUrl) {
+      setEmailModal(s => ({
+        ...s,
+        errorMsg: 'No PDF found. Please generate the protocol first.',
+      }));
+      return;
+    }
+
+    setEmailModal(s => ({ ...s, status: 'sending', errorMsg: '' }));
+
+    try {
+      const currentDate = new Date();
+      const formattedDate = `${String(currentDate.getDate()).padStart(2, '0')}.${String(currentDate.getMonth() + 1).padStart(2, '0')}.${currentDate.getFullYear()}`;
+
+      const response = await fetch('https://movproof-pdf-api.vercel.app/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pdfUrl:     generatedPdfUrl,
+          protocolId: id,
+          tenant: {
+            name:  tenantName,
+            email: emailModal.tenantEmail,
+          },
+          landlord: {
+            name:  landlordName,
+            email: emailModal.landlordEmail,
+          },
+          address:   report?.address || '',
+          date:      formattedDate,
+          docSerial: generatedDocSerial,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Sending failed');
+
+      setEmailModal(s => ({ ...s, status: 'success' }));
+
+      // Auto-close after 3 seconds
+      setTimeout(() => {
+        setEmailModal(s => ({ ...s, visible: false, status: 'idle' }));
+      }, 3000);
+
+    } catch (err: any) {
+      setEmailModal(s => ({ ...s, status: 'error', errorMsg: err.message }));
+    }
+  };
+
   const handleGeneratePDF = async () => {
-    // Read all signatures first
     landlordSignatureRef.current?.readSignature();
-tenantSignatureRef.current?.readSignature();
-witnessSignatureRef.current?.readSignature();
-await new Promise(resolve => setTimeout(resolve, 1500));
+    tenantSignatureRef.current?.readSignature();
+    witnessSignatureRef.current?.readSignature();
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
     if (!id || !report) { showAlert('Error', 'Report data is not available', 'error'); return; }
     if (!user || !user.id) { showAlert('Error', 'User authentication is not available', 'error'); return; }
@@ -270,13 +373,24 @@ await new Promise(resolve => setTimeout(resolve, 1500));
     setGeneratingPDF(true);
 
     try {
-      // Fetch participants
       const { data: participantsData } = await supabase.from('participants').select('*').eq('report_id', id);
       const participants = participantsData || [];
-      const landlordName = participants.find((p: Participant) => p.role === 'Landlord')?.name || '';
-      const tenantName = participants.find((p: Participant) => p.role === 'Tenant')?.name || '';
+      const fetchedLandlordName = participants.find((p: Participant) => p.role === 'Landlord')?.name || '';
+      const fetchedTenantName = participants.find((p: Participant) => p.role === 'Tenant')?.name || '';
 
-      // Upload signatures
+      // Store for email use
+      setTenantName(fetchedTenantName);
+      setLandlordName(fetchedLandlordName);
+
+      // Pre-fill email fields if participant emails exist
+      const tenantEmail = participants.find((p: Participant) => p.role === 'Tenant')?.email || '';
+      const landlordEmail = participants.find((p: Participant) => p.role === 'Landlord')?.email || '';
+      setEmailModal(s => ({
+        ...s,
+        tenantEmail:   s.tenantEmail   || tenantEmail,
+        landlordEmail: s.landlordEmail || landlordEmail,
+      }));
+
       async function uploadSignature(sigData: string | null, path: string): Promise<string> {
         if (!sigData) return '';
         try {
@@ -292,10 +406,9 @@ await new Promise(resolve => setTimeout(resolve, 1500));
       }
 
       const landlordSignatureUrl = await uploadSignature(landlordSignature, `${id}_landlord_${Date.now()}.png`);
-      const tenantSignatureUrl = await uploadSignature(tenantSignature, `${id}_tenant_${Date.now()}.png`);
-      const witnessSignatureUrl = await uploadSignature(witnessSignature, `${id}_witness_${Date.now()}.png`);
+      const tenantSignatureUrl   = await uploadSignature(tenantSignature,   `${id}_tenant_${Date.now()}.png`);
+      const witnessSignatureUrl  = await uploadSignature(witnessSignature,  `${id}_witness_${Date.now()}.png`);
 
-      // Fetch rooms with ALL photos
       const { data: allRoomsData, error: allRoomsError } = await supabase
         .from('rooms').select('*').eq('report_id', id).order('name_de', { ascending: true });
       if (allRoomsError) { showAlert('Error', `Failed to fetch rooms: ${allRoomsError.message}`, 'error'); return; }
@@ -304,23 +417,17 @@ await new Promise(resolve => setTimeout(resolve, 1500));
         (allRoomsData || []).map(async (room) => {
           const { data: itemsData } = await supabase.from('room_items').select('*').eq('room_id', room.id);
           const items = itemsData || [];
-
           const roomComment = items.map((item: RoomItem) => item.notes).filter(Boolean).join('\n');
           const roomCondition = items.length > 0
             ? items.every((item: RoomItem) => item.condition_status === 'OK') ? 'OK' : 'Defects Found'
             : 'Not Inspected';
-
-          // Fetch ALL photos for this room
- const allPhotoUrls: string[] = [];
+          const allPhotoUrls: string[] = [];
           for (const item of items) {
             const { data: photosData } = await supabase.from('photos').select('*').eq('item_id', item.id);
             for (const photo of (photosData || [])) {
-              if (photo.storage_url) {
-                allPhotoUrls.push(photo.storage_url);
-              }
+              if (photo.storage_url) allPhotoUrls.push(photo.storage_url);
             }
           }
-
           return {
             room_name: room.name_de || '',
             condition: roomCondition,
@@ -330,11 +437,9 @@ await new Promise(resolve => setTimeout(resolve, 1500));
         })
       );
 
-      // Format date
       const currentDate = new Date();
       const formattedCurrentDate = `${String(currentDate.getDate()).padStart(2, '0')}.${String(currentDate.getMonth() + 1).padStart(2, '0')}.${currentDate.getFullYear()}`;
 
-      // Save meter data
       const { error: updateError } = await supabase.from('reports').update({
         user_id: user.id,
         electricity_no: electricityNo || '',
@@ -355,7 +460,6 @@ await new Promise(resolve => setTimeout(resolve, 1500));
 
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Call Vercel PDF API
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), CRAFTMYPDF_TIMEOUT);
 
@@ -367,28 +471,28 @@ await new Promise(resolve => setTimeout(resolve, 1500));
             protocol: {
               id: id,
               date: formattedCurrentDate,
-              tenant: { name: tenantName },
-              landlord: { name: landlordName },
+              tenant:   { name: fetchedTenantName },
+              landlord: { name: fetchedLandlordName },
               property: { address: report.address || '' },
-              isMoveIn: isMoveIn,
-              isMoveOut: isMoveOut,
+              isMoveIn,
+              isMoveOut,
               keysHandedOver: keysHandedOver || '',
               notes: notes || '',
               rooms: roomsWithData.map(r => ({
-                name: r.room_name,
+                name:      r.room_name,
                 condition: r.condition,
-                notes: r.comment,
-                photos: r.photos,
+                notes:     r.comment,
+                photos:    r.photos,
               })),
               meterReadings: [
-                electricityNo ? { type: 'Strom', number: electricityNo, value: electricityVal } : null,
-                gasNo ? { type: 'Gas', number: gasNo, value: gasVal } : null,
-                waterNo ? { type: 'Wasser', number: waterNo, value: waterVal } : null,
-                heatNo ? { type: 'Heizung', number: heatNo, value: heatVal } : null,
+                electricityNo ? { type: 'Strom',   number: electricityNo, value: electricityVal } : null,
+                gasNo         ? { type: 'Gas',     number: gasNo,         value: gasVal }         : null,
+                waterNo       ? { type: 'Wasser',  number: waterNo,       value: waterVal }       : null,
+                heatNo        ? { type: 'Heizung', number: heatNo,        value: heatVal }        : null,
               ].filter(Boolean),
               landlordSignature: landlordSignatureUrl,
-              tenantSignature: tenantSignatureUrl,
-              witnessSignature: witnessSignatureUrl,
+              tenantSignature:   tenantSignatureUrl,
+              witnessSignature:  witnessSignatureUrl,
               witness: witnessName || '',
             }
           }),
@@ -412,19 +516,25 @@ await new Promise(resolve => setTimeout(resolve, 1500));
         const pdfUrl = result.url;
         if (!pdfUrl) throw new Error('PDF URL not found in response');
 
-        // Save PDF URL
+        // ── Save PDF URL to state so email feature can use it ─────────────────
+        setGeneratedPdfUrl(pdfUrl);
+        setGeneratedDocSerial(`MP-${Date.now().toString(36).toUpperCase()}`);
+
         await supabase.from('reports').update({ pdf_url: pdfUrl, status: 'COMPLETED' }).eq('id', id);
 
         await new Promise(resolve => setTimeout(resolve, 1000));
         setShowSignatureModal(false);
 
+        // ── Open PDF then show email prompt ───────────────────────────────────
         const canOpen = await Linking.canOpenURL(pdfUrl);
         if (canOpen) {
           await Linking.openURL(pdfUrl);
-          showAlert('Success', 'PDF generated successfully! Opening in your browser...', 'success');
-        } else {
-          showAlert('Error', 'Cannot open PDF URL.', 'error');
         }
+
+        // Show email modal after short delay so PDF opens first
+        setTimeout(() => {
+          setEmailModal(s => ({ ...s, visible: true, status: 'idle' }));
+        }, 800);
 
       } catch (fetchError: any) {
         clearTimeout(timeoutId);
@@ -504,6 +614,21 @@ await new Promise(resolve => setTimeout(resolve, 1500));
             <Text style={styles.pdfButtonText}>Create Official Protocol</Text>
           </TouchableOpacity>
 
+          {/* ── Send Email button — only shown after PDF has been generated ── */}
+          {generatedPdfUrl ? (
+            <TouchableOpacity
+              style={styles.sendEmailBtn}
+              onPress={() => setEmailModal(s => ({ ...s, visible: true }))}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.sendEmailBtnIcon}>✉️</Text>
+              <View>
+                <Text style={styles.sendEmailBtnLabel}>Send Protocol / Protokoll senden</Text>
+                <Text style={styles.sendEmailBtnSub}>PDF + link · tenant & landlord</Text>
+              </View>
+            </TouchableOpacity>
+          ) : null}
+
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Rooms</Text>
@@ -552,7 +677,7 @@ await new Promise(resolve => setTimeout(resolve, 1500));
           </TouchableOpacity>
         </ScrollView>
 
-        {/* Add Room Modal */}
+        {/* ── Add Room Modal ─────────────────────────────────────────────────── */}
         <Modal visible={showAddRoomModal} animationType="slide" transparent={true} onRequestClose={() => setShowAddRoomModal(false)}>
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
@@ -585,7 +710,7 @@ await new Promise(resolve => setTimeout(resolve, 1500));
           </View>
         </Modal>
 
-        {/* Final Details Modal */}
+        {/* ── Final Details Modal ────────────────────────────────────────────── */}
         <Modal visible={showFinalDetailsModal} animationType="slide" transparent={true} onRequestClose={() => setShowFinalDetailsModal(false)}>
           <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
             <View style={styles.modalOverlay}>
@@ -597,8 +722,6 @@ await new Promise(resolve => setTimeout(resolve, 1500));
                   </TouchableOpacity>
                 </View>
                 <ScrollView style={styles.modalScroll}>
-
-                  {/* Handover Type */}
                   <View style={styles.inputGroup}>
                     <Text style={styles.sectionSubtitle}>Übergabetyp / Handover Type</Text>
                     <View style={styles.checkboxContainer}>
@@ -616,8 +739,6 @@ await new Promise(resolve => setTimeout(resolve, 1500));
                       </TouchableOpacity>
                     </View>
                   </View>
-
-                  {/* Meter Readings */}
                   <View style={styles.inputGroup}>
                     <Text style={styles.sectionSubtitle}>Zählerstände / Meter Readings</Text>
                     {[
@@ -641,33 +762,14 @@ await new Promise(resolve => setTimeout(resolve, 1500));
                       </View>
                     ))}
                   </View>
-
-                  {/* Keys */}
                   <View style={styles.inputGroup}>
                     <Text style={styles.sectionSubtitle}>Schlüssel / Keys</Text>
-                    <TextInput
-                      style={[commonStyles.input, styles.keysInput]}
-                      placeholder="z.B. 3x Hausschlüssel, 2x Briefkasten / e.g. 3 House keys, 2 Mailbox"
-                      value={keysHandedOver}
-                      onChangeText={setKeysHandedOver}
-                      multiline
-                      numberOfLines={2}
-                    />
+                    <TextInput style={[commonStyles.input, styles.keysInput]} placeholder="z.B. 3x Hausschlüssel, 2x Briefkasten / e.g. 3 House keys, 2 Mailbox" value={keysHandedOver} onChangeText={setKeysHandedOver} multiline numberOfLines={2} />
                   </View>
-
-                  {/* Notes */}
                   <View style={styles.inputGroup}>
                     <Text style={styles.sectionSubtitle}>Bemerkungen / Notes</Text>
-                    <TextInput
-                      style={[commonStyles.input, styles.keysInput]}
-                      placeholder="Weitere Bemerkungen / Additional notes"
-                      value={notes}
-                      onChangeText={setNotes}
-                      multiline
-                      numberOfLines={3}
-                    />
+                    <TextInput style={[commonStyles.input, styles.keysInput]} placeholder="Weitere Bemerkungen / Additional notes" value={notes} onChangeText={setNotes} multiline numberOfLines={3} />
                   </View>
-
                 </ScrollView>
                 <TouchableOpacity style={styles.modalSaveButton} onPress={handleProceedToSignatures}>
                   <Text style={styles.modalSaveButtonText}>Weiter zu Unterschriften / Proceed to Signatures</Text>
@@ -677,9 +779,9 @@ await new Promise(resolve => setTimeout(resolve, 1500));
           </KeyboardAvoidingView>
         </Modal>
 
-        {/* Signature Modal */}
+        {/* ── Signature Modal ────────────────────────────────────────────────── */}
         <Modal visible={showSignatureModal} animationType="slide" transparent={false} onRequestClose={handleCloseSignatureModal}>
-          <SafeAreaView style={styles.signatureSafeArea} edges={['top', 'bottom']} style={{ flex: 1, paddingTop: 8 }}>
+          <SafeAreaView style={{ flex: 1, paddingTop: 8 }} edges={['top', 'bottom']}>
             <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
               <View style={styles.signatureModalContainer}>
                 <View style={styles.signatureModalHeader}>
@@ -688,21 +790,11 @@ await new Promise(resolve => setTimeout(resolve, 1500));
                     <IconSymbol ios_icon_name="xmark.circle.fill" android_material_icon_name="close" size={28} color={colors.textSecondary} />
                   </TouchableOpacity>
                 </View>
-
                 <ScrollView style={styles.signatureScrollView} contentContainerStyle={styles.signatureScrollContent} scrollEnabled={scrollEnabled} nestedScrollEnabled={true}>
-
-                  {/* Witness Name */}
                   <View style={styles.signatureSection}>
                     <Text style={styles.signatureLabel}>Zeuge / Witness Name (optional)</Text>
-                    <TextInput
-                      style={styles.meterInput}
-                      placeholder="Name des Zeugen / Witness name"
-                      value={witnessName}
-                      onChangeText={setWitnessName}
-                    />
+                    <TextInput style={styles.meterInput} placeholder="Name des Zeugen / Witness name" value={witnessName} onChangeText={setWitnessName} />
                   </View>
-
-                  {/* Landlord Signature */}
                   {[
                     { label: 'Vermieter / Landlord Unterschrift', ref: landlordSignatureRef, sig: landlordSignature, setSig: setLandlordSignature, clear: handleClearLandlordSignature },
                     { label: 'Mieter / Tenant Unterschrift', ref: tenantSignatureRef, sig: tenantSignature, setSig: setTenantSignature, clear: handleClearTenantSignature },
@@ -710,22 +802,8 @@ await new Promise(resolve => setTimeout(resolve, 1500));
                   ].map((item) => (
                     <View key={item.label} style={styles.signatureSection}>
                       <Text style={styles.signatureLabel}>{item.label}</Text>
-                      <View
-                        style={styles.signatureCanvasContainer}
-                        onStartShouldSetResponder={() => { setScrollEnabled(false); return true; }}
-                        onResponderRelease={() => setScrollEnabled(true)}
-                      >
-                        <SignatureCanvas
-                          ref={item.ref}
-                          onOK={(sig) => item.setSig(sig)}
-                          onEnd={() => item.ref.current?.readSignature()}
-                          onEmpty={() => {}}
-                          descriptionText="Sign above"
-                          clearText="Clear"
-                          confirmText="Save"
-                          webStyle={`.m-signature-pad {box-shadow: none; border: 1px solid ${colors.border};} .m-signature-pad--body {border: none;} .m-signature-pad--footer {display: none;}`}
-                          style={styles.signatureCanvas}
-                        />
+                      <View style={styles.signatureCanvasContainer} onStartShouldSetResponder={() => { setScrollEnabled(false); return true; }} onResponderRelease={() => setScrollEnabled(true)}>
+                        <SignatureCanvas ref={item.ref} onOK={(sig) => item.setSig(sig)} onEnd={() => item.ref.current?.readSignature()} onEmpty={() => {}} descriptionText="Sign above" clearText="Clear" confirmText="Save" webStyle={`.m-signature-pad {box-shadow: none; border: 1px solid ${colors.border};} .m-signature-pad--body {border: none;} .m-signature-pad--footer {display: none;}`} style={styles.signatureCanvas} />
                       </View>
                       {item.sig && (
                         <View style={styles.signatureConfirmation}>
@@ -738,22 +816,12 @@ await new Promise(resolve => setTimeout(resolve, 1500));
                       </TouchableOpacity>
                     </View>
                   ))}
-
-                  {/* Date */}
                   <View style={styles.signatureSection}>
                     <Text style={styles.signatureLabel}>Datum / Date</Text>
-                    <DateTimePicker
-                      value={tenantSignatureDate}
-                      mode="date"
-                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                      onChange={(event, selectedDate) => { if (selectedDate) setTenantSignatureDate(selectedDate); }}
-                      style={styles.datePicker}
-                    />
+                    <DateTimePicker value={tenantSignatureDate} mode="date" display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={(event, selectedDate) => { if (selectedDate) setTenantSignatureDate(selectedDate); }} style={styles.datePicker} />
                     <Text style={styles.dateDisplay}>Selected: {tenantSignatureDate.toLocaleDateString('de-DE')}</Text>
                   </View>
-
                 </ScrollView>
-
                 <View style={styles.signatureModalFooter}>
                   <TouchableOpacity style={styles.generatePdfButton} onPress={handleGeneratePDF} disabled={generatingPDF}>
                     {generatingPDF ? (
@@ -772,6 +840,117 @@ await new Promise(resolve => setTimeout(resolve, 1500));
               </View>
             </KeyboardAvoidingView>
           </SafeAreaView>
+        </Modal>
+
+        {/* ── Email Modal ────────────────────────────────────────────────────── */}
+        <Modal
+          visible={emailModal.visible}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setEmailModal(s => ({ ...s, visible: false, status: 'idle' }))}
+        >
+          <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+            <View style={styles.modalOverlay}>
+              <View style={styles.emailModalCard}>
+
+                {/* Header */}
+                <View style={styles.emailModalHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.emailModalTitle}>Send Protocol</Text>
+                    <Text style={styles.emailModalTitleDE}>Protokoll senden</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.emailModalClose}
+                    onPress={() => setEmailModal(s => ({ ...s, visible: false, status: 'idle' }))}
+                  >
+                    <Text style={styles.emailModalCloseText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Yellow divider */}
+                <View style={styles.emailDivider} />
+
+                {emailModal.status === 'success' ? (
+                  /* ── Success state ── */
+                  <View style={styles.emailSuccessContainer}>
+                    <Text style={styles.emailSuccessIcon}>✓</Text>
+                    <Text style={styles.emailSuccessTitle}>Sent! / Gesendet!</Text>
+                    <Text style={styles.emailSuccessSub}>
+                      PDF + link sent to both parties.{'\n'}
+                      PDF + Link an beide Parteien gesendet.
+                    </Text>
+                  </View>
+                ) : (
+                  <>
+                    {/* Info chips */}
+                    <View style={styles.emailInfoRow}>
+                      <View style={styles.emailChip}><Text style={styles.emailChipText}>📎 PDF attached</Text></View>
+                      <View style={styles.emailChip}><Text style={styles.emailChipText}>🔗 Link included</Text></View>
+                      <View style={styles.emailChip}><Text style={styles.emailChipText}>🇩🇪 🇬🇧 Bilingual</Text></View>
+                    </View>
+
+                    {/* Tenant email */}
+                    <View style={styles.emailFieldGroup}>
+                      <Text style={styles.emailFieldLabel}>Tenant / Mieter</Text>
+                      <TextInput
+                        style={styles.emailInput}
+                        placeholder="tenant@email.com"
+                        placeholderTextColor="#C9920A"
+                        value={emailModal.tenantEmail}
+                        onChangeText={v => setEmailModal(s => ({ ...s, tenantEmail: v, errorMsg: '' }))}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                      />
+                    </View>
+
+                    {/* Landlord email */}
+                    <View style={styles.emailFieldGroup}>
+                      <Text style={styles.emailFieldLabel}>Landlord / Vermieter</Text>
+                      <TextInput
+                        style={styles.emailInput}
+                        placeholder="landlord@email.com"
+                        placeholderTextColor="#C9920A"
+                        value={emailModal.landlordEmail}
+                        onChangeText={v => setEmailModal(s => ({ ...s, landlordEmail: v, errorMsg: '' }))}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                      />
+                    </View>
+
+                    {/* Error */}
+                    {emailModal.errorMsg ? (
+                      <Text style={styles.emailError}>{emailModal.errorMsg}</Text>
+                    ) : null}
+
+                    {/* Send button */}
+                    <TouchableOpacity
+                      style={[styles.emailSendBtn, emailModal.status === 'sending' && styles.emailSendBtnDisabled]}
+                      onPress={sendProtocolEmail}
+                      disabled={emailModal.status === 'sending'}
+                      activeOpacity={0.85}
+                    >
+                      {emailModal.status === 'sending' ? (
+                        <ActivityIndicator color="#4A3008" />
+                      ) : (
+                        <Text style={styles.emailSendBtnText}>Send to both / An beide senden →</Text>
+                      )}
+                    </TouchableOpacity>
+
+                    {/* Cancel */}
+                    <TouchableOpacity
+                      onPress={() => setEmailModal(s => ({ ...s, visible: false, status: 'idle' }))}
+                      style={styles.emailCancelBtn}
+                    >
+                      <Text style={styles.emailCancelText}>Cancel / Abbrechen</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+
+              </View>
+            </View>
+          </KeyboardAvoidingView>
         </Modal>
 
         <AlertModal visible={alertVisible} title={alertTitle} message={alertMessage} type={alertType} onClose={() => setAlertVisible(false)} />
@@ -794,6 +973,13 @@ const styles = StyleSheet.create({
   type: { fontSize: 16, color: colors.textSecondary },
   pdfButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: colors.primary, paddingVertical: 18, paddingHorizontal: 24, borderRadius: 0, marginTop: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
   pdfButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
+
+  // ── Send email button (main screen) ─────────────────────────────────────────
+  sendEmailBtn: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#F2C12E', borderRadius: 0, padding: 16, marginTop: 12 },
+  sendEmailBtnIcon: { fontSize: 22 },
+  sendEmailBtnLabel: { fontSize: 15, fontWeight: '700', color: '#4A3008' },
+  sendEmailBtnSub: { fontSize: 11, color: '#8C5E04', marginTop: 2 },
+
   section: { marginTop: 24 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   sectionTitle: { fontSize: 22, fontWeight: '600', color: colors.text },
@@ -859,4 +1045,29 @@ const styles = StyleSheet.create({
   signatureModalFooter: { padding: 20, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.card },
   generatePdfButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: colors.primary, paddingVertical: 18, paddingHorizontal: 24, borderRadius: 0 },
   generatePdfButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
+
+  // ── Email modal styles ───────────────────────────────────────────────────────
+  emailModalCard: { backgroundColor: '#F7F2E8', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
+  emailModalHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 },
+  emailModalTitle: { fontSize: 20, fontWeight: '700', color: '#4A3008' },
+  emailModalTitleDE: { fontSize: 13, color: '#8C5E04', marginTop: 2 },
+  emailModalClose: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#F0E4C0', alignItems: 'center', justifyContent: 'center' },
+  emailModalCloseText: { fontSize: 14, color: '#8C5E04' },
+  emailDivider: { height: 2, backgroundColor: '#F2C12E', borderRadius: 1, marginBottom: 20 },
+  emailInfoRow: { flexDirection: 'row', gap: 8, marginBottom: 20, flexWrap: 'wrap' },
+  emailChip: { backgroundColor: '#F0E4C0', borderRadius: 20, paddingVertical: 4, paddingHorizontal: 10 },
+  emailChipText: { fontSize: 11, fontWeight: '600', color: '#4A3008' },
+  emailFieldGroup: { marginBottom: 14 },
+  emailFieldLabel: { fontSize: 12, fontWeight: '700', color: '#C9920A', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
+  emailInput: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E8D49A', borderRadius: 10, paddingVertical: 12, paddingHorizontal: 14, fontSize: 15, color: '#4A3008' },
+  emailError: { fontSize: 13, color: colors.error, marginBottom: 12, lineHeight: 18 },
+  emailSendBtn: { backgroundColor: '#F2C12E', borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginTop: 4 },
+  emailSendBtnDisabled: { opacity: 0.6 },
+  emailSendBtnText: { fontSize: 16, fontWeight: '700', color: '#4A3008' },
+  emailCancelBtn: { alignItems: 'center', paddingTop: 14 },
+  emailCancelText: { fontSize: 13, color: '#8C5E04' },
+  emailSuccessContainer: { alignItems: 'center', paddingVertical: 24 },
+  emailSuccessIcon: { fontSize: 48, marginBottom: 12 },
+  emailSuccessTitle: { fontSize: 22, fontWeight: '700', color: '#4A3008', marginBottom: 8 },
+  emailSuccessSub: { fontSize: 13, color: '#8C5E04', textAlign: 'center', lineHeight: 20 },
 });
