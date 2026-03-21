@@ -370,10 +370,14 @@ export default function InspectionDetailScreen() {
     if (!id || !report) { showAlert('Error', 'Report data is not available', 'error'); return; }
     if (!user || !user.id) { showAlert('Error', 'User authentication is not available', 'error'); return; }
 
-    setGeneratingPDF(true);
+   setGeneratingPDF(true);
 
-    try {
-      const { data: participantsData } = await supabase.from('participants').select('*').eq('report_id', id);
+try {
+  // Refresh session to prevent "Invalid Compact JWS" on storage uploads
+  const { error: sessionError } = await supabase.auth.refreshSession();
+  if (sessionError) console.warn('Session refresh (non-fatal):', sessionError.message);
+
+  const { data: participantsData } = await supabase.from('participants').select('*').eq('report_id', id);
       const participants = participantsData || [];
       const fetchedLandlordName = participants.find((p: Participant) => p.role === 'Landlord')?.name || '';
       const fetchedTenantName = participants.find((p: Participant) => p.role === 'Tenant')?.name || '';
