@@ -45,7 +45,7 @@ interface Participant {
   report_id: string;
   role: string;
   name: string;
-  email?: string; // ← added for email feature
+  email?: string;
 }
 
 interface RoomItem {
@@ -62,14 +62,10 @@ interface Photo {
   id: string;
   item_id: string;
   storage_url: string;
-  gps_coords: {
-    latitude: number;
-    longitude: number;
-  } | null;
+  gps_coords: { latitude: number; longitude: number } | null;
   timestamp_verified: string;
 }
 
-// ── Email modal state type ────────────────────────────────────────────────────
 type EmailStatus = 'idle' | 'sending' | 'success' | 'error';
 
 interface EmailModalState {
@@ -95,14 +91,14 @@ const ROOM_PRESETS = [
 
 const CRAFTMYPDF_TIMEOUT = 30000;
 
-const createDotMatrixPattern = () => {
-  return `data:image/svg+xml,%3Csvg width='20' height='20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='2' cy='2' r='1' fill='%23ED7B58' opacity='0.15'/%3E%3C/svg%3E`;
-};
+const createDotMatrixPattern = () =>
+  `data:image/svg+xml,%3Csvg width='20' height='20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='2' cy='2' r='1' fill='%23ED7B58' opacity='0.15'/%3E%3C/svg%3E`;
 
 export default function InspectionDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const { user } = useAuth();
+
   const [report, setReport] = useState<Report | null>(null);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(false);
@@ -112,7 +108,6 @@ export default function InspectionDetailScreen() {
 
   const [showAddRoomModal, setShowAddRoomModal] = useState(false);
   const [selectedRoomPreset, setSelectedRoomPreset] = useState<typeof ROOM_PRESETS[0] | null>(null);
-
   const [showFinalDetailsModal, setShowFinalDetailsModal] = useState(false);
   const [showSignatureModal, setShowSignatureModal] = useState(false);
 
@@ -124,7 +119,6 @@ export default function InspectionDetailScreen() {
   const [waterVal, setWaterVal] = useState('');
   const [heatNo, setHeatNo] = useState('');
   const [heatVal, setHeatVal] = useState('');
-
   const [keysHandedOver, setKeysHandedOver] = useState('');
   const [notes, setNotes] = useState('');
   const [isMoveIn, setIsMoveIn] = useState(false);
@@ -139,7 +133,6 @@ export default function InspectionDetailScreen() {
   const landlordSignatureRef = useRef<any>(null);
   const tenantSignatureRef = useRef<any>(null);
   const witnessSignatureRef = useRef<any>(null);
-
   const [scrollEnabled, setScrollEnabled] = useState(true);
 
   const [alertVisible, setAlertVisible] = useState(false);
@@ -147,15 +140,10 @@ export default function InspectionDetailScreen() {
   const [alertMessage, setAlertMessage] = useState('');
   const [alertType, setAlertType] = useState<'info' | 'error' | 'success'>('info');
 
-  // ── Generated PDF URL — stored after generation so email can use it ─────────
   const [generatedPdfUrl, setGeneratedPdfUrl] = useState<string | null>(null);
   const [generatedDocSerial, setGeneratedDocSerial] = useState<string>('');
-
-  // ── Participant names (populated during PDF generation, reused for email) ───
   const [tenantName, setTenantName] = useState('');
   const [landlordName, setLandlordName] = useState('');
-
-  // ── Email modal state ────────────────────────────────────────────────────────
   const [emailModal, setEmailModal] = useState<EmailModalState>({
     visible: false,
     tenantEmail: '',
@@ -173,56 +161,35 @@ export default function InspectionDetailScreen() {
 
   useEffect(() => {
     let isMounted = true;
-
     const loadInspection = async () => {
       if (!id) return;
       setLoading(true);
       setError(null);
       setReport(null);
       setRooms([]);
-
       await new Promise(resolve => setTimeout(resolve, 1000));
       if (!isMounted) return;
-
       try {
         const { data: reportData, error: fetchError } = await supabase
-          .from('reports')
-          .select('*')
-          .eq('id', id)
-          .single();
-
+          .from('reports').select('*').eq('id', id).single();
         if (!isMounted) return;
-
         if (fetchError) {
-          if (fetchError.code === 'PGRST116') {
-            setError('Inspection not found. It may have been deleted or you may not have access to it.');
-          } else {
-            setError(`Failed to load inspection: ${fetchError.message}`);
-          }
+          setError(fetchError.code === 'PGRST116'
+            ? 'Inspection not found. It may have been deleted or you may not have access to it.'
+            : `Failed to load inspection: ${fetchError.message}`);
         } else if (reportData) {
           setReport(reportData);
           const { data: roomsData, error: roomsError } = await supabase
-            .from('rooms')
-            .select('*')
-            .eq('report_id', id)
-            .order('name_de', { ascending: true });
+            .from('rooms').select('*').eq('report_id', id).order('name_de', { ascending: true });
           if (!roomsError && roomsData) setRooms(roomsData);
-
-          // Pre-fill email addresses if stored on participants
           const { data: participantsData } = await supabase
-            .from('participants')
-            .select('*')
-            .eq('report_id', id);
+            .from('participants').select('*').eq('report_id', id);
           if (participantsData) {
             const t = participantsData.find((p: Participant) => p.role === 'Tenant');
             const l = participantsData.find((p: Participant) => p.role === 'Landlord');
             setTenantName(t?.name || '');
             setLandlordName(l?.name || '');
-            setEmailModal(s => ({
-              ...s,
-              tenantEmail: t?.email || '',
-              landlordEmail: l?.email || '',
-            }));
+            setEmailModal(s => ({ ...s, tenantEmail: t?.email || '', landlordEmail: l?.email || '' }));
           }
         } else {
           setError('Inspection not found.');
@@ -234,7 +201,6 @@ export default function InspectionDetailScreen() {
         if (isMounted) setLoading(false);
       }
     };
-
     loadInspection();
     return () => { isMounted = false; };
   }, [id]);
@@ -246,17 +212,13 @@ export default function InspectionDetailScreen() {
       if (!id) return;
       await new Promise(resolve => setTimeout(resolve, 1000));
       try {
-        const { data, error: fetchError } = await supabase
-          .from('reports').select('*').eq('id', id).single();
+        const { data, error: fetchError } = await supabase.from('reports').select('*').eq('id', id).single();
         if (fetchError) {
-          setError(fetchError.code === 'PGRST116'
-            ? 'Inspection not found.'
-            : `Failed to load inspection: ${fetchError.message}`);
+          setError(fetchError.code === 'PGRST116' ? 'Inspection not found.' : `Failed to load inspection: ${fetchError.message}`);
         } else if (data) {
           setReport(data);
           setError(null);
-          const { data: roomsData } = await supabase
-            .from('rooms').select('*').eq('report_id', id).order('name_de', { ascending: true });
+          const { data: roomsData } = await supabase.from('rooms').select('*').eq('report_id', id).order('name_de', { ascending: true });
           if (roomsData) setRooms(roomsData);
         } else {
           setError('Inspection not found.');
@@ -276,9 +238,7 @@ export default function InspectionDetailScreen() {
     setSavingRoom(true);
     try {
       const { error: insertError } = await supabase.from('rooms').insert([{
-        report_id: id,
-        name_en: selectedRoomPreset.nameEn,
-        name_de: selectedRoomPreset.nameDe,
+        report_id: id, name_en: selectedRoomPreset.nameEn, name_de: selectedRoomPreset.nameDe,
       }]).select().single();
       if (insertError) { showAlert('Error', `Failed to add room: ${insertError.message}`, 'error'); return; }
       const { data: roomsData } = await supabase.from('rooms').select('*').eq('report_id', id).order('name_de', { ascending: true });
@@ -296,66 +256,41 @@ export default function InspectionDetailScreen() {
   const handleOpenRoom = (roomId: string) => router.push(`/inspection/room/${roomId}`);
   const handleOpenFinalDetails = () => setShowFinalDetailsModal(true);
   const handleProceedToSignatures = () => { setShowFinalDetailsModal(false); setShowSignatureModal(true); };
-
   const handleClearLandlordSignature = () => { setLandlordSignature(null); landlordSignatureRef.current?.clearSignature(); };
   const handleClearTenantSignature = () => { setTenantSignature(null); tenantSignatureRef.current?.clearSignature(); };
   const handleClearWitnessSignature = () => { setWitnessSignature(null); witnessSignatureRef.current?.clearSignature(); };
   const handleCloseSignatureModal = () => setShowSignatureModal(false);
 
-  // ── Send email ───────────────────────────────────────────────────────────────
   const sendProtocolEmail = async () => {
     if (!emailModal.tenantEmail || !emailModal.landlordEmail) {
-      setEmailModal(s => ({
-        ...s,
-        errorMsg: 'Bitte beide E-Mail-Adressen eingeben.\nPlease enter both email addresses.',
-      }));
+      setEmailModal(s => ({ ...s, errorMsg: 'Bitte beide E-Mail-Adressen eingeben.\nPlease enter both email addresses.' }));
       return;
     }
-
     if (!generatedPdfUrl) {
-      setEmailModal(s => ({
-        ...s,
-        errorMsg: 'No PDF found. Please generate the protocol first.',
-      }));
+      setEmailModal(s => ({ ...s, errorMsg: 'No PDF found. Please generate the protocol first.' }));
       return;
     }
-
     setEmailModal(s => ({ ...s, status: 'sending', errorMsg: '' }));
-
     try {
       const currentDate = new Date();
       const formattedDate = `${String(currentDate.getDate()).padStart(2, '0')}.${String(currentDate.getMonth() + 1).padStart(2, '0')}.${currentDate.getFullYear()}`;
-
       const response = await fetch('https://movproof-pdf-api.vercel.app/api/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          pdfUrl:     generatedPdfUrl,
+          pdfUrl: generatedPdfUrl,
           protocolId: id,
-          tenant: {
-            name:  tenantName,
-            email: emailModal.tenantEmail,
-          },
-          landlord: {
-            name:  landlordName,
-            email: emailModal.landlordEmail,
-          },
-          address:   report?.address || '',
-          date:      formattedDate,
+          tenant: { name: tenantName, email: emailModal.tenantEmail },
+          landlord: { name: landlordName, email: emailModal.landlordEmail },
+          address: report?.address || '',
+          date: formattedDate,
           docSerial: generatedDocSerial,
         }),
       });
-
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Sending failed');
-
       setEmailModal(s => ({ ...s, status: 'success' }));
-
-      // Auto-close after 3 seconds
-      setTimeout(() => {
-        setEmailModal(s => ({ ...s, visible: false, status: 'idle' }));
-      }, 3000);
-
+      setTimeout(() => { setEmailModal(s => ({ ...s, visible: false, status: 'idle' })); }, 3000);
     } catch (err: any) {
       setEmailModal(s => ({ ...s, status: 'error', errorMsg: err.message }));
     }
@@ -373,21 +308,24 @@ export default function InspectionDetailScreen() {
     setGeneratingPDF(true);
 
     try {
+      // ── CRITICAL: Refresh Supabase session before storage uploads ──────────
+      // Prevents "Invalid Compact JWS" error when JWT expires during signing.
+      const { error: sessionError } = await supabase.auth.refreshSession();
+      if (sessionError) console.warn('Session refresh (non-fatal):', sessionError.message);
+      // ─────────────────────────────────────────────────────────────────────
+
       const { data: participantsData } = await supabase.from('participants').select('*').eq('report_id', id);
       const participants = participantsData || [];
       const fetchedLandlordName = participants.find((p: Participant) => p.role === 'Landlord')?.name || '';
       const fetchedTenantName = participants.find((p: Participant) => p.role === 'Tenant')?.name || '';
-
-      // Store for email use
       setTenantName(fetchedTenantName);
       setLandlordName(fetchedLandlordName);
 
-      // Pre-fill email fields if participant emails exist
       const tenantEmail = participants.find((p: Participant) => p.role === 'Tenant')?.email || '';
       const landlordEmail = participants.find((p: Participant) => p.role === 'Landlord')?.email || '';
       setEmailModal(s => ({
         ...s,
-        tenantEmail:   s.tenantEmail   || tenantEmail,
+        tenantEmail: s.tenantEmail || tenantEmail,
         landlordEmail: s.landlordEmail || landlordEmail,
       }));
 
@@ -406,8 +344,8 @@ export default function InspectionDetailScreen() {
       }
 
       const landlordSignatureUrl = await uploadSignature(landlordSignature, `${id}_landlord_${Date.now()}.png`);
-      const tenantSignatureUrl   = await uploadSignature(tenantSignature,   `${id}_tenant_${Date.now()}.png`);
-      const witnessSignatureUrl  = await uploadSignature(witnessSignature,  `${id}_witness_${Date.now()}.png`);
+      const tenantSignatureUrl = await uploadSignature(tenantSignature, `${id}_tenant_${Date.now()}.png`);
+      const witnessSignatureUrl = await uploadSignature(witnessSignature, `${id}_witness_${Date.now()}.png`);
 
       const { data: allRoomsData, error: allRoomsError } = await supabase
         .from('rooms').select('*').eq('report_id', id).order('name_de', { ascending: true });
@@ -428,12 +366,7 @@ export default function InspectionDetailScreen() {
               if (photo.storage_url) allPhotoUrls.push(photo.storage_url);
             }
           }
-          return {
-            room_name: room.name_de || '',
-            condition: roomCondition,
-            comment: roomComment,
-            photos: allPhotoUrls,
-          };
+          return { room_name: room.name_de || '', condition: roomCondition, comment: roomComment, photos: allPhotoUrls };
         })
       );
 
@@ -442,17 +375,12 @@ export default function InspectionDetailScreen() {
 
       const { error: updateError } = await supabase.from('reports').update({
         user_id: user.id,
-        electricity_no: electricityNo || '',
-        electricity_val: electricityVal || '',
-        gas_no: gasNo || '',
-        gas_val: gasVal || '',
-        water_no: waterNo || '',
-        water_val: waterVal || '',
-        heat_no: heatNo || '',
-        heat_val: heatVal || '',
+        electricity_no: electricityNo || '', electricity_val: electricityVal || '',
+        gas_no: gasNo || '', gas_val: gasVal || '',
+        water_no: waterNo || '', water_val: waterVal || '',
+        heat_no: heatNo || '', heat_val: heatVal || '',
         keys_handed_over: keysHandedOver || '',
-        is_move_in: isMoveIn,
-        is_move_out: isMoveOut,
+        is_move_in: isMoveIn, is_move_out: isMoveOut,
         tenant_signature_date: tenantSignatureDate.toISOString(),
       }).eq('id', id);
 
@@ -469,30 +397,26 @@ export default function InspectionDetailScreen() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             protocol: {
-              id: id,
+              id,
               date: formattedCurrentDate,
-              tenant:   { name: fetchedTenantName },
+              tenant: { name: fetchedTenantName },
               landlord: { name: fetchedLandlordName },
               property: { address: report.address || '' },
-              isMoveIn,
-              isMoveOut,
+              isMoveIn, isMoveOut,
               keysHandedOver: keysHandedOver || '',
               notes: notes || '',
               rooms: roomsWithData.map(r => ({
-                name:      r.room_name,
-                condition: r.condition,
-                notes:     r.comment,
-                photos:    r.photos,
+                name: r.room_name, condition: r.condition, notes: r.comment, photos: r.photos,
               })),
               meterReadings: [
-                electricityNo ? { type: 'Strom',   number: electricityNo, value: electricityVal } : null,
-                gasNo         ? { type: 'Gas',     number: gasNo,         value: gasVal }         : null,
-                waterNo       ? { type: 'Wasser',  number: waterNo,       value: waterVal }       : null,
-                heatNo        ? { type: 'Heizung', number: heatNo,        value: heatVal }        : null,
+                electricityNo ? { type: 'Strom', number: electricityNo, value: electricityVal } : null,
+                gasNo ? { type: 'Gas', number: gasNo, value: gasVal } : null,
+                waterNo ? { type: 'Wasser', number: waterNo, value: waterVal } : null,
+                heatNo ? { type: 'Heizung', number: heatNo, value: heatVal } : null,
               ].filter(Boolean),
               landlordSignature: landlordSignatureUrl,
-              tenantSignature:   tenantSignatureUrl,
-              witnessSignature:  witnessSignatureUrl,
+              tenantSignature: tenantSignatureUrl,
+              witnessSignature: witnessSignatureUrl,
               witness: witnessName || '',
             }
           }),
@@ -516,22 +440,16 @@ export default function InspectionDetailScreen() {
         const pdfUrl = result.url;
         if (!pdfUrl) throw new Error('PDF URL not found in response');
 
-        // ── Save PDF URL to state so email feature can use it ─────────────────
         setGeneratedPdfUrl(pdfUrl);
         setGeneratedDocSerial(`MP-${Date.now().toString(36).toUpperCase()}`);
 
         await supabase.from('reports').update({ pdf_url: pdfUrl, status: 'COMPLETED' }).eq('id', id);
-
         await new Promise(resolve => setTimeout(resolve, 1000));
         setShowSignatureModal(false);
 
-        // ── Open PDF then show email prompt ───────────────────────────────────
         const canOpen = await Linking.canOpenURL(pdfUrl);
-        if (canOpen) {
-          await Linking.openURL(pdfUrl);
-        }
+        if (canOpen) await Linking.openURL(pdfUrl);
 
-        // Show email modal after short delay so PDF opens first
         setTimeout(() => {
           setEmailModal(s => ({ ...s, visible: true, status: 'idle' }));
         }, 800);
@@ -614,13 +532,8 @@ export default function InspectionDetailScreen() {
             <Text style={styles.pdfButtonText}>Create Official Protocol</Text>
           </TouchableOpacity>
 
-          {/* ── Send Email button — only shown after PDF has been generated ── */}
           {generatedPdfUrl ? (
-            <TouchableOpacity
-              style={styles.sendEmailBtn}
-              onPress={() => setEmailModal(s => ({ ...s, visible: true }))}
-              activeOpacity={0.85}
-            >
+            <TouchableOpacity style={styles.sendEmailBtn} onPress={() => setEmailModal(s => ({ ...s, visible: true }))} activeOpacity={0.85}>
               <Text style={styles.sendEmailBtnIcon}>✉️</Text>
               <View>
                 <Text style={styles.sendEmailBtnLabel}>Send Protocol / Protokoll senden</Text>
@@ -677,7 +590,7 @@ export default function InspectionDetailScreen() {
           </TouchableOpacity>
         </ScrollView>
 
-        {/* ── Add Room Modal ─────────────────────────────────────────────────── */}
+        {/* Add Room Modal */}
         <Modal visible={showAddRoomModal} animationType="slide" transparent={true} onRequestClose={() => setShowAddRoomModal(false)}>
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
@@ -710,7 +623,7 @@ export default function InspectionDetailScreen() {
           </View>
         </Modal>
 
-        {/* ── Final Details Modal ────────────────────────────────────────────── */}
+        {/* Final Details Modal */}
         <Modal visible={showFinalDetailsModal} animationType="slide" transparent={true} onRequestClose={() => setShowFinalDetailsModal(false)}>
           <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
             <View style={styles.modalOverlay}>
@@ -779,7 +692,7 @@ export default function InspectionDetailScreen() {
           </KeyboardAvoidingView>
         </Modal>
 
-        {/* ── Signature Modal ────────────────────────────────────────────────── */}
+        {/* Signature Modal */}
         <Modal visible={showSignatureModal} animationType="slide" transparent={false} onRequestClose={handleCloseSignatureModal}>
           <SafeAreaView style={{ flex: 1, paddingTop: 8 }} edges={['top', 'bottom']}>
             <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -825,15 +738,9 @@ export default function InspectionDetailScreen() {
                 <View style={styles.signatureModalFooter}>
                   <TouchableOpacity style={styles.generatePdfButton} onPress={handleGeneratePDF} disabled={generatingPDF}>
                     {generatingPDF ? (
-                      <>
-                        <ActivityIndicator size="small" color="#FFFFFF" />
-                        <Text style={styles.generatePdfButtonText}>Generating...</Text>
-                      </>
+                      <><ActivityIndicator size="small" color="#FFFFFF" /><Text style={styles.generatePdfButtonText}>Generating...</Text></>
                     ) : (
-                      <>
-                        <IconSymbol ios_icon_name="doc.fill" android_material_icon_name="description" size={24} color="#FFFFFF" />
-                        <Text style={styles.generatePdfButtonText}>Protokoll erstellen / Create Protocol</Text>
-                      </>
+                      <><IconSymbol ios_icon_name="doc.fill" android_material_icon_name="description" size={24} color="#FFFFFF" /><Text style={styles.generatePdfButtonText}>Protokoll erstellen / Create Protocol</Text></>
                     )}
                   </TouchableOpacity>
                 </View>
@@ -842,112 +749,51 @@ export default function InspectionDetailScreen() {
           </SafeAreaView>
         </Modal>
 
-        {/* ── Email Modal ────────────────────────────────────────────────────── */}
-        <Modal
-          visible={emailModal.visible}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setEmailModal(s => ({ ...s, visible: false, status: 'idle' }))}
-        >
+        {/* Email Modal */}
+        <Modal visible={emailModal.visible} transparent animationType="slide" onRequestClose={() => setEmailModal(s => ({ ...s, visible: false, status: 'idle' }))}>
           <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
             <View style={styles.modalOverlay}>
               <View style={styles.emailModalCard}>
-
-                {/* Header */}
                 <View style={styles.emailModalHeader}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.emailModalTitle}>Send Protocol</Text>
                     <Text style={styles.emailModalTitleDE}>Protokoll senden</Text>
                   </View>
-                  <TouchableOpacity
-                    style={styles.emailModalClose}
-                    onPress={() => setEmailModal(s => ({ ...s, visible: false, status: 'idle' }))}
-                  >
+                  <TouchableOpacity style={styles.emailModalClose} onPress={() => setEmailModal(s => ({ ...s, visible: false, status: 'idle' }))}>
                     <Text style={styles.emailModalCloseText}>✕</Text>
                   </TouchableOpacity>
                 </View>
-
-                {/* Yellow divider */}
                 <View style={styles.emailDivider} />
-
                 {emailModal.status === 'success' ? (
-                  /* ── Success state ── */
                   <View style={styles.emailSuccessContainer}>
                     <Text style={styles.emailSuccessIcon}>✓</Text>
                     <Text style={styles.emailSuccessTitle}>Sent! / Gesendet!</Text>
-                    <Text style={styles.emailSuccessSub}>
-                      PDF + link sent to both parties.{'\n'}
-                      PDF + Link an beide Parteien gesendet.
-                    </Text>
+                    <Text style={styles.emailSuccessSub}>PDF + link sent to both parties.{'\n'}PDF + Link an beide Parteien gesendet.</Text>
                   </View>
                 ) : (
                   <>
-                    {/* Info chips */}
                     <View style={styles.emailInfoRow}>
                       <View style={styles.emailChip}><Text style={styles.emailChipText}>📎 PDF attached</Text></View>
                       <View style={styles.emailChip}><Text style={styles.emailChipText}>🔗 Link included</Text></View>
                       <View style={styles.emailChip}><Text style={styles.emailChipText}>🇩🇪 🇬🇧 Bilingual</Text></View>
                     </View>
-
-                    {/* Tenant email */}
                     <View style={styles.emailFieldGroup}>
                       <Text style={styles.emailFieldLabel}>Tenant / Mieter</Text>
-                      <TextInput
-                        style={styles.emailInput}
-                        placeholder="tenant@email.com"
-                        placeholderTextColor="#C9920A"
-                        value={emailModal.tenantEmail}
-                        onChangeText={v => setEmailModal(s => ({ ...s, tenantEmail: v, errorMsg: '' }))}
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                      />
+                      <TextInput style={styles.emailInput} placeholder="tenant@email.com" placeholderTextColor="#C9920A" value={emailModal.tenantEmail} onChangeText={v => setEmailModal(s => ({ ...s, tenantEmail: v, errorMsg: '' }))} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} />
                     </View>
-
-                    {/* Landlord email */}
                     <View style={styles.emailFieldGroup}>
                       <Text style={styles.emailFieldLabel}>Landlord / Vermieter</Text>
-                      <TextInput
-                        style={styles.emailInput}
-                        placeholder="landlord@email.com"
-                        placeholderTextColor="#C9920A"
-                        value={emailModal.landlordEmail}
-                        onChangeText={v => setEmailModal(s => ({ ...s, landlordEmail: v, errorMsg: '' }))}
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                      />
+                      <TextInput style={styles.emailInput} placeholder="landlord@email.com" placeholderTextColor="#C9920A" value={emailModal.landlordEmail} onChangeText={v => setEmailModal(s => ({ ...s, landlordEmail: v, errorMsg: '' }))} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} />
                     </View>
-
-                    {/* Error */}
-                    {emailModal.errorMsg ? (
-                      <Text style={styles.emailError}>{emailModal.errorMsg}</Text>
-                    ) : null}
-
-                    {/* Send button */}
-                    <TouchableOpacity
-                      style={[styles.emailSendBtn, emailModal.status === 'sending' && styles.emailSendBtnDisabled]}
-                      onPress={sendProtocolEmail}
-                      disabled={emailModal.status === 'sending'}
-                      activeOpacity={0.85}
-                    >
-                      {emailModal.status === 'sending' ? (
-                        <ActivityIndicator color="#4A3008" />
-                      ) : (
-                        <Text style={styles.emailSendBtnText}>Send to both / An beide senden →</Text>
-                      )}
+                    {emailModal.errorMsg ? <Text style={styles.emailError}>{emailModal.errorMsg}</Text> : null}
+                    <TouchableOpacity style={[styles.emailSendBtn, emailModal.status === 'sending' && styles.emailSendBtnDisabled]} onPress={sendProtocolEmail} disabled={emailModal.status === 'sending'} activeOpacity={0.85}>
+                      {emailModal.status === 'sending' ? <ActivityIndicator color="#4A3008" /> : <Text style={styles.emailSendBtnText}>Send to both / An beide senden →</Text>}
                     </TouchableOpacity>
-
-                    {/* Cancel */}
-                    <TouchableOpacity
-                      onPress={() => setEmailModal(s => ({ ...s, visible: false, status: 'idle' }))}
-                      style={styles.emailCancelBtn}
-                    >
+                    <TouchableOpacity onPress={() => setEmailModal(s => ({ ...s, visible: false, status: 'idle' }))} style={styles.emailCancelBtn}>
                       <Text style={styles.emailCancelText}>Cancel / Abbrechen</Text>
                     </TouchableOpacity>
                   </>
                 )}
-
               </View>
             </View>
           </KeyboardAvoidingView>
@@ -973,13 +819,10 @@ const styles = StyleSheet.create({
   type: { fontSize: 16, color: colors.textSecondary },
   pdfButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: colors.primary, paddingVertical: 18, paddingHorizontal: 24, borderRadius: 0, marginTop: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
   pdfButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
-
-  // ── Send email button (main screen) ─────────────────────────────────────────
   sendEmailBtn: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#F2C12E', borderRadius: 0, padding: 16, marginTop: 12 },
   sendEmailBtnIcon: { fontSize: 22 },
   sendEmailBtnLabel: { fontSize: 15, fontWeight: '700', color: '#4A3008' },
   sendEmailBtnSub: { fontSize: 11, color: '#8C5E04', marginTop: 2 },
-
   section: { marginTop: 24 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   sectionTitle: { fontSize: 22, fontWeight: '600', color: colors.text },
@@ -1045,8 +888,6 @@ const styles = StyleSheet.create({
   signatureModalFooter: { padding: 20, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.card },
   generatePdfButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: colors.primary, paddingVertical: 18, paddingHorizontal: 24, borderRadius: 0 },
   generatePdfButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
-
-  // ── Email modal styles ───────────────────────────────────────────────────────
   emailModalCard: { backgroundColor: '#F7F2E8', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
   emailModalHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 },
   emailModalTitle: { fontSize: 20, fontWeight: '700', color: '#4A3008' },
