@@ -333,19 +333,22 @@ if (!session || sessionError) {
         landlordEmail: s.landlordEmail || landlordEmail,
       }));
 
-      async function uploadSignature(sigData: string | null, path: string): Promise<string> {
+async function uploadSignature(sigData: string | null, path: string): Promise<string> {
         if (!sigData) return '';
-        try {
-          await supabase.auth.getSession();
-          const base64 = sigData.replace(/^data:image\/\w+;base64,/, '');
-          const buffer = decode(base64);
-          const { error } = await supabase.storage.from('signatures').upload(path, buffer, {
-            contentType: 'image/png', upsert: true,
-          });
-          if (error) { console.error('Signature upload error:', error); return ''; }
-          const { data: urlData } = supabase.storage.from('signatures').getPublicUrl(path);
-          return urlData.publicUrl || '';
-        } catch (e) { return ''; }
+        await supabase.auth.getSession();
+        const base64 = sigData.replace(/^data:image\/\w+;base64,/, '');
+        const buffer = decode(base64);
+        const { error } = await supabase.storage.from('signatures').upload(path, buffer, {
+          contentType: 'image/png', upsert: true,
+        });
+        if (error) {
+          throw new Error(`Signature upload failed: ${error.message}`);
+        }
+        const { data: urlData } = supabase.storage.from('signatures').getPublicUrl(path);
+        if (!urlData.publicUrl) {
+          throw new Error('Failed to get signature URL after upload');
+        }
+        return urlData.publicUrl;
       }
 
       const landlordSignatureUrl = await uploadSignature(landlordSignature, `${id}_landlord_${Date.now()}.png`);
