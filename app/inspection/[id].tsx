@@ -297,10 +297,10 @@ export default function InspectionDetailScreen() {
   };
 
   const handleGeneratePDF = async () => {
-    landlordSignatureRef.current?.readSignature();
-    tenantSignatureRef.current?.readSignature();
-    witnessSignatureRef.current?.readSignature();
-    await new Promise(resolve => setTimeout(resolve, 1500));
+   if (!landlordSignature || !tenantSignature) {
+  showAlert('Error', 'Please ensure landlord and tenant have signed before generating the protocol.', 'error');
+  return;
+}
 
     if (!id || !report) { showAlert('Error', 'Report data is not available', 'error'); return; }
     if (!user || !user.id) { showAlert('Error', 'User authentication is not available', 'error'); return; }
