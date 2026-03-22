@@ -336,8 +336,12 @@ if (!session || sessionError) {
 
 async function uploadSignature(sigData: string | null, path: string): Promise<string> {
         if (!sigData) return '';
-        await supabase.auth.getSession();
+        const { data: { session: freshSession } } = await supabase.auth.getSession();
+        if (!freshSession) throw new Error('No active session for signature upload');
+        showAlert('Upload Debug', `Token length: ${freshSession.access_token?.length}, sigData length: ${sigData?.length}, base64 starts: ${sigData?.substring(0, 30)}`, 'info');
+        return '';
         const base64 = sigData.replace(/^data:image\/\w+;base64,/, '');
+  
         const buffer = decode(base64);
         const { error } = await supabase.storage.from('signatures').upload(path, buffer, {
           contentType: 'image/png', upsert: true,
