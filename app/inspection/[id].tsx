@@ -297,10 +297,8 @@ export default function InspectionDetailScreen() {
   };
 
 const handleGeneratePDF = async () => {
-    if (!landlordSignature || !tenantSignature) {
-      showAlert('Error', 'Please ensure landlord and tenant have signed before generating the protocol.', 'error');
-      return;
-    }
+// signatures optional - can be signed on paper
+
 
     if (!id || !report) { showAlert('Error', 'Report data is not available', 'error'); return; }
     if (!user || !user.id) { showAlert('Error', 'User authentication is not available', 'error'); return; }
