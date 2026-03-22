@@ -884,7 +884,7 @@ const styles = StyleSheet.create({
   datePicker: { width: '100%', backgroundColor: colors.card },
   dateDisplay: { fontSize: 16, color: colors.text, marginTop: 12, padding: 12, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 0 },
   signatureModalFooter: { padding: 20, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.card },
-  generatePdfButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: colors.primary, paddingVertical: 18, paddingHorizontal: 24, borderRadius: 0 },
+  generatePdfButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: '#E85D26', paddingVertical: 18, paddingHorizontal: 24, borderRadius: 0 },
   generatePdfButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
   emailModalCard: { backgroundColor: '#F7F2E8', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
   emailModalHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 },
