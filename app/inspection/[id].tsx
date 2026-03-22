@@ -296,11 +296,11 @@ export default function InspectionDetailScreen() {
     }
   };
 
-  const handleGeneratePDF = async () => {
-   if (!landlordSignature || !tenantSignature) {
-  showAlert('Error', 'Please ensure landlord and tenant have signed before generating the protocol.', 'error');
-  return;
-}
+const handleGeneratePDF = async () => {
+    if (!landlordSignature || !tenantSignature) {
+      showAlert('Error', 'Please ensure landlord and tenant have signed before generating the protocol.', 'error');
+      return;
+    }
 
     if (!id || !report) { showAlert('Error', 'Report data is not available', 'error'); return; }
     if (!user || !user.id) { showAlert('Error', 'User authentication is not available', 'error'); return; }
@@ -308,16 +308,12 @@ export default function InspectionDetailScreen() {
     setGeneratingPDF(true);
 
     try {
-      // ── CRITICAL: Refresh Supabase session before storage uploads ──────────
-      // Prevents "Invalid Compact JWS" error when JWT expires during signing.
-const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-// session is valid, continue
-if (!session || sessionError) {
-  showAlert('Error', 'Session expired. Please log in again.', 'error');
-  setGeneratingPDF(false);
-  return;
-}
-      // ─────────────────────────────────────────────────────────────────────
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (!session || sessionError) {
+        showAlert('Error', 'Session expired. Please log in again.', 'error');
+        setGeneratingPDF(false);
+        return;
+      }
 
       const { data: participantsData } = await supabase.from('participants').select('*').eq('report_id', id);
       const participants = participantsData || [];
@@ -334,27 +330,18 @@ if (!session || sessionError) {
         landlordEmail: s.landlordEmail || landlordEmail,
       }));
 
-async function uploadSignature(sigData: string | null, path: string): Promise<string> {
+      const uploadSignature = async (sigData: string | null, path: string): Promise<string> => {
         if (!sigData) return '';
-        const { data: { session: freshSession } } = await supabase.auth.getSession();
-        if (!freshSession) throw new Error('No active session for signature upload');
-        showAlert('Upload Debug', `Token length: ${freshSession.access_token?.length}, sigData length: ${sigData?.length}, base64 starts: ${sigData?.substring(0, 30)}`, 'info');
-        return '';
         const base64 = sigData.replace(/^data:image\/\w+;base64,/, '');
-  
         const buffer = decode(base64);
         const { error } = await supabase.storage.from('signatures').upload(path, buffer, {
           contentType: 'image/png', upsert: true,
         });
-        if (error) {
-          throw new Error(`Signature upload failed: ${error.message}`);
-        }
+        if (error) throw new Error(`Signature upload failed: ${error.message}`);
         const { data: urlData } = supabase.storage.from('signatures').getPublicUrl(path);
-        if (!urlData.publicUrl) {
-          throw new Error('Failed to get signature URL after upload');
-        }
+        if (!urlData.publicUrl) throw new Error('Failed to get signature URL after upload');
         return urlData.publicUrl;
-      }
+      };
 
       const landlordSignatureUrl = await uploadSignature(landlordSignature, `${id}_landlord_${Date.now()}.png`);
       const tenantSignatureUrl = await uploadSignature(tenantSignature, `${id}_tenant_${Date.now()}.png`);
