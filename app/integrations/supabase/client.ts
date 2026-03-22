@@ -19,7 +19,11 @@ console.log('Supabase client initializing with URL:', SUPABASE_URL);
 // Create Supabase client with AsyncStorage for session persistence
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
-    storage: AsyncStorage,
+    storage: {
+      getItem: (key: string) => AsyncStorage.getItem(key),
+      setItem: (key: string, value: string) => AsyncStorage.setItem(key, value),
+      removeItem: (key: string) => AsyncStorage.removeItem(key),
+    },
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
