@@ -262,8 +262,8 @@ export default function InspectionDetailScreen() {
   const handleCloseSignatureModal = () => setShowSignatureModal(false);
 
   const sendProtocolEmail = async () => {
-    if (!emailModal.tenantEmail || !emailModal.landlordEmail) {
-      setEmailModal(s => ({ ...s, errorMsg: 'Bitte beide E-Mail-Adressen eingeben.\nPlease enter both email addresses.' }));
+ if (!emailModal.tenantEmail && !emailModal.landlordEmail) {
+      setEmailModal(s => ({ ...s, errorMsg: 'Bitte mindestens eine E-Mail-Adresse eingeben.\nPlease enter at least one email address.' }));
       return;
     }
     if (!generatedPdfUrl) {
