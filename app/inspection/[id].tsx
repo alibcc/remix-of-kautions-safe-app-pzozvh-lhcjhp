@@ -552,8 +552,8 @@ const handleGeneratePDF = async () => {
             <Text style={styles.pdfButtonText}>Create Official Protocol</Text>
           </TouchableOpacity>
 
-          {generatedPdfUrl ? (
-{generatedPdfUrl && !isPaid ? (
+          {generatedPdfUrl && !isPaid ? (
+
             <TouchableOpacity
               style={[styles.sendEmailBtn, { backgroundColor: '#E85D26' }]}
               onPress={async () => {
