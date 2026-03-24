@@ -18,7 +18,6 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { decode } from 'base64-arraybuffer';
 import SignatureCanvas from "react-native-signature-canvas";
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
-import { Linking } from "react-native";
 import { supabase } from "@/app/integrations/supabase/client";
 import { colors, commonStyles } from "@/styles/commonStyles";
 import { SafeAreaView } from 'react-native-safe-area-context';
