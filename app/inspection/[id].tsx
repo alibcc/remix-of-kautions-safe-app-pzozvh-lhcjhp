@@ -570,8 +570,10 @@ const handleGeneratePDF = async () => {
                     landlordEmail: emailModal.landlordEmail,
                   }),
                 });
-                const data = await response.json();
-                if (data.url) await Linking.openURL(data.url);
+const data = await response.json();
+                if (data.url) {
+                  try { await Linking.openURL(data.url); } catch(e) {}
+                }
               }}
               activeOpacity={0.85}>
               <Text style={styles.sendEmailBtnIcon}>🔓</Text>
