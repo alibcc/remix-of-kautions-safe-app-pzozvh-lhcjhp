@@ -415,6 +415,7 @@ const handleGeneratePDF = async () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            isPaid: isPaid,
             protocol: {
               id,
               date: formattedCurrentDate,
