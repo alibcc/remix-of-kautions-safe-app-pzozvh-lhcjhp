@@ -4,11 +4,11 @@
     "slug": "moveproof",
     "version": "3.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/app-icon-xdh.png",
+    "icon": "./assets/images/moveproof_icon.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/app-icon-xdh.png",
+      "image": "./assets/images/moveproof_icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
@@ -23,7 +23,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/app-icon-xdh.png",
+        "foregroundImage": "./assets/images/moveproof_icon.png",
         "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
