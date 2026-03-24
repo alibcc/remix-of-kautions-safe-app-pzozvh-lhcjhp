@@ -553,21 +553,61 @@ const handleGeneratePDF = async () => {
             <Text style={styles.pdfButtonText}>Create Official Protocol</Text>
           </TouchableOpacity>
 
-            {generatedPdfUrl ? (
-
-            <TouchableOpacity
-              style={[styles.sendEmailBtn, { backgroundColor: '#E85D26' }]}
-onPress={() => setEmailModal(s => ({ ...s, visible: true, status: 'idle' }))}
-              activeOpacity={0.85}>
-              <Text style={styles.sendEmailBtnIcon}>🔓</Text>
-              <View>
-                <Text style={[styles.sendEmailBtnLabel, { color: '#FFFFFF' }]}>Protokoll freischalten / Unlock Protocol</Text>
-                <Text style={[styles.sendEmailBtnSub, { color: 'rgba(255,255,255,0.8)' }]}>€2 · PDF per E-Mail an beide Parteien</Text>
-              </View>
-            </TouchableOpacity>
+  {generatedPdfUrl && !isPaid ? (
+            <>
+              <TouchableOpacity
+                style={[styles.sendEmailBtn, { backgroundColor: '#E85D26' }]}
+                onPress={() => setEmailModal(s => ({ ...s, visible: true, status: 'idle' }))}
+                activeOpacity={0.85}>
+                <Text style={styles.sendEmailBtnIcon}>🔓</Text>
+                <View>
+                  <Text style={[styles.sendEmailBtnLabel, { color: '#FFFFFF' }]}>Protokoll freischalten / Unlock Protocol</Text>
+                  <Text style={[styles.sendEmailBtnSub, { color: 'rgba(255,255,255,0.8)' }]}>€2 · Vollständiges PDF per E-Mail</Text>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.sendEmailBtn, { backgroundColor: '#4A7C6F', marginTop: 8 }]}
+                activeOpacity={0.85}
+                onPress={async () => {
+                  if (!user?.email) {
+                    showAlert('Error', 'No account email found.', 'error');
+                    return;
+                  }
+                  showAlert('Info', `Sending preview to ${user.email}...`, 'info');
+                  try {
+                    const response = await fetch('https://movproof-pdf-api.vercel.app/api/send-email', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        pdfUrl: generatedPdfUrl,
+                        protocolId: id,
+                        tenant: { name: tenantName, email: user.email },
+                        landlord: { name: landlordName, email: '' },
+                        address: report?.address || '',
+                        date: new Date().toLocaleDateString('de-DE'),
+                        docSerial: generatedDocSerial,
+                      }),
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                      showAlert('Success', `Preview sent to ${user.email}`, 'success');
+                    } else {
+                      showAlert('Error', data.error || 'Failed to send email.', 'error');
+                    }
+                  } catch (e: any) {
+                    showAlert('Error', e.message, 'error');
+                  }
+                }}>
+                <Text style={styles.sendEmailBtnIcon}>📧</Text>
+                <View>
+                  <Text style={[styles.sendEmailBtnLabel, { color: '#FFFFFF' }]}>Vorschau zusenden / Email Preview</Text>
+                  <Text style={[styles.sendEmailBtnSub, { color: 'rgba(255,255,255,0.8)' }]}>Kostenlos · Wasserzeichen / Free · Watermarked</Text>
+                </View>
+              </TouchableOpacity>
+            </>
           ) : null}
 
-          {generatedPdfUrl && false ? (
+          {generatedPdfUrl && isPaid ? (
             <TouchableOpacity style={styles.sendEmailBtn} onPress={() => setEmailModal(s => ({ ...s, visible: true }))} activeOpacity={0.85}>
               <Text style={styles.sendEmailBtnIcon}>✉️</Text>
               <View>
