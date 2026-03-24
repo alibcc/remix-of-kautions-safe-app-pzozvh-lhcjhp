@@ -557,7 +557,7 @@ const handleGeneratePDF = async () => {
             <Text style={styles.pdfButtonText}>Create Official Protocol</Text>
           </TouchableOpacity>
 
-          {generatedPdfUrl && !isPaid ? (
+            {generatedPdfUrl ? (
 
             <TouchableOpacity
               style={[styles.sendEmailBtn, { backgroundColor: '#E85D26' }]}
@@ -583,7 +583,7 @@ const handleGeneratePDF = async () => {
             </TouchableOpacity>
           ) : null}
 
-          {generatedPdfUrl && isPaid ? (
+          {generatedPdfUrl && false ? (
             <TouchableOpacity style={styles.sendEmailBtn} onPress={() => setEmailModal(s => ({ ...s, visible: true }))} activeOpacity={0.85}>
               <Text style={styles.sendEmailBtnIcon}>✉️</Text>
               <View>
