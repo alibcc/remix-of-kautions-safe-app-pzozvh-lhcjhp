@@ -161,6 +161,25 @@ const [generatedPdfUrl, setGeneratedPdfUrl] = useState<string | null>(null);
     setAlertVisible(true);
   };
 
+useEffect(() => {
+    const checkPaidStatus = async () => {
+      if (!id) return;
+      const { data } = await supabase.from('reports').select('is_paid').eq('id', id).single();
+      if (data?.is_paid) setIsPaid(true);
+    };
+
+    const handleDeepLink = (event: { url: string }) => {
+      if (event.url.includes('payment-complete') && event.url.includes(id as string)) {
+        checkPaidStatus();
+      }
+    };
+
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+    checkPaidStatus();
+
+    return () => subscription.remove();
+  }, [id]);
+
   useEffect(() => {
     let isMounted = true;
     const loadInspection = async () => {
