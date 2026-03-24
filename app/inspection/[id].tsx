@@ -557,21 +557,7 @@ const handleGeneratePDF = async () => {
 
             <TouchableOpacity
               style={[styles.sendEmailBtn, { backgroundColor: '#E85D26' }]}
-              onPress={async () => {
-                const response = await fetch('https://movproof-pdf-api.vercel.app/api/create-checkout', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    protocolId: id,
-                    tenantEmail: emailModal.tenantEmail,
-                    landlordEmail: emailModal.landlordEmail,
-                  }),
-                });
-const data = await response.json();
-                if (data.url) {
-                  try { await Linking.openURL(data.url); } catch(e) {}
-                }
-              }}
+onPress={() => setEmailModal(s => ({ ...s, visible: true, status: 'idle' }))}
               activeOpacity={0.85}>
               <Text style={styles.sendEmailBtnIcon}>🔓</Text>
               <View>
@@ -835,8 +821,32 @@ const data = await response.json();
                       <TextInput style={styles.emailInput} placeholder="landlord@email.com" placeholderTextColor="#C9920A" value={emailModal.landlordEmail} onChangeText={v => setEmailModal(s => ({ ...s, landlordEmail: v, errorMsg: '' }))} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} />
                     </View>
                     {emailModal.errorMsg ? <Text style={styles.emailError}>{emailModal.errorMsg}</Text> : null}
-                    <TouchableOpacity style={[styles.emailSendBtn, emailModal.status === 'sending' && styles.emailSendBtnDisabled]} onPress={sendProtocolEmail} disabled={emailModal.status === 'sending'} activeOpacity={0.85}>
-                      {emailModal.status === 'sending' ? <ActivityIndicator color="#4A3008" /> : <Text style={styles.emailSendBtnText}>Send to both / An beide senden →</Text>}
+<TouchableOpacity
+                      style={[styles.emailSendBtn, emailModal.status === 'sending' && styles.emailSendBtnDisabled]}
+                      disabled={emailModal.status === 'sending'}
+                      activeOpacity={0.85}
+                      onPress={async () => {
+                        if (!emailModal.tenantEmail && !emailModal.landlordEmail) {
+                          setEmailModal(s => ({ ...s, errorMsg: 'Bitte mindestens eine E-Mail-Adresse eingeben.\nPlease enter at least one email address.' }));
+                          return;
+                        }
+                        setEmailModal(s => ({ ...s, status: 'sending', errorMsg: '' }));
+                        const response = await fetch('https://movproof-pdf-api.vercel.app/api/create-checkout', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            protocolId: id,
+                            tenantEmail: emailModal.tenantEmail,
+                            landlordEmail: emailModal.landlordEmail,
+                          }),
+                        });
+                        const data = await response.json();
+                        setEmailModal(s => ({ ...s, status: 'idle', visible: false }));
+                        if (data.url) {
+                          try { await Linking.openURL(data.url); } catch(e) {}
+                        }
+                      }}>
+                      {emailModal.status === 'sending' ? <ActivityIndicator color="#4A3008" /> : <Text style={styles.emailSendBtnText}>Weiter zur Zahlung / Proceed to Payment €2 →</Text>}
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => setEmailModal(s => ({ ...s, visible: false, status: 'idle' }))} style={styles.emailCancelBtn}>
                       <Text style={styles.emailCancelText}>Cancel / Abbrechen</Text>
