@@ -18,6 +18,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { decode } from 'base64-arraybuffer';
 import SignatureCanvas from "react-native-signature-canvas";
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
+import { Linking } from "react-native";
 import { supabase } from "@/app/integrations/supabase/client";
 import { colors, commonStyles } from "@/styles/commonStyles";
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -140,8 +141,9 @@ export default function InspectionDetailScreen() {
   const [alertMessage, setAlertMessage] = useState('');
   const [alertType, setAlertType] = useState<'info' | 'error' | 'success'>('info');
 
-  const [generatedPdfUrl, setGeneratedPdfUrl] = useState<string | null>(null);
+const [generatedPdfUrl, setGeneratedPdfUrl] = useState<string | null>(null);
   const [generatedDocSerial, setGeneratedDocSerial] = useState<string>('');
+  const [isPaid, setIsPaid] = useState(false);
   const [tenantName, setTenantName] = useState('');
   const [landlordName, setLandlordName] = useState('');
   const [emailModal, setEmailModal] = useState<EmailModalState>({
@@ -531,6 +533,32 @@ const handleGeneratePDF = async () => {
           </TouchableOpacity>
 
           {generatedPdfUrl ? (
+{generatedPdfUrl && !isPaid ? (
+            <TouchableOpacity
+              style={[styles.sendEmailBtn, { backgroundColor: '#E85D26' }]}
+              onPress={async () => {
+                const response = await fetch('https://movproof-pdf-api.vercel.app/api/create-checkout', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    protocolId: id,
+                    tenantEmail: emailModal.tenantEmail,
+                    landlordEmail: emailModal.landlordEmail,
+                  }),
+                });
+                const data = await response.json();
+                if (data.url) await Linking.openURL(data.url);
+              }}
+              activeOpacity={0.85}>
+              <Text style={styles.sendEmailBtnIcon}>🔓</Text>
+              <View>
+                <Text style={[styles.sendEmailBtnLabel, { color: '#FFFFFF' }]}>Protokoll freischalten / Unlock Protocol</Text>
+                <Text style={[styles.sendEmailBtnSub, { color: 'rgba(255,255,255,0.8)' }]}>€2 · PDF per E-Mail an beide Parteien</Text>
+              </View>
+            </TouchableOpacity>
+          ) : null}
+
+          {generatedPdfUrl && isPaid ? (
             <TouchableOpacity style={styles.sendEmailBtn} onPress={() => setEmailModal(s => ({ ...s, visible: true }))} activeOpacity={0.85}>
               <Text style={styles.sendEmailBtnIcon}>✉️</Text>
               <View>
