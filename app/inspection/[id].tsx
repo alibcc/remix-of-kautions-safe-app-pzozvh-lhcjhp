@@ -176,11 +176,8 @@ useEffect(() => {
     const subscription = Linking.addEventListener('url', handleDeepLink);
     checkPaidStatus();
 
-    const interval = setInterval(checkPaidStatus, 5000);
-
-    return () => {
+return () => {
       subscription.remove();
-      clearInterval(interval);
     };
   }, [id]);
 
