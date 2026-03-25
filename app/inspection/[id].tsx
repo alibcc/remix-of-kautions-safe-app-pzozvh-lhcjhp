@@ -885,7 +885,7 @@ const styles = StyleSheet.create({
   retryButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
   address: { fontSize: 20, fontWeight: '600', color: colors.text, marginBottom: 4 },
   type: { fontSize: 16, color: colors.textSecondary },
-  pdfButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: colors.primary, paddingVertical: 18, paddingHorizontal: 24, borderRadius: 0, marginTop: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
+  pdfButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: '#E85D26', paddingVertical: 18, paddingHorizontal: 24, borderRadius: 0, marginTop: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
   pdfButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
   sendEmailBtn: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#F2C12E', borderRadius: 0, padding: 16, marginTop: 12 },
   sendEmailBtnIcon: { fontSize: 22 },
