@@ -550,7 +550,7 @@ const handleGeneratePDF = async () => {
 
           <TouchableOpacity style={[styles.pdfButton, { backgroundColor: '#E85D26' }]} onPress={handleOpenFinalDetails}>
             <IconSymbol ios_icon_name="doc.fill" android_material_icon_name="description" size={24} color="#FFFFFF" />
-            <Text style={styles.pdfButtonText}>Create Official Protocol</Text>
+            <Text style={styles.pdfButtonText}>Protokoll erstellen / Create Protocol</Text>
           </TouchableOpacity>
 
   {generatedPdfUrl && !isPaid ? (
@@ -960,7 +960,7 @@ const styles = StyleSheet.create({
   datePicker: { width: '100%', backgroundColor: colors.card },
   dateDisplay: { fontSize: 16, color: colors.text, marginTop: 12, padding: 12, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 0 },
   signatureModalFooter: { padding: 20, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.card },
-  generatePdfButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: '#E85D26', paddingVertical: 18, paddingHorizontal: 24, borderRadius: 0 },
+  pdfButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: '#E85D26', paddingVertical: 18, paddingHorizontal: 24, borderRadius: 0, marginTop: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
   generatePdfButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
   emailModalCard: { backgroundColor: '#F7F2E8', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
   emailModalHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 },
