@@ -773,10 +773,16 @@ const handleGeneratePDF = async () => {
                   </View>
                 </ScrollView>
                 <View style={styles.signatureModalFooter}>
-                  <TouchableOpacity style={styles.generatePdfButton} onPress={handleGeneratePDF} disabled={generatingPDF}>
+<TouchableOpacity style={styles.generatePdfButton} onPress={handleGeneratePDF} disabled={generatingPDF}>
                     {generatingPDF ? (
-                      <><ActivityIndicator size="small" color="#FFFFFF" /><Text style={styles.generatePdfButtonText}>Generating...</Text></>
-                 ) : (
+                      <View style={{ alignItems: 'center', gap: 8 }}>
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                        <Text style={styles.generatePdfButtonText}>Erstelle Protokoll / Creating...</Text>
+                        <Text style={{ color: '#FFFFFF', fontSize: 11, textAlign: 'center', opacity: 0.9, paddingHorizontal: 8 }}>
+                          Bitte 10–20 Sek. warten. Sie werden zu einer Vorschau weitergeleitet — das vollständige PDF kann danach für €2 freigeschaltet werden.{'\n\n'}Please wait 10–20 sec. You will be redirected to a preview — the full PDF can then be unlocked for €2.
+                        </Text>
+                      </View>
+                    ) : (
                       <><IconSymbol ios_icon_name="doc.fill" android_material_icon_name="description" size={24} color="#FFFFFF" /><Text style={styles.generatePdfButtonText}>Protokoll erstellen / Create Protocol</Text></>
                     )}
                   </TouchableOpacity>
