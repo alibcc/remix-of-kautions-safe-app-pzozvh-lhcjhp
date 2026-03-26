@@ -780,8 +780,8 @@ const handleGeneratePDF = async () => {
                       <View style={{ alignItems: 'center', gap: 8 }}>
                         <ActivityIndicator size="small" color="#FFFFFF" />
                         <Text style={styles.generatePdfButtonText}>Erstelle Vorschau… / Creating preview…</Text>
-                        <Text style={{ color: '#FFFFFF', fontSize: 11, textAlign: 'center', opacity: 0.85, paddingHorizontal: 8 }}>
-                          Bitte 10–20 Sekunden warten.{'\n'}Please wait 10–20 seconds.
+<Text style={{ color: '#FFFFFF', fontSize: 13, textAlign: 'center', opacity: 0.95, paddingHorizontal: 12, lineHeight: 20 }}>
+                          Bitte 10–20 Sek. warten. Sie werden zu einer Vorschau weitergeleitet — das vollständige PDF kann danach für €2 freigeschaltet werden.{'\n\n'}Please wait 10–20 sec. You will be redirected to a preview — the full PDF can then be unlocked for €2.
                         </Text>
                       </View>
                     ) : (
