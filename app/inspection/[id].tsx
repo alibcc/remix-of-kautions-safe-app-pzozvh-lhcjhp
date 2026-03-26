@@ -143,6 +143,8 @@ export default function InspectionDetailScreen() {
 const [generatedPdfUrl, setGeneratedPdfUrl] = useState<string | null>(null);
   const [generatedDocSerial, setGeneratedDocSerial] = useState<string>('');
   const [isPaid, setIsPaid] = useState(false);
+  const [showUnlockPrompt, setShowUnlockPrompt] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [tenantName, setTenantName] = useState('');
   const [landlordName, setLandlordName] = useState('');
   const [emailModal, setEmailModal] = useState<EmailModalState>({
@@ -773,13 +775,13 @@ const handleGeneratePDF = async () => {
                   </View>
                 </ScrollView>
                 <View style={styles.signatureModalFooter}>
-<TouchableOpacity style={styles.generatePdfButton} onPress={handleGeneratePDF} disabled={generatingPDF}>
-                    {generatingPDF ? (
+<TouchableOpacity style={styles.generatePdfButton} onPress={() => setShowPreviewModal(true)} disabled={generatingPDF}>
+                   {generatingPDF ? (
                       <View style={{ alignItems: 'center', gap: 8 }}>
                         <ActivityIndicator size="small" color="#FFFFFF" />
-                        <Text style={styles.generatePdfButtonText}>Erstelle Protokoll / Creating...</Text>
-                        <Text style={{ color: '#FFFFFF', fontSize: 11, textAlign: 'center', opacity: 0.9, paddingHorizontal: 8 }}>
-                          Bitte 10–20 Sek. warten. Sie werden zu einer Vorschau weitergeleitet — das vollständige PDF kann danach für €2 freigeschaltet werden.{'\n\n'}Please wait 10–20 sec. You will be redirected to a preview — the full PDF can then be unlocked for €2.
+                        <Text style={styles.generatePdfButtonText}>Erstelle Vorschau… / Creating preview…</Text>
+                        <Text style={{ color: '#FFFFFF', fontSize: 11, textAlign: 'center', opacity: 0.85, paddingHorizontal: 8 }}>
+                          Bitte 10–20 Sekunden warten.{'\n'}Please wait 10–20 seconds.
                         </Text>
                       </View>
                     ) : (
@@ -871,6 +873,59 @@ const handleGeneratePDF = async () => {
               </View>
             </View>
           </KeyboardAvoidingView>
+        </Modal>
+
+        <Modal visible={showPreviewModal} transparent animationType="slide" onRequestClose={() => setShowPreviewModal(false)}>
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}>
+            <View style={{ backgroundColor: '#F7F2E8', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 28, paddingBottom: 44 }}>
+              <Text style={{ fontSize: 22, fontWeight: '700', color: '#4A3008', marginBottom: 4, fontStyle: 'italic' }}>
+                Kostenllose Vorschau
+              </Text>
+              <Text style={{ fontSize: 13, color: '#8C5E04', marginBottom: 20 }}>
+                Free Preview
+              </Text>
+              <View style={{ height: 2, backgroundColor: '#F2C12E', marginBottom: 20, borderRadius: 1 }} />
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#4A3008', marginBottom: 16 }}>
+                Was passiert jetzt? / What happens next:
+              </Text>
+              <View style={{ gap: 14, marginBottom: 24 }}>
+                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
+                  <Text style={{ fontSize: 22 }}>📄</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#1A1A1A' }}>Kostenlose Vorschau mit Wasserzeichen</Text>
+                    <Text style={{ fontSize: 11, color: '#8C5E04', marginTop: 2 }}>You'll see a free watermarked preview in your browser</Text>
+                  </View>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
+                  <Text style={{ fontSize: 22 }}>🔒</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#1A1A1A' }}>Fotos in der Vorschau gesperrt</Text>
+                    <Text style={{ fontSize: 11, color: '#8C5E04', marginTop: 2 }}>Photos are locked in the free preview</Text>
+                  </View>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
+                  <Text style={{ fontSize: 22 }}>💶</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#1A1A1A' }}>Vollversion für nur €2</Text>
+                    <Text style={{ fontSize: 11, color: '#8C5E04', marginTop: 2 }}>Full PDF emailed to all parties — no watermark, all photos visible</Text>
+                  </View>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={{ backgroundColor: '#E85D26', borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginBottom: 12 }}
+                onPress={() => {
+                  setShowPreviewModal(false);
+                  handleGeneratePDF();
+                }}>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>Vorschau erstellen / Create Preview →</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ alignItems: 'center', paddingVertical: 12 }}
+                onPress={() => setShowPreviewModal(false)}>
+                <Text style={{ fontSize: 14, color: '#8C5E04' }}>Abbrechen / Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </Modal>
 
         <AlertModal visible={alertVisible} title={alertTitle} message={alertMessage} type={alertType} onClose={() => setAlertVisible(false)} />
