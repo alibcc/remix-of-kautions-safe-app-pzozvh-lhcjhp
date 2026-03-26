@@ -852,10 +852,11 @@ try {
               <TouchableOpacity
                 style={{ backgroundColor: '#E85D26', borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginBottom: 12 }}
                 onPress={() => {
-onPress={() => {
+                onPress={() => {
                   setShowPreviewModal(false);
                   setTimeout(() => handleGeneratePDF(), 300);
                 }}>
+
                 <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>Vorschau erstellen / Create Preview →</Text>
               </TouchableOpacity>
               <TouchableOpacity
