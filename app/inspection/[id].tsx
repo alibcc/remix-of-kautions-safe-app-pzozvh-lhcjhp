@@ -470,8 +470,11 @@ const handleGeneratePDF = async () => {
         await new Promise(resolve => setTimeout(resolve, 1000));
         setShowSignatureModal(false);
 
-        const canOpen = await Linking.canOpenURL(pdfUrl);
-        if (canOpen) await Linking.openURL(pdfUrl);
+try {
+          await Linking.openURL(pdfUrl);
+        } catch(e) {
+          // silently ignore - Natively handles browser opening
+        }
 
         setTimeout(() => {
           setEmailModal(s => ({ ...s, visible: true, status: 'idle' }));
