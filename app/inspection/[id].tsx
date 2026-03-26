@@ -791,8 +791,8 @@ const handleGeneratePDF = async () => {
                   </View>
                 </ScrollView>
                 <View style={styles.signatureModalFooter}>
-<TouchableOpacity style={styles.generatePdfButton} onPress={() => setShowPreviewModal(true)} disabled={generatingPDF}>
-                   {generatingPDF ? (
+<TouchableOpacity style={styles.generatePdfButton} onPress={() => { if (!generatingPDF) setShowPreviewModal(true); }} disabled={generatingPDF}>
+                  {generatingPDF ? (
                       <View style={{ alignItems: 'center', gap: 8 }}>
                         <ActivityIndicator size="small" color="#FFFFFF" />
                         <Text style={styles.generatePdfButtonText}>Erstelle Vorschau… / Creating preview…</Text>
