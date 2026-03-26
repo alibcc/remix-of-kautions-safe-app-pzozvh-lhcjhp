@@ -571,14 +571,30 @@ const handleGeneratePDF = async () => {
             </>
           ) : null}
 
-          {generatedPdfUrl && isPaid ? (
-            <TouchableOpacity style={styles.sendEmailBtn} onPress={() => setEmailModal(s => ({ ...s, visible: true }))} activeOpacity={0.85}>
-              <Text style={styles.sendEmailBtnIcon}>✉️</Text>
-              <View>
-                <Text style={styles.sendEmailBtnLabel}>Send Protocol / Protokoll senden</Text>
-                <Text style={styles.sendEmailBtnSub}>PDF + link · tenant & landlord</Text>
-              </View>
-            </TouchableOpacity>
+{generatedPdfUrl && isPaid ? (
+            <>
+              <TouchableOpacity
+                style={[styles.sendEmailBtn, { backgroundColor: '#5BAD8A' }]}
+                onPress={async () => {
+                  if (generatedPdfUrl) {
+                    try { await Linking.openURL(generatedPdfUrl); } catch(e) {}
+                  }
+                }}
+                activeOpacity={0.85}>
+                <Text style={styles.sendEmailBtnIcon}>📄</Text>
+                <View>
+                  <Text style={[styles.sendEmailBtnLabel, { color: '#FFFFFF' }]}>PDF öffnen / Open PDF</Text>
+                  <Text style={[styles.sendEmailBtnSub, { color: 'rgba(255,255,255,0.8)' }]}>Vollständiges Protokoll / Full protocol</Text>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.sendEmailBtn, { marginTop: 8 }]} onPress={() => setEmailModal(s => ({ ...s, visible: true }))} activeOpacity={0.85}>
+                <Text style={styles.sendEmailBtnIcon}>✉️</Text>
+                <View>
+                  <Text style={styles.sendEmailBtnLabel}>Erneut senden / Resend</Text>
+                  <Text style={styles.sendEmailBtnSub}>PDF + link · tenant & landlord</Text>
+                </View>
+              </TouchableOpacity>
+            </>
           ) : null}
 
           <View style={styles.section}>
