@@ -851,8 +851,7 @@ try {
               </View>
               <TouchableOpacity
                 style={{ backgroundColor: '#E85D26', borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginBottom: 12 }}
-                onPress={() => {
-                onPress={() => {
+              onPress={() => {
                   setShowPreviewModal(false);
                   setTimeout(() => handleGeneratePDF(), 300);
                 }}>
