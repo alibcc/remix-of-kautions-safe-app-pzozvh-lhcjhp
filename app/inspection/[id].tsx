@@ -794,7 +794,7 @@ try {
                   </View>
                 </ScrollView>
                 <View style={styles.signatureModalFooter}>
-<TouchableOpacity style={styles.generatePdfButton} onPress={() => { if (!generatingPDF) setShowPreviewModal(true); }} disabled={generatingPDF}>
+<TouchableOpacity style={styles.generatePdfButton} onPress={handleGeneratePDF} disabled={generatingPDF}>
                   {generatingPDF ? (
                       <View style={{ alignItems: 'center', gap: 8 }}>
                         <ActivityIndicator size="small" color="#FFFFFF" />
