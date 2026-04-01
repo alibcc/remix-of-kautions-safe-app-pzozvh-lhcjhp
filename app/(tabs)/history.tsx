@@ -58,13 +58,13 @@ export default function HistoryScreen() {
       console.log('HistoryScreen: Fetching completed inspections for user:', user.id);
 
       // CRITICAL FIX #5: Query reports table correctly with user_id filter
-      const { data, error } = await supabase
-        .from('reports')
-        .select('id, address, inspection_type, inspection_date, pdf_url, created_at')
-        .eq('user_id', user.id)
-        .eq('status', 'COMPLETED')
-        .not('pdf_url', 'is', null)
-        .order('created_at', { ascending: false });
+     const { data, error } = await supabase
+  .from('reports')
+  .select('id, address, inspection_type, inspection_date, pdf_url, created_at')
+  .eq('user_id', user.id)
+  .eq('is_paid', true)
+  .not('pdf_url', 'is', null)
+  .order('created_at', { ascending: false });
 
       if (error) {
         console.error('HistoryScreen: Error fetching completed inspections:', error);
@@ -248,7 +248,7 @@ export default function HistoryScreen() {
                         size={20}
                         color="#FFFFFF"
                       />
-                      <Text style={styles.reopenButtonText}>Re-open PDF</Text>
+                      <Text style={styles.reopenButtonText}>📄 Download PDF</Text>
                     </TouchableOpacity>
                   )}
                 </View>
