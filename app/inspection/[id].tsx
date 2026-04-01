@@ -163,11 +163,12 @@ const [generatedPdfUrl, setGeneratedPdfUrl] = useState<string | null>(null);
   };
 
 useEffect(() => {
-    const checkPaidStatus = async () => {
-      if (!id) return;
-      const { data } = await supabase.from('reports').select('is_paid').eq('id', id).single();
-      if (data?.is_paid) setIsPaid(true);
-    };
+const checkPaidStatus = async () => {
+  if (!id) return;
+  const { data } = await supabase.from('reports').select('is_paid, pdf_url').eq('id', id).single();
+  if (data?.is_paid) setIsPaid(true);
+  if (data?.pdf_url) setGeneratedPdfUrl(data.pdf_url);
+};
 
     const handleDeepLink = (event: { url: string }) => {
       if (event.url.includes('payment-complete') && event.url.includes(id as string)) {
