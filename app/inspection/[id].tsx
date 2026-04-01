@@ -909,35 +909,41 @@ try {
                       style={[styles.emailSendBtn, emailModal.status === 'sending' && styles.emailSendBtnDisabled]}
                       disabled={emailModal.status === 'sending'}
                       activeOpacity={0.85}
-                      onPress={async () => {
-                        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                        const tenantValid = !emailModal.tenantEmail || emailRegex.test(emailModal.tenantEmail);
-                        const landlordValid = !emailModal.landlordEmail || emailRegex.test(emailModal.landlordEmail);
-                        if (!emailModal.tenantEmail && !emailModal.landlordEmail) {
-                          setEmailModal(s => ({ ...s, errorMsg: 'Bitte mindestens eine E-Mail-Adresse eingeben.\nPlease enter at least one email address.' }));
-                          return;
-                        }
-                        if (!tenantValid || !landlordValid) {
-                          setEmailModal(s => ({ ...s, errorMsg: 'Bitte gültige E-Mail-Adressen eingeben.\nPlease enter valid email addresses.' }));
-                          return;
-                        }
-                        setEmailModal(s => ({ ...s, status: 'sending', errorMsg: '' }));
-                        const response = await fetch('https://movproof-pdf-api.vercel.app/api/create-checkout', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            protocolId: id,
-                            tenantEmail: emailModal.tenantEmail,
-                            landlordEmail: emailModal.landlordEmail,
-                          }),
-                        });
-                        const data = await response.json();
-                        setEmailModal(s => ({ ...s, status: 'idle', visible: false }));
-                        if (data.url) {
-                          try { await Linking.openURL(data.url); } catch(e) {}
-                        }
-                      }}>
-                      {emailModal.status === 'sending' ? <ActivityIndicator color="#4A3008" /> : <Text style={styles.emailSendBtnText}>Weiter zur Zahlung / Proceed to Payment €2 →</Text>}
+onPress={async () => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const tenantValid = !emailModal.tenantEmail || emailRegex.test(emailModal.tenantEmail);
+  const landlordValid = !emailModal.landlordEmail || emailRegex.test(emailModal.landlordEmail);
+  if (!emailModal.tenantEmail && !emailModal.landlordEmail) {
+    setEmailModal(s => ({ ...s, errorMsg: 'Bitte mindestens eine E-Mail-Adresse eingeben.\nPlease enter at least one email address.' }));
+    return;
+  }
+  if (!tenantValid || !landlordValid) {
+    setEmailModal(s => ({ ...s, errorMsg: 'Bitte gültige E-Mail-Adressen eingeben.\nPlease enter valid email addresses.' }));
+    return;
+  }
+  setEmailModal(s => ({ ...s, status: 'sending', errorMsg: '' }));
+  if (isPaid) {
+    // Already paid — send email directly
+    await sendProtocolEmail();
+  } else {
+    // Not paid — go to Stripe checkout
+    const response = await fetch('https://movproof-pdf-api.vercel.app/api/create-checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        protocolId: id,
+        tenantEmail: emailModal.tenantEmail,
+        landlordEmail: emailModal.landlordEmail,
+      }),
+    });
+    const data = await response.json();
+    setEmailModal(s => ({ ...s, status: 'idle', visible: false }));
+    if (data.url) {
+      try { await Linking.openURL(data.url); } catch(e) {}
+    }
+  }
+}}>
+                      {emailModal.status === 'sending' ? <ActivityIndicator color="#4A3008" /> : <Text style={styles.emailSendBtnText}>{isPaid ? 'PDF senden / Send PDF →' : 'Weiter zur Zahlung / Proceed to Payment €2 →'}</Text>}
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => setEmailModal(s => ({ ...s, visible: false, status: 'idle' }))} style={styles.emailCancelBtn}>
                       <Text style={styles.emailCancelText}>Cancel / Abbrechen</Text>
