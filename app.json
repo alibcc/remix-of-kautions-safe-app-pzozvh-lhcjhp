@@ -40,7 +40,8 @@
     },
 "plugins": [
   "expo-font",
-  ["expo-router", { "origin": "moveproof://" }],
+"expo-router",
+  
   "expo-web-browser",
 ```
 
