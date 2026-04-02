@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "@/app/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
+import { Linking } from "react-native";
 
 interface AuthContextType {
   user: User | null;
@@ -42,8 +43,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
-  }, []);
+    // Handle deep link redirect after OAuth
+    const handleDeepLink = async (event: { url: string }) => {
+      if (event.url.includes("auth/callback")) {
+        console.log("AuthProvider: OAuth callback received:", event.url);
+        const { data, error } = await supabase.auth.getSessionFromUrl({ url: event.url });
+        if (error) {
+          console.error("AuthProvider: Error getting session from URL:", error.message);
+        } else {
+          console.log("AuthProvider: Session from URL:", data?.session?.user?.email);
+        }
+      }
+    };
+
+    const linkingSubscription = Linking.addEventListener("url", handleDeepLink);
+
+    // Handle case where app was opened from a deep link (cold start)
+    Linking.getInitialURL().then((url) => {
+      if (url && url.includes("auth/callback")) {
+        handleDeepLink({ url });
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+      linkingSubscription.remove();
+    };
+```
+
+---
+
+## One more thing — Supabase Dashboard
+
+Go to your **Supabase project → Authentication → URL Configuration** and add this to the **Redirect URLs** list:
+```
+moveproof://auth/callback  }, []);
 
   const signInWithEmail = async (email: string, password: string) => {
     console.log("AuthProvider: Signing in with email:", email);
@@ -75,15 +109,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log("AuthProvider: Sign up successful:", data.user?.email);
   };
 
-  const signInWithGoogle = async () => {
+const signInWithGoogle = async () => {
     console.log("AuthProvider: Signing in with Google");
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
+      options: {
+        redirectTo: "moveproof://auth/callback",
+      },
     });
 
     if (error) {
       console.error("AuthProvider: Google sign in error:", error.message);
       throw error;
+    }
+
+    if (data?.url) {
+      await Linking.openURL(data.url);
     }
 
     console.log("AuthProvider: Google sign in initiated");
@@ -93,11 +134,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log("AuthProvider: Signing in with Apple");
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "apple",
+      options: {
+        redirectTo: "moveproof://auth/callback",
+      },
     });
 
     if (error) {
       console.error("AuthProvider: Apple sign in error:", error.message);
       throw error;
+    }
+
+    if (data?.url) {
+      await Linking.openURL(data.url);
     }
 
     console.log("AuthProvider: Apple sign in initiated");
