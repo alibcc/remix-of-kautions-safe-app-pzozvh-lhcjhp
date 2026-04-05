@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "@/app/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
@@ -24,8 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     console.log("AuthProvider: Initializing auth state");
-    
-    // Get initial session
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       console.log("AuthProvider: Initial session:", session?.user?.email || "No session");
       setSession(session);
@@ -33,7 +31,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -43,7 +40,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    // Handle deep link redirect after OAuth
     const handleDeepLink = async (event: { url: string }) => {
       if (event.url.includes("auth/callback")) {
         console.log("AuthProvider: OAuth callback received:", event.url);
@@ -58,7 +54,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const linkingSubscription = Linking.addEventListener("url", handleDeepLink);
 
-    // Handle case where app was opened from a deep link (cold start)
     Linking.getInitialURL().then((url) => {
       if (url && url.includes("auth/callback")) {
         handleDeepLink({ url });
@@ -69,15 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       subscription.unsubscribe();
       linkingSubscription.remove();
     };
-```
-
----
-
-## One more thing — Supabase Dashboard
-
-Go to your **Supabase project → Authentication → URL Configuration** and add this to the **Redirect URLs** list:
-```
-moveproof://auth/callback  }, []);
+  }, []);
 
   const signInWithEmail = async (email: string, password: string) => {
     console.log("AuthProvider: Signing in with email:", email);
@@ -85,12 +72,10 @@ moveproof://auth/callback  }, []);
       email,
       password,
     });
-
     if (error) {
       console.error("AuthProvider: Sign in error:", error.message);
       throw error;
     }
-
     console.log("AuthProvider: Sign in successful:", data.user?.email);
   };
 
@@ -100,16 +85,14 @@ moveproof://auth/callback  }, []);
       email,
       password,
     });
-
     if (error) {
       console.error("AuthProvider: Sign up error:", error.message);
       throw error;
     }
-
     console.log("AuthProvider: Sign up successful:", data.user?.email);
   };
 
-const signInWithGoogle = async () => {
+  const signInWithGoogle = async () => {
     console.log("AuthProvider: Signing in with Google");
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -117,16 +100,13 @@ const signInWithGoogle = async () => {
         redirectTo: "moveproof://auth/callback",
       },
     });
-
     if (error) {
       console.error("AuthProvider: Google sign in error:", error.message);
       throw error;
     }
-
     if (data?.url) {
       await Linking.openURL(data.url);
     }
-
     console.log("AuthProvider: Google sign in initiated");
   };
 
@@ -138,16 +118,13 @@ const signInWithGoogle = async () => {
         redirectTo: "moveproof://auth/callback",
       },
     });
-
     if (error) {
       console.error("AuthProvider: Apple sign in error:", error.message);
       throw error;
     }
-
     if (data?.url) {
       await Linking.openURL(data.url);
     }
-
     console.log("AuthProvider: Apple sign in initiated");
   };
 
@@ -159,7 +136,6 @@ const signInWithGoogle = async () => {
         console.error("AuthProvider: Sign out error:", error.message);
       }
     } finally {
-      // Always clear local state
       setUser(null);
       setSession(null);
       console.log("AuthProvider: Sign out complete");
