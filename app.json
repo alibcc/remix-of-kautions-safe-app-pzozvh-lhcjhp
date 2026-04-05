@@ -17,8 +17,8 @@
       "bundleIdentifier": "com.anonymous.Natively",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSCameraUsageDescription": "Kautions-Safe m\u00f6chte auf Ihre Kamera zugreifen, um Fotos f\u00fcr das Protokoll zu machen.",
-        "NSPhotoLibraryUsageDescription": "Kautions-Safe m\u00f6chte auf Ihre Fotos zugreifen, um Bilder f\u00fcr das Protokoll auszuw\u00e4hlen."
+        "NSCameraUsageDescription": "Kautions-Safe möchte auf Ihre Kamera zugreifen, um Fotos für das Protokoll zu machen.",
+        "NSPhotoLibraryUsageDescription": "Kautions-Safe möchte auf Ihre Fotos zugreifen, um Bilder für das Protokoll auszuwählen."
       }
     },
     "android": {
@@ -38,34 +38,21 @@
       "favicon": "./assets/images/final_quest_240x240.png",
       "bundler": "metro"
     },
-"plugins": [
-  "expo-font",
-"expo-router",
-  
-  "expo-web-browser",
-```
-
----
-
-**Back to the OAuth fix — your scheme is confirmed as `moveproof` so the redirect URLs in the previous fixes are already correct.** Just make sure you also add this in **Supabase dashboard → Authentication → URL Configuration → Redirect URLs**:
-```
-moveproof://auth/callback
-```
-
-And also check Google Cloud Console (if you set up Google OAuth there) — the authorized redirect URI there also needs to include:
-```
-https://uxcqlvlealowlsmrxmrn.supabase.co/auth/v1/callback
+    "plugins": [
+      "expo-font",
+      "expo-router",
+      "expo-web-browser",
       [
         "expo-camera",
         {
-          "cameraPermission": "Kautions-Safe m\u00f6chte auf Ihre Kamera zugreifen, um Fotos f\u00fcr das Protokoll zu machen."
+          "cameraPermission": "Kautions-Safe möchte auf Ihre Kamera zugreifen, um Fotos für das Protokoll zu machen."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Kautions-Safe m\u00f6chte auf Ihre Fotos zugreifen, um Bilder f\u00fcr das Protokoll auszuw\u00e4hlen.",
-          "cameraPermission": "Kautions-Safe m\u00f6chte auf Ihre Kamera zugreifen, um Fotos f\u00fcr das Protokoll zu machen."
+          "photosPermission": "Kautions-Safe möchte auf Ihre Fotos zugreifen, um Bilder für das Protokoll auszuwählen.",
+          "cameraPermission": "Kautions-Safe möchte auf Ihre Kamera zugreifen, um Fotos für das Protokoll zu machen."
         }
       ]
     ],
