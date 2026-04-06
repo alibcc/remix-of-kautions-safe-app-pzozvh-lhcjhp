@@ -75,7 +75,7 @@ export default function ProfileScreen() {
   const handleContactSupport = () => {
     console.log('User tapped Contact Support button');
     // TODO: Backend Integration - POST /api/support/contact
-    showAlert('Contact Support', 'Please email us at support@kautions-safe.com for assistance.', 'info');
+    showAlert('Contact Support', 'Please email us at support@moveproof.app for assistance.', 'info');
   };
 
   const userEmail = user?.email || "No email";
