@@ -9,6 +9,7 @@ import { GlassView } from "expo-glass-effect";
 import { useTheme } from "@react-navigation/native";
 import { ConfirmModal, AlertModal } from "@/components/ui/Modal";
 import { colors } from "@/styles/commonStyles";
+import { supabase } from "@/app/integrations/supabase/client";
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
@@ -59,17 +60,45 @@ export default function ProfileScreen() {
     setShowEditProfileModal(true);
   };
 
-  const handleSaveProfile = () => {
+const handleSaveProfile = async () => {
     console.log('User tapped Save Profile button');
-    // TODO: Backend Integration - PUT /api/user/profile with { name, email }
-    showAlert('Coming Soon', 'Profile editing will be available soon!', 'info');
-    setShowEditProfileModal(false);
+    if (!editName.trim()) {
+      showAlert('Error', 'Name cannot be empty', 'error');
+      return;
+    }
+    try {
+      const { error } = await supabase.auth.updateUser({
+        email: editEmail.trim() !== user?.email ? editEmail.trim() : undefined,
+        data: { name: editName.trim() },
+      });
+      if (error) {
+        showAlert('Error', error.message, 'error');
+        return;
+      }
+      showAlert('Success', editEmail.trim() !== user?.email
+        ? 'Profile updated. Please check your new email for a confirmation link.'
+        : 'Profile updated successfully.', 'success');
+      setShowEditProfileModal(false);
+    } catch (err: any) {
+      showAlert('Error', err.message, 'error');
+    }
   };
 
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
     console.log('User tapped Change Password button');
-    // TODO: Backend Integration - POST /api/user/change-password
-    showAlert('Coming Soon', 'Password change will be available soon!', 'info');
+    if (!user?.email) return;
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+        redirectTo: 'moveproof://auth/callback',
+      });
+      if (error) {
+        showAlert('Error', error.message, 'error');
+        return;
+      }
+      showAlert('Email Sent', 'Check your email for a password reset link.', 'success');
+    } catch (err: any) {
+      showAlert('Error', err.message, 'error');
+    }
   };
 
   const handleContactSupport = () => {
