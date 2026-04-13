@@ -17,8 +17,8 @@
       "bundleIdentifier": "com.anonymous.Natively",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSCameraUsageDescription": "Kautions-Safe m\u00f6chte auf Ihre Kamera zugreifen, um Fotos f\u00fcr das Protokoll zu machen.",
-        "NSPhotoLibraryUsageDescription": "Kautions-Safe m\u00f6chte auf Ihre Fotos zugreifen, um Bilder f\u00fcr das Protokoll auszuw\u00e4hlen."
+        "NSCameraUsageDescription": "MoveProof möchte auf Ihre Kamera zugreifen, um Fotos für das Protokoll zu machen.",
+        "NSPhotoLibraryUsageDescription": "MoveProof möchte auf Ihre Fotos zugreifen, um Bilder für das Protokoll auszuwählen."
       }
     },
     "android": {
@@ -45,14 +45,14 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Kautions-Safe m\u00f6chte auf Ihre Kamera zugreifen, um Fotos f\u00fcr das Protokoll zu machen."
+          "cameraPermission": "MoveProof möchte auf Ihre Kamera zugreifen, um Fotos für das Protokoll zu machen."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Kautions-Safe m\u00f6chte auf Ihre Fotos zugreifen, um Bilder f\u00fcr das Protokoll auszuw\u00e4hlen.",
-          "cameraPermission": "Kautions-Safe m\u00f6chte auf Ihre Kamera zugreifen, um Fotos f\u00fcr das Protokoll zu machen."
+          "photosPermission": "MoveProof möchte auf Ihre Fotos zugreifen, um Bilder für das Protokoll auszuwählen.",
+          "cameraPermission": "MoveProof möchte auf Ihre Kamera zugreifen, um Fotos für das Protokoll zu machen."
         }
       ]
     ],
