@@ -27,7 +27,7 @@
         "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.Natively",
+      "package": "com.moveproof.app",
       "permissions": [
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
