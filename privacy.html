@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Datenschutzerklärung / Privacy Policy — MoveProof</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --yellow: #F2C12E;
+      --ink: #1A1A1A;
+      --ink-light: #444;
+      --ink-muted: #777;
+      --bg: #FDFAF3;
+      --card: #FFFFFF;
+      --border: #E8E0CC;
+      --accent: #E85D26;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.7;
+    }
+
+    header {
+      background: var(--ink);
+      padding: 24px 40px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .logo-mark {
+      width: 40px;
+      height: 40px;
+      background: var(--yellow);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'DM Serif Display', serif;
+      font-size: 20px;
+      color: var(--ink);
+    }
+
+    .logo-text {
+      font-family: 'DM Serif Display', serif;
+      font-size: 22px;
+      color: #FFFFFF;
+      letter-spacing: -0.3px;
+    }
+
+    .lang-switcher {
+      margin-left: auto;
+      display: flex;
+      gap: 8px;
+    }
+
+    .lang-btn {
+      background: transparent;
+      border: 1.5px solid #444;
+      color: #888;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      padding: 6px 14px;
+      border-radius: 2px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .lang-btn.active, .lang-btn:hover {
+      border-color: var(--yellow);
+      color: var(--yellow);
+    }
+
+    .hero {
+      background: var(--ink);
+      padding: 80px 40px 60px;
+      border-bottom: 4px solid var(--yellow);
+    }
+
+    .hero-tag {
+      display: inline-block;
+      background: var(--yellow);
+      color: var(--ink);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 4px 12px;
+      border-radius: 2px;
+      margin-bottom: 20px;
+    }
+
+    .hero h1 {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(28px, 5vw, 56px);
+      color: #FFFFFF;
+      line-height: 1.1;
+      letter-spacing: -1px;
+      max-width: 800px;
+      margin-bottom: 20px;
+    }
+
+    .hero-meta {
+      color: #888;
+      font-size: 14px;
+      font-weight: 300;
+    }
+
+    .hero-meta span { color: var(--yellow); }
+
+    main {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 60px 40px 100px;
+    }
+
+    /* Language sections */
+    .lang-section {
+      display: block;
+    }
+
+    .lang-section.hidden {
+      display: none;
+    }
+
+    .lang-divider {
+      border: none;
+      border-top: 4px solid var(--yellow);
+      margin: 80px 0;
+      position: relative;
+    }
+
+    .lang-divider-label {
+      position: absolute;
+      top: -14px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--yellow);
+      color: var(--ink);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 4px 16px;
+      border-radius: 2px;
+      white-space: nowrap;
+    }
+
+    .toc {
+      background: var(--card);
+      border: 1.5px solid var(--border);
+      border-left: 4px solid var(--yellow);
+      padding: 28px 32px;
+      margin-bottom: 56px;
+      border-radius: 2px;
+    }
+
+    .toc-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--ink-muted);
+      margin-bottom: 16px;
+    }
+
+    .toc ol { padding-left: 20px; }
+    .toc li { margin-bottom: 8px; }
+    .toc a {
+      color: var(--ink);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .toc a:hover { color: var(--accent); }
+
+    section {
+      margin-bottom: 56px;
+      scroll-margin-top: 100px;
+    }
+
+    .section-number {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--yellow);
+      background: var(--ink);
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 2px;
+      margin-bottom: 12px;
+    }
+
+    h2 {
+      font-family: 'DM Serif Display', serif;
+      font-size: 28px;
+      color: var(--ink);
+      line-height: 1.2;
+      letter-spacing: -0.5px;
+      margin-bottom: 20px;
+    }
+
+    p {
+      font-size: 15px;
+      color: var(--ink-light);
+      margin-bottom: 16px;
+      font-weight: 300;
+    }
+
+    ul, ol { padding-left: 20px; margin-bottom: 16px; }
+
+    li {
+      font-size: 15px;
+      color: var(--ink-light);
+      margin-bottom: 8px;
+      font-weight: 300;
+    }
+
+    strong { color: var(--ink); font-weight: 600; }
+
+    .highlight-box {
+      background: var(--card);
+      border: 1.5px solid var(--border);
+      border-left: 4px solid var(--accent);
+      padding: 20px 24px;
+      margin: 24px 0;
+      border-radius: 2px;
+    }
+
+    .highlight-box p { margin: 0; font-size: 14px; }
+
+    .divider {
+      border: none;
+      border-top: 1.5px solid var(--border);
+      margin: 56px 0;
+    }
+
+    .contact-card {
+      background: var(--ink);
+      color: #FFFFFF;
+      padding: 40px;
+      border-radius: 2px;
+      margin-top: 56px;
+    }
+
+    .contact-card h3 {
+      font-family: 'DM Serif Display', serif;
+      font-size: 24px;
+      margin-bottom: 8px;
+      color: #FFFFFF;
+    }
+
+    .contact-card p { color: #aaa; font-size: 14px; margin-bottom: 20px; }
+
+    .contact-email {
+      display: inline-block;
+      background: var(--yellow);
+      color: var(--ink);
+      font-weight: 600;
+      font-size: 15px;
+      padding: 12px 24px;
+      border-radius: 2px;
+      text-decoration: none;
+      transition: opacity 0.2s;
+    }
+
+    .contact-email:hover { opacity: 0.85; }
+
+    footer {
+      background: var(--ink);
+      padding: 24px 40px;
+      text-align: center;
+    }
+
+    footer p { color: #555; font-size: 12px; margin: 0; }
+    footer span { color: var(--yellow); }
+
+    @media (max-width: 600px) {
+      header { padding: 16px 20px; }
+      .hero { padding: 48px 20px 40px; }
+      main { padding: 40px 20px 80px; }
+      .contact-card { padding: 28px 20px; }
+      footer { padding: 20px; }
+      .lang-btn { padding: 5px 10px; font-size: 11px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-mark">M</div>
+  <span class="logo-text">MoveProof</span>
+  <div class="lang-switcher">
+    <button class="lang-btn active" onclick="showLang('both')">DE + EN</button>
+    <button class="lang-btn" onclick="showLang('de')">DE</button>
+    <button class="lang-btn" onclick="showLang('en')">EN</button>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="hero-tag">Rechtliches / Legal</div>
+  <h1>Datenschutzerklärung &amp; Privacy Policy</h1>
+  <p class="hero-meta">Zuletzt aktualisiert / Last updated: <span>15. April 2026</span></p>
+</div>
+
+<main>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- GERMAN SECTION -->
+  <!-- ═══════════════════════════════════════════════════ -->
+
+  <div class="lang-section" id="section-de">
+
+    <div class="toc">
+      <div class="toc-title">Inhaltsverzeichnis</div>
+      <ol>
+        <li><a href="#de-overview">Überblick</a></li>
+        <li><a href="#de-data">Erhobene Daten</a></li>
+        <li><a href="#de-use">Verwendung der Daten</a></li>
+        <li><a href="#de-sharing">Datenweitergabe</a></li>
+        <li><a href="#de-storage">Datenspeicherung & Sicherheit</a></li>
+        <li><a href="#de-rights">Ihre Rechte (DSGVO)</a></li>
+        <li><a href="#de-retention">Aufbewahrung</a></li>
+        <li><a href="#de-children">Kinder</a></li>
+        <li><a href="#de-changes">Änderungen</a></li>
+        <li><a href="#de-contact">Kontakt</a></li>
+      </ol>
+    </div>
+
+    <section id="de-overview">
+      <div class="section-number">01</div>
+      <h2>Überblick</h2>
+      <p>MoveProof („wir", „uns" oder „unser") ist eine mobile Anwendung, die Mietern und Vermietern hilft, Wohnungsübergabeprotokolle zu erstellen, zu dokumentieren und zu teilen. Wir verpflichten uns zum Schutz Ihrer personenbezogenen Daten.</p>
+      <p>Diese Datenschutzerklärung erläutert, welche Daten wir erheben, warum wir sie erheben und wie wir damit umgehen — in Übereinstimmung mit der <strong>Datenschutz-Grundverordnung (DSGVO)</strong> und dem deutschen Datenschutzrecht.</p>
+      <div class="highlight-box">
+        <p>Mit der Nutzung von MoveProof stimmen Sie der Erhebung und Verwendung Ihrer Daten gemäß dieser Richtlinie zu. Wenn Sie nicht einverstanden sind, verwenden Sie die App bitte nicht.</p>
+      </div>
+    </section>
+
+    <hr class="divider" />
+
+    <section id="de-data">
+      <div class="section-number">02</div>
+      <h2>Erhobene Daten</h2>
+      <p>Wir erheben nur die Daten, die zur Bereitstellung des MoveProof-Dienstes erforderlich sind:</p>
+
+      <p><strong>Kontodaten</strong></p>
+      <ul>
+        <li>E-Mail-Adresse (für die Kontoerstellung erforderlich)</li>
+        <li>Name (optional, wird für Protokolldokumente verwendet)</li>
+        <li>Passwort (verschlüsselt gespeichert — wir sehen Ihr Passwort nie im Klartext)</li>
+        <li>Google-Kontoinformationen bei Google-Anmeldung (E-Mail, Anzeigename)</li>
+        <li>Apple-Kontoinformationen bei Apple-Anmeldung (E-Mail oder anonymisierte Relay-E-Mail, Anzeigename)</li>
+      </ul>
+
+      <p><strong>Protokolldaten</strong></p>
+      <ul>
+        <li>Objektadresse</li>
+        <li>Raumnamen, Zustände und Notizen</li>
+        <li>Fotos, die Sie in der App aufnehmen oder hochladen</li>
+        <li>GPS-Koordinaten der Fotos (zur Verifikation)</li>
+        <li>Zeitstempel der Protokollaktivitäten</li>
+        <li>Zählerstände (Strom, Gas, Wasser, Heizung)</li>
+        <li>Schlüsselübergabeinformationen</li>
+        <li>Digitale Unterschriften von Mieter, Vermieter und Zeuge</li>
+      </ul>
+
+      <p><strong>Zahlungsdaten</strong></p>
+      <ul>
+        <li>Wir verwenden <strong>Stripe</strong> für die Zahlungsabwicklung. Wir speichern keine Kreditkartendaten. Stripe verarbeitet alle Zahlungsdaten gemäß ihrer eigenen Datenschutzrichtlinie.</li>
+        <li>Wir speichern nur, ob ein Protokoll bezahlt wurde (ja/nein) und die zugehörige Transaktionsreferenz.</li>
+      </ul>
+
+      <p><strong>Nutzungsdaten</strong></p>
+      <ul>
+        <li>App-Version und Gerätetyp (für Debugging-Zwecke)</li>
+        <li>Fehlerprotokolle (zur Behebung technischer Probleme)</li>
+      </ul>
+    </section>
+
+    <hr class="divider" />
+
+    <section id="de-use">
+      <div class="section-number">03</div>
+      <h2>Verwendung der Daten</h2>
+      <p>Wir verwenden Ihre Daten ausschließlich zur Bereitstellung und Verbesserung des MoveProof-Dienstes:</p>
+      <ul>
+        <li>Erstellung und Speicherung Ihrer Übergabeprotokolle</li>
+        <li>Generierung von PDF-Dokumenten</li>
+        <li>Versand der PDF-Protokolle an die angegebenen E-Mail-Adressen (Mieter und Vermieter)</li>
+        <li>Zahlungsabwicklung über Stripe</li>
+        <li>Authentifizierung und Sitzungsverwaltung</li>
+        <li>Versand von Passwort-Reset-E-Mails auf Anfrage</li>
+        <li>Fehlerbehebung und Verbesserung der App</li>
+      </ul>
+      <div class="highlight-box">
+        <p><strong>Wir verwenden Ihre Daten nicht für Werbung, Profiling oder Marketingzwecke.</strong> Wir verkaufen Ihre Daten nicht an Dritte.</p>
+      </div>
+    </section>
+
+    <hr class="divider" />
+
+    <section id="de-sharing">
+      <div class="section-number">04</div>
+      <h2>Datenweitergabe</h2>
+      <p>Wir geben Ihre Daten nur an folgende Dienstleister weiter, die für den Betrieb von MoveProof unbedingt erforderlich sind:</p>
+      <ul>
+        <li><strong>Supabase</strong> — Datenbank und Authentifizierung. Speichert Konto- und Protokolldaten sicher. Server in der EU.</li>
+        <li><strong>Stripe</strong> — Zahlungsabwicklung. Verarbeitet alle Karteninhaberdaten nach PCI-DSS-Standard.</li>
+        <li><strong>Resend</strong> — E-Mail-Versand. Wird verwendet, um Protokoll-PDFs an Mieter und Vermieter zu senden.</li>
+        <li><strong>Vercel</strong> — Backend-Infrastruktur für die PDF-Generierung. Daten werden nur vorübergehend verarbeitet und nicht gespeichert.</li>
+      </ul>
+      <p>Wir geben Ihre Daten nicht an andere Dritte, Werbetreibende oder Datenhändler weiter.</p>
+    </section>
+
+    <hr class="divider" />
+
+    <section id="de-storage">
+      <div class="section-number">05</div>
+      <h2>Datenspeicherung & Sicherheit</h2>
+      <p>Ihre Daten werden auf <strong>Supabase</strong>-Servern in der Europäischen Union gespeichert. Wir setzen folgende Sicherheitsmaßnahmen ein:</p>
+      <ul>
+        <li>Alle Daten werden über verschlüsselte HTTPS-Verbindungen übertragen</li>
+        <li>Passwörter werden gehasht und nie im Klartext gespeichert</li>
+        <li>Row-Level-Security (RLS) stellt sicher, dass Sie nur auf Ihre eigenen Daten zugreifen können</li>
+        <li>Fotos werden in einem privaten Speicher gespeichert, der nur für authentifizierte Nutzer zugänglich ist</li>
+        <li>Zahlungsdaten werden ausschließlich von Stripe verarbeitet</li>
+      </ul>
+    </section>
+
+    <hr class="divider" />
+
+    <section id="de-rights">
+      <div class="section-number">06</div>
+      <h2>Ihre Rechte (DSGVO)</h2>
+      <p>Als Nutzer in der Europäischen Union haben Sie folgende Rechte gemäß der DSGVO:</p>
+      <ul>
+        <li><strong>Auskunftsrecht</strong> — Sie können eine Kopie aller personenbezogenen Daten anfordern, die wir über Sie speichern</li>
+        <li><strong>Recht auf Berichtigung</strong> — Sie können ungenaue Daten über die Profileinstellungen der App korrigieren</li>
+        <li><strong>Recht auf Löschung</strong> — Sie können die Löschung Ihres Kontos und aller zugehörigen Daten beantragen</li>
+        <li><strong>Recht auf Datenübertragbarkeit</strong> — Sie können Ihre Daten in einem maschinenlesbaren Format anfordern</li>
+        <li><strong>Widerspruchsrecht</strong> — Sie können der Verarbeitung Ihrer Daten widersprechen</li>
+        <li><strong>Recht auf Einschränkung der Verarbeitung</strong> — Sie können beantragen, dass wir die Nutzung Ihrer Daten einschränken</li>
+      </ul>
+      <p>Um eines dieser Rechte auszuüben, kontaktieren Sie uns unter <strong>support@moveproof.app</strong>. Wir antworten innerhalb von 30 Tagen.</p>
+      <p>Sie haben auch das Recht, eine Beschwerde bei der zuständigen Datenschutzbehörde einzureichen: <strong>Bundesbeauftragte für den Datenschutz und die Informationsfreiheit (BfDI)</strong>, Graurheindorfer Str. 153, 53117 Bonn.</p>
+    </section>
+
+    <hr class="divider" />
+
+    <section id="de-retention">
+      <div class="section-number">07</div>
+      <h2>Aufbewahrung</h2>
+      <p>Wir speichern Ihre Daten, solange Ihr Konto aktiv ist. Bei Kontolöschung:</p>
+      <ul>
+        <li>Kontodaten werden sofort gelöscht</li>
+        <li>Protokolle und Fotos werden innerhalb von 30 Tagen gelöscht</li>
+        <li>Zahlungsbelege können bis zu 7 Jahre aus steuerlichen und rechtlichen Gründen aufbewahrt werden</li>
+      </ul>
+      <p>Sie können einzelne Inspektionen jederzeit in der App löschen.</p>
+    </section>
+
+    <hr class="divider" />
+
+    <section id="de-children">
+      <div class="section-number">08</div>
+      <h2>Kinder</h2>
+      <p>MoveProof richtet sich nicht an Kinder unter 16 Jahren. Wir erheben wissentlich keine personenbezogenen Daten von Kindern. Wenn Sie glauben, dass ein Kind uns Daten übermittelt hat, kontaktieren Sie uns bitte und wir löschen diese umgehend.</p>
+    </section>
+
+    <hr class="divider" />
+
+    <section id="de-changes">
+      <div class="section-number">09</div>
+      <h2>Änderungen dieser Richtlinie</h2>
+      <p>Wir können diese Datenschutzerklärung gelegentlich aktualisieren. Bei wesentlichen Änderungen informieren wir Sie per E-Mail oder In-App-Benachrichtigung. Das Datum „Zuletzt aktualisiert" am Anfang dieser Seite wird entsprechend angepasst.</p>
+    </section>
+
+    <hr class="divider" />
+
+    <section id="de-contact">
+      <div class="section-number">10</div>
+      <h2>Kontakt</h2>
+      <p>Bei Fragen zu dieser Datenschutzerklärung oder Ihren personenbezogenen Daten wenden Sie sich bitte an uns:</p>
+    </section>
+
+    <div class="contact-card">
+      <h3>Kontakt aufnehmen</h3>
+      <p>Wir antworten in der Regel innerhalb von 2 Werktagen.</p>
+      <a href="mailto:support@moveproof.app" class="contact-email">support@moveproof.app</a>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- LANGUAGE DIVIDER -->
+  <!-- ═══════════════════════════════════════════════════ -->
+
+  <div class="lang-divider" id="lang-divider">
+    <span class="lang-divider-label">English Version Below</span>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- ENGLISH SECTION -->
+  <!-- ═══════════════════════════════════════════════════ -->
+
+  <div class="lang-section" id="section-en">
+
+    <div class="toc">
+      <div class="toc-title">Contents</div>
+      <ol>
+        <li><a href="#en-overview">Overview</a></li>
+        <li><a href="#en-data">Data We Collect</a></li>
+        <li><a href="#en-use">How We Use Your Data</a></li>
+        <li><a href="#en-sharing">Data Sharing</a></li>
+        <li><a href="#en-storage">Data Storage & Security</a></li>
+        <li><a href="#en-rights">Your Rights (GDPR)</a></li>
+        <li><a href="#en-retention">Data Retention</a></li>
+        <li><a href="#en-children">Children's Privacy</a></li>
+        <li><a href="#en-changes">Changes to This Policy</a></li>
+        <li><a href="#en-contact">Contact Us</a></li>
+      </ol>
+    </div>
+
+    <section id="en-overview">
+      <div class="section-number">01</div>
+      <h2>Overview</h2>
+      <p>MoveProof ("we", "our", or "us") is a mobile application that helps tenants and landlords create, document, and share apartment handover protocols (Übergabeprotokolle) in Germany. We are committed to protecting your personal data and respecting your privacy.</p>
+      <p>This Privacy Policy explains what data we collect, why we collect it, and how we handle it in accordance with the <strong>General Data Protection Regulation (GDPR)</strong> and applicable German data protection law.</p>
+      <div class="highlight-box">
+        <p>By using MoveProof, you agree to the collection and use of your information as described in this policy. If you do not agree, please do not use the app.</p>
+      </div>
+    </section>
+
+    <hr class="divider" />
+
+    <section id="en-data">
+      <div class="section-number">02</div>
+      <h2>Data We Collect</h2>
+      <p>We collect only the data necessary to provide the MoveProof service:</p>
+
+      <p><strong>Account Data</strong></p>
+      <ul>
+        <li>Email address (required for account creation)</li>
+        <li>Name (optional, used for protocol documents)</li>
+        <li>Password (stored encrypted — we never see your plain-text password)</li>
+        <li>Google account information if you sign in with Google (email, display name)</li>
+        <li>Apple account information if you sign in with Apple (email or anonymized relay email, display name)</li>
+      </ul>
+
+      <p><strong>Inspection & Protocol Data</strong></p>
+      <ul>
+        <li>Property address</li>
+        <li>Room names, conditions, and notes you enter</li>
+        <li>Photos you take or upload within the app</li>
+        <li>GPS coordinates attached to photos (for verification purposes)</li>
+        <li>Timestamps of inspection activities</li>
+        <li>Meter readings (electricity, gas, water, heating)</li>
+        <li>Key handover information</li>
+        <li>Digital signatures of tenant, landlord, and witness</li>
+      </ul>
+
+      <p><strong>Payment Data</strong></p>
+      <ul>
+        <li>We use <strong>Stripe</strong> to process payments. We do not store your credit card details. Stripe handles all payment data under their own privacy policy.</li>
+        <li>We store only whether a protocol has been paid for (true/false) and the associated transaction reference.</li>
+      </ul>
+
+      <p><strong>Usage Data</strong></p>
+      <ul>
+        <li>App version and device type (for debugging purposes)</li>
+        <li>Error logs (to identify and fix technical issues)</li>
+      </ul>
+    </section>
+
+    <hr class="divider" />
+
+    <section id="en-use">
+      <div class="section-number">03</div>
+      <h2>How We Use Your Data</h2>
+      <p>We use your data solely to provide and improve the MoveProof service:</p>
+      <ul>
+        <li>To create and store your handover protocols</li>
+        <li>To generate PDF documents of your protocols</li>
+        <li>To send protocol PDFs to the email addresses you provide (tenant and landlord)</li>
+        <li>To process payments via Stripe</li>
+        <li>To authenticate your account and maintain your session</li>
+        <li>To send password reset emails when requested</li>
+        <li>To fix bugs and improve app performance</li>
+      </ul>
+      <div class="highlight-box">
+        <p><strong>We do not use your data for advertising, profiling, or marketing purposes.</strong> We do not sell your data to third parties.</p>
+      </div>
+    </section>
+
+    <hr class="divider" />
+
+    <section id="en-sharing">
+      <div class="section-number">04</div>
+      <h2>Data Sharing</h2>
+      <p>We share your data only with the following service providers, strictly necessary to operate MoveProof:</p>
+      <ul>
+        <li><strong>Supabase</strong> — Database and authentication. Stores account and protocol data securely. EU-based servers.</li>
+        <li><strong>Stripe</strong> — Payment processing. Handles all payment card data under PCI-DSS compliance.</li>
+        <li><strong>Resend</strong> — Email delivery. Used to send protocol PDFs to tenant and landlord email addresses.</li>
+        <li><strong>Vercel</strong> — Backend infrastructure for PDF generation. Data is processed transiently and not stored.</li>
+      </ul>
+      <p>We do not share your data with any other third parties, advertisers, or data brokers.</p>
+    </section>
+
+    <hr class="divider" />
+
+    <section id="en-storage">
+      <div class="section-number">05</div>
+      <h2>Data Storage & Security</h2>
+      <p>Your data is stored on <strong>Supabase</strong> servers located in the European Union. We implement the following security measures:</p>
+      <ul>
+        <li>All data is transmitted over encrypted HTTPS connections</li>
+        <li>Passwords are hashed and never stored in plain text</li>
+        <li>Row-Level Security (RLS) policies ensure you can only access your own data</li>
+        <li>Photos are stored in a private storage bucket accessible only to authenticated users</li>
+        <li>Payment data is handled entirely by Stripe and never touches our servers</li>
+      </ul>
+    </section>
+
+    <hr class="divider" />
+
+    <section id="en-rights">
+      <div class="section-number">06</div>
+      <h2>Your Rights (GDPR)</h2>
+      <p>As a user in the European Union, you have the following rights under the GDPR:</p>
+      <ul>
+        <li><strong>Right of Access</strong> — Request a copy of all personal data we hold about you</li>
+        <li><strong>Right to Rectification</strong> — Correct inaccurate data via the app's profile settings</li>
+        <li><strong>Right to Erasure</strong> — Request deletion of your account and all associated data</li>
+        <li><strong>Right to Portability</strong> — Request your data in a machine-readable format</li>
+        <li><strong>Right to Object</strong> — Object to processing of your data</li>
+        <li><strong>Right to Restrict Processing</strong> — Request that we limit how we use your data</li>
+      </ul>
+      <p>To exercise any of these rights, contact us at <strong>support@moveproof.app</strong>. We will respond within 30 days.</p>
+      <p>You also have the right to lodge a complaint with the German data protection authority: <strong>Bundesbeauftragte für den Datenschutz und die Informationsfreiheit (BfDI)</strong>, Graurheindorfer Str. 153, 53117 Bonn.</p>
+    </section>
+
+    <hr class="divider" />
+
+    <section id="en-retention">
+      <div class="section-number">07</div>
+      <h2>Data Retention</h2>
+      <p>We retain your data for as long as your account is active. If you delete your account:</p>
+      <ul>
+        <li>Your account data is deleted immediately</li>
+        <li>Your inspection protocols and photos are deleted within 30 days</li>
+        <li>Payment records may be retained for up to 7 years for legal and tax compliance</li>
+      </ul>
+      <p>You can delete individual inspections at any time within the app.</p>
+    </section>
+
+    <hr class="divider" />
+
+    <section id="en-children">
+      <div class="section-number">08</div>
+      <h2>Children's Privacy</h2>
+      <p>MoveProof is not directed at children under the age of 16. We do not knowingly collect personal data from children. If you believe a child has provided us with personal data, please contact us and we will delete it promptly.</p>
+    </section>
+
+    <hr class="divider" />
+
+    <section id="en-changes">
+      <div class="section-number">09</div>
+      <h2>Changes to This Policy</h2>
+      <p>We may update this Privacy Policy from time to time. For significant changes, we will notify you via email or an in-app notification. The "Last updated" date at the top will reflect the latest revision.</p>
+    </section>
+
+    <hr class="divider" />
+
+    <section id="en-contact">
+      <div class="section-number">10</div>
+      <h2>Contact Us</h2>
+      <p>If you have questions about this Privacy Policy or your personal data, please contact us:</p>
+    </section>
+
+    <div class="contact-card">
+      <h3>Get in touch</h3>
+      <p>We typically respond within 2 business days.</p>
+      <a href="mailto:support@moveproof.app" class="contact-email">support@moveproof.app</a>
+    </div>
+
+  </div>
+
+</main>
+
+<footer>
+  <p>© 2026 <span>MoveProof</span> · Datenschutz / Privacy · Berlin, Germany</p>
+</footer>
+
+<script>
+  function showLang(lang) {
+    const de = document.getElementById('section-de');
+    const en = document.getElementById('section-en');
+    const divider = document.getElementById('lang-divider');
+    const buttons = document.querySelectorAll('.lang-btn');
+
+    buttons.forEach(b => b.classList.remove('active'));
+
+    if (lang === 'de') {
+      de.classList.remove('hidden');
+      en.classList.add('hidden');
+      divider.style.display = 'none';
+      buttons[1].classList.add('active');
+    } else if (lang === 'en') {
+      de.classList.add('hidden');
+      en.classList.remove('hidden');
+      divider.style.display = 'none';
+      buttons[2].classList.add('active');
+    } else {
+      de.classList.remove('hidden');
+      en.classList.remove('hidden');
+      divider.style.display = 'block';
+      buttons[0].classList.add('active');
+    }
+  }
+</script>
+
+</body>
+</html>
