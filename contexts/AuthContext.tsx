@@ -10,7 +10,6 @@ interface AuthContextType {
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
-  signInWithApple: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -110,24 +109,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log("AuthProvider: Google sign in initiated");
   };
 
-  const signInWithApple = async () => {
-    console.log("AuthProvider: Signing in with Apple");
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: "apple",
-      options: {
-        redirectTo: "moveproof://auth/callback",
-      },
-    });
-    if (error) {
-      console.error("AuthProvider: Apple sign in error:", error.message);
-      throw error;
-    }
-    if (data?.url) {
-      await Linking.openURL(data.url);
-    }
-    console.log("AuthProvider: Apple sign in initiated");
-  };
-
   const signOut = async () => {
     console.log("AuthProvider: Signing out");
     try {
@@ -151,7 +132,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signInWithEmail,
         signUpWithEmail,
         signInWithGoogle,
-        signInWithApple,
         signOut,
       }}
     >
