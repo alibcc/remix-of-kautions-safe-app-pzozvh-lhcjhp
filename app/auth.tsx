@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import {
   View,
@@ -18,7 +17,7 @@ import { useRouter } from "expo-router";
 type Mode = "signin" | "signup";
 
 export default function AuthScreen() {
-  const { signInWithEmail, signUpWithEmail, signInWithGoogle, signInWithApple } = useAuth();
+  const { signInWithEmail, signUpWithEmail, signInWithGoogle } = useAuth();
   const router = useRouter();
 
   const [mode, setMode] = useState<Mode>("signin");
@@ -49,7 +48,6 @@ export default function AuthScreen() {
         console.log('User attempting email sign in');
         await signInWithEmail(email, password);
         console.log('Email sign in successful - navigating to dashboard');
-        // ✅ EXPLICIT NAVIGATION after successful sign in
         router.replace('/(tabs)/(home)');
       } else {
         console.log('User attempting email sign up');
@@ -69,20 +67,15 @@ export default function AuthScreen() {
     }
   };
 
-  const handleSocialAuth = async (provider: "google" | "apple") => {
+  const handleGoogleAuth = async () => {
     setLoading(true);
     try {
-      console.log(`User attempting ${provider} sign in`);
-      if (provider === "google") {
-        await signInWithGoogle();
-      } else if (provider === "apple") {
-        await signInWithApple();
-      }
-      console.log(`${provider} sign in initiated - navigating to dashboard`);
-      // ✅ EXPLICIT NAVIGATION after successful OAuth sign in
+      console.log('User attempting Google sign in');
+      await signInWithGoogle();
+      console.log('Google sign in initiated - navigating to dashboard');
       router.replace('/(tabs)/(home)');
     } catch (error: any) {
-      console.error(`${provider} auth error:`, error);
+      console.error('Google auth error:', error);
       showAlert("Error", error.message || "Authentication failed", 'error');
     } finally {
       setLoading(false);
@@ -152,23 +145,11 @@ export default function AuthScreen() {
 
           <TouchableOpacity
             style={styles.socialButton}
-            onPress={() => handleSocialAuth("google")}
+            onPress={handleGoogleAuth}
             disabled={loading}
           >
             <Text style={styles.socialButtonText}>Continue with Google</Text>
           </TouchableOpacity>
-
-          {Platform.OS === "ios" && (
-            <TouchableOpacity
-              style={[styles.socialButton, styles.appleButton]}
-              onPress={() => handleSocialAuth("apple")}
-              disabled={loading}
-            >
-              <Text style={[styles.socialButtonText, styles.appleButtonText]}>
-                Continue with Apple
-              </Text>
-            </TouchableOpacity>
-          )}
         </View>
       </ScrollView>
 
@@ -266,12 +247,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#000",
     fontWeight: "500",
-  },
-  appleButton: {
-    backgroundColor: "#000",
-    borderColor: "#000",
-  },
-  appleButtonText: {
-    color: "#fff",
   },
 });
