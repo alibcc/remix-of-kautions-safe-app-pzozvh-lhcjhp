@@ -84,4 +84,5 @@ export default function AuthScreen() {
       await signInWithGoogle();
       router.replace('/(tabs)/(home)');
     } catch (error: any) {
-      showAlert("Error", error.message || "Authenti
+      showAlert("Error", error.message || "Authentication failed", 'error');
+
