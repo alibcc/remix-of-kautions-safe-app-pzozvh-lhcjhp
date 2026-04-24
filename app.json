@@ -17,8 +17,8 @@
       "bundleIdentifier": "com.anonymous.Natively",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSCameraUsageDescription": "MoveProof möchte auf Ihre Kamera zugreifen, um Fotos für das Protokoll zu machen.",
-        "NSPhotoLibraryUsageDescription": "MoveProof möchte auf Ihre Fotos zugreifen, um Bilder für das Protokoll auszuwählen."
+        "NSCameraUsageDescription": "MoveProof m\u00f6chte auf Ihre Kamera zugreifen, um Fotos f\u00fcr das Protokoll zu machen.",
+        "NSPhotoLibraryUsageDescription": "MoveProof m\u00f6chte auf Ihre Fotos zugreifen, um Bilder f\u00fcr das Protokoll auszuw\u00e4hlen."
       }
     },
     "android": {
@@ -45,14 +45,14 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "MoveProof möchte auf Ihre Kamera zugreifen, um Fotos für das Protokoll zu machen."
+          "cameraPermission": "MoveProof m\u00f6chte auf Ihre Kamera zugreifen, um Fotos f\u00fcr das Protokoll zu machen."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "MoveProof möchte auf Ihre Fotos zugreifen, um Bilder für das Protokoll auszuwählen.",
-          "cameraPermission": "MoveProof möchte auf Ihre Kamera zugreifen, um Fotos für das Protokoll zu machen."
+          "photosPermission": "MoveProof m\u00f6chte auf Ihre Fotos zugreifen, um Bilder f\u00fcr das Protokoll auszuw\u00e4hlen.",
+          "cameraPermission": "MoveProof m\u00f6chte auf Ihre Kamera zugreifen, um Fotos f\u00fcr das Protokoll zu machen."
         }
       ]
     ],
