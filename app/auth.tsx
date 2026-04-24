@@ -15,7 +15,7 @@ try { AppleAuthentication = require("expo-apple-authentication"); } catch {}
 import { useAuth } from "@/contexts/AuthContext";
 import { AlertModal } from "@/components/ui/Modal";
 import { useRouter } from "expo-router";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 
 type Mode = "signin" | "signup";
 
