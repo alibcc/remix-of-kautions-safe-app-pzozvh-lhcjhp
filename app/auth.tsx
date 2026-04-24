@@ -10,7 +10,8 @@ import {
   KeyboardAvoidingView,
   ScrollView,
 } from "react-native";
-import * as AppleAuthentication from "expo-apple-authentication";
+let AppleAuthentication: any = null;
+try { AppleAuthentication = require("expo-apple-authentication"); } catch {}
 import { useAuth } from "@/contexts/AuthContext";
 import { AlertModal } from "@/components/ui/Modal";
 import { useRouter } from "expo-router";
