@@ -218,15 +218,7 @@ export default function AuthScreen() {
                 <View style={styles.dividerLine} />
               </View>
 
-              <TouchableOpacity
-                style={styles.socialButton}
-                onPress={handleGoogleAuth}
-                disabled={loading}
-              >
-                <Text style={styles.socialButtonText}>Continue with Google</Text>
-              </TouchableOpacity>
-
-              {/* Apple Sign In — iOS only */}
+             {/* Apple Sign In — iOS only, must be first */}
               {Platform.OS === "ios" && (
                 <AppleAuthentication.AppleAuthenticationButton
                   buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
@@ -236,6 +228,13 @@ export default function AuthScreen() {
                   onPress={handleAppleAuth}
                 />
               )}
+              <TouchableOpacity
+                style={styles.socialButton}
+                onPress={handleGoogleAuth}
+                disabled={loading}
+              >
+                <Text style={styles.socialButtonText}>Continue with Google</Text>
+              </TouchableOpacity>
             </>
           )}
         </View>
