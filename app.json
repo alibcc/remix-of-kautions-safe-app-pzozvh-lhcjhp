@@ -18,7 +18,7 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "MoveProof m\u00f6chte auf Ihre Kamera zugreifen, um Fotos f\u00fcr das Protokoll zu machen.",
-        "NSPhotoLibraryUsageDescription": "MoveProof m\u00f6chte auf Ihre Fotos zugreifen, um Bilder f\u00fcr das Protokoll auszuw\u00e4hlen."
+        "NSPhotoLibraryUsageDescription": "MoveProof m\u00f6chte auf Ihre Fotos zugreifen, um Bilder f\u00fcr das Protokoll auszuw\u00e4hlen.",
         "NSLocationWhenInUseUsageDescription": "MoveProof uses your location to help identify your property address."
       }
     },
