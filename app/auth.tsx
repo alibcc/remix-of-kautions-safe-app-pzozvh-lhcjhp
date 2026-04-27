@@ -10,12 +10,13 @@ import {
   KeyboardAvoidingView,
   ScrollView,
 } from "react-native";
-let AppleAuthentication: any = null;
-try { AppleAuthentication = require("expo-apple-authentication"); } catch {}
 import { useAuth } from "@/contexts/AuthContext";
 import { AlertModal } from "@/components/ui/Modal";
 import { useRouter } from "expo-router";
 import { supabase } from "@/app/integrations/supabase/client";
+
+let AppleAuthentication: any = null;
+try { AppleAuthentication = require("expo-apple-authentication"); } catch {} // eslint-disable-line @typescript-eslint/no-require-imports
 
 type Mode = "signin" | "signup";
 
