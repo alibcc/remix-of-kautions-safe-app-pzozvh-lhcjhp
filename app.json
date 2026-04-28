@@ -29,11 +29,12 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.moveproof.app",
-      "permissions": [
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
-      ]
+"permissions": [
+  "CAMERA",
+  "READ_EXTERNAL_STORAGE",
+  "WRITE_EXTERNAL_STORAGE",
+  "ACCESS_FINE_LOCATION"
+]
     },
     "web": {
       "favicon": "./assets/images/final_quest_240x240.png",
