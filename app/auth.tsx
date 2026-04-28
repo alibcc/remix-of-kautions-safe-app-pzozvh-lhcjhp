@@ -54,7 +54,11 @@ export default function AuthScreen() {
         router.replace("/(tabs)/(home)");
       } else {
         await signUpWithEmail(email, password);
-        showAlert("Success", "Account created! Please check your email to verify your account.", "success");
+        showAlert(
+  "Success", 
+  "Account created! You can now sign in.",
+  'success'
+);
       }
     } catch (error: any) {
       showAlert("Error", error.message || "Authentication failed", "error");
