@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Modal } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -17,12 +16,14 @@ export default function ProfileScreen() {
   const theme = useTheme();
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
-  
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   // Edit Profile modal state
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
-  
+
   // Alert modal state
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertTitle, setAlertTitle] = useState('');
@@ -39,9 +40,7 @@ export default function ProfileScreen() {
   const handleSignOut = async () => {
     setSigningOut(true);
     try {
-      console.log('User tapped Sign Out button');
       await signOut();
-      console.log('Sign out successful, redirecting to auth');
       router.replace('/auth');
     } catch (error) {
       console.error('Sign out error:', error);
@@ -52,7 +51,6 @@ export default function ProfileScreen() {
   };
 
   const handleEditProfile = () => {
-    console.log('User tapped Edit Profile button');
     const userName = user?.user_metadata?.name || '';
     const userEmail = user?.email || '';
     setEditName(userName);
@@ -60,8 +58,7 @@ export default function ProfileScreen() {
     setShowEditProfileModal(true);
   };
 
-const handleSaveProfile = async () => {
-    console.log('User tapped Save Profile button');
+  const handleSaveProfile = async () => {
     if (!editName.trim()) {
       showAlert('Error', 'Name cannot be empty', 'error');
       return;
@@ -85,7 +82,6 @@ const handleSaveProfile = async () => {
   };
 
   const handleChangePassword = async () => {
-    console.log('User tapped Change Password button');
     if (!user?.email) return;
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
@@ -102,9 +98,22 @@ const handleSaveProfile = async () => {
   };
 
   const handleContactSupport = () => {
-    console.log('User tapped Contact Support button');
-    // TODO: Backend Integration - POST /api/support/contact
     showAlert('Contact Support', 'Please email us at support@moveproof.app for assistance.', 'info');
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      const { error } = await supabase.functions.invoke('delete-user');
+      if (error) throw error;
+      await signOut();
+      router.replace('/auth');
+    } catch (err: any) {
+      showAlert('Error', 'Failed to delete account. Please contact support@moveproof.app', 'error');
+    } finally {
+      setDeleting(false);
+      setShowDeleteModal(false);
+    }
   };
 
   const userEmail = user?.email || "No email";
@@ -122,10 +131,9 @@ const handleSaveProfile = async () => {
           <Text style={[styles.email, { color: theme.dark ? '#98989D' : '#666' }]}>{userEmail}</Text>
         </GlassView>
 
-        {/* FIX #4: Profile Page Options */}
         <View style={styles.optionsSection}>
           <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Account Settings</Text>
-          
+
           <TouchableOpacity
             style={[styles.optionButton, { backgroundColor: theme.dark ? 'rgba(255, 255, 255, 0.05)' : '#fff' }]}
             onPress={handleEditProfile}
@@ -183,6 +191,21 @@ const handleSaveProfile = async () => {
             </>
           )}
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.signOutButton, { backgroundColor: '#FF3B30', marginTop: 12 }]}
+          onPress={() => setShowDeleteModal(true)}
+          disabled={deleting}
+        >
+          {deleting ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <>
+              <IconSymbol ios_icon_name="trash" android_material_icon_name="delete" size={20} color="#fff" />
+              <Text style={styles.signOutText}>Delete Account</Text>
+            </>
+          )}
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Edit Profile Modal */}
@@ -205,12 +228,11 @@ const handleSaveProfile = async () => {
                 />
               </TouchableOpacity>
             </View>
-
             <View style={styles.modalBody}>
               <View style={styles.inputGroup}>
                 <Text style={[styles.inputLabel, { color: theme.colors.text }]}>Name</Text>
                 <TextInput
-                  style={[styles.input, { 
+                  style={[styles.input, {
                     backgroundColor: theme.dark ? 'rgba(255, 255, 255, 0.05)' : '#f5f5f5',
                     color: theme.colors.text,
                     borderColor: theme.dark ? 'rgba(255, 255, 255, 0.1)' : '#e0e0e0'
@@ -221,11 +243,10 @@ const handleSaveProfile = async () => {
                   onChangeText={setEditName}
                 />
               </View>
-
               <View style={styles.inputGroup}>
                 <Text style={[styles.inputLabel, { color: theme.colors.text }]}>Email</Text>
                 <TextInput
-                  style={[styles.input, { 
+                  style={[styles.input, {
                     backgroundColor: theme.dark ? 'rgba(255, 255, 255, 0.05)' : '#f5f5f5',
                     color: theme.colors.text,
                     borderColor: theme.dark ? 'rgba(255, 255, 255, 0.1)' : '#e0e0e0'
@@ -239,7 +260,6 @@ const handleSaveProfile = async () => {
                 />
               </View>
             </View>
-
             <TouchableOpacity
               style={[styles.modalSaveButton, { backgroundColor: colors.primary }]}
               onPress={handleSaveProfile}
@@ -259,6 +279,17 @@ const handleSaveProfile = async () => {
         type="danger"
         onConfirm={handleSignOut}
         onCancel={() => setShowSignOutModal(false)}
+      />
+
+      <ConfirmModal
+        visible={showDeleteModal}
+        title="Delete Account"
+        message="This will permanently delete your account and all your data. This cannot be undone."
+        confirmText="Delete Account"
+        cancelText="Cancel"
+        type="danger"
+        onConfirm={handleDeleteAccount}
+        onCancel={() => setShowDeleteModal(false)}
       />
 
       <AlertModal
