@@ -61,9 +61,12 @@
     "experiments": {
       "typedRoutes": true
     },
-    "extra": {
-      "router": {},
-      "backendUrl": "https://aeq5ttmz2n7ttdhycknp7q3ag88gygt4.app.specular.dev"
-    }
+"extra": {
+  "eas": {
+    "projectId": "337b624f-623f-466e-8af7-02c936c77785"
+  },
+  "router": {},
+  "backendUrl": "https://aeq5ttmz2n7ttdhycknp7q3ag88gygt4.app.specular.dev"
+}
   }
 }
