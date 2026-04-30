@@ -14,7 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.Natively",
+      "bundleIdentifier": "com.alibcc.moveproof"
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "MoveProof m\u00f6chte auf Ihre Kamera zugreifen, um Fotos f\u00fcr das Protokoll zu machen.",
