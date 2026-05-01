@@ -44,3 +44,30 @@
       "expo-font",
       "expo-router",
       "expo-web-browser",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "MoveProof möchte auf Ihre Kamera zugreifen, um Fotos für das Protokoll zu machen."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "MoveProof möchte auf Ihre Fotos zugreifen, um Bilder für das Protokoll auszuwählen.",
+          "cameraPermission": "MoveProof möchte auf Ihre Kamera zugreifen, um Fotos für das Protokoll zu machen."
+        }
+      ]
+    ],
+    "scheme": "moveproof",
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "337b624f-623f-466e-8af7-02c936c77785"
+      },
+      "router": {},
+      "backendUrl": "https://aeq5ttmz2n7ttdhycknp7q3ag88gygt4.app.specular.dev"
+    }
+  }
+}
