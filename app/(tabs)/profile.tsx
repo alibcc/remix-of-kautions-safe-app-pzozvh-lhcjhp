@@ -124,11 +124,11 @@ export default function ProfileScreen() {
         style={styles.container}
         contentContainerStyle={styles.contentContainer}
       >
-        <GlassView style={styles.profileHeader} glassEffectStyle="regular">
+        <View style={styles.profileHeader}>
           <Text style={styles.profileIcon}>👤</Text>
           <Text style={[styles.name, { color: theme.colors.text }]}>{userName}</Text>
           <Text style={[styles.email, { color: theme.dark ? '#98989D' : '#666' }]}>{userEmail}</Text>
-        </GlassView>
+        </View>
 
         <View style={styles.optionsSection}>
           <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Account Settings</Text>
