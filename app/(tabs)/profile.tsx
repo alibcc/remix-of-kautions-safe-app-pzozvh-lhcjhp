@@ -4,7 +4,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "expo-router";
 import { IconSymbol } from "@/components/IconSymbol";
-import { GlassView } from "expo-glass-effect";
 import { useTheme } from "@react-navigation/native";
 import { ConfirmModal, AlertModal } from "@/components/ui/Modal";
 import { colors } from "@/styles/commonStyles";
