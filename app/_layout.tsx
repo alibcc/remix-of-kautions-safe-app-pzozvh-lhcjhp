@@ -1,13 +1,12 @@
 
-import "react-native-reanimated";
-import React, { useEffect, useState } from "react";
+
+import React, { useEffect } from "react";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { SystemBars } from "react-native-edge-to-edge";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useColorScheme } from "react-native";
-import { useNetworkState } from "expo-network";
 import {
   DarkTheme,
   DefaultTheme,
@@ -17,7 +16,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { WidgetProvider } from "@/contexts/WidgetContext";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { AlertModal } from "@/components/ui/Modal";
+
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -28,11 +27,11 @@ export const unstable_settings = {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const networkState = useNetworkState();
+  
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
-  const [offlineAlertVisible, setOfflineAlertVisible] = useState(false);
+  
 
   useEffect(() => {
     if (loaded) {
@@ -40,14 +39,7 @@ export default function RootLayout() {
     }
   }, [loaded]);
 
-  React.useEffect(() => {
-    if (
-      !networkState.isConnected &&
-      networkState.isInternetReachable === false
-    ) {
-      setOfflineAlertVisible(true);
-    }
-  }, [networkState.isConnected, networkState.isInternetReachable]);
+
 
   if (!loaded) {
     return null;
@@ -109,13 +101,7 @@ export default function RootLayout() {
         </ThemeProvider>
       </AuthProvider>
 
-      <AlertModal
-        visible={offlineAlertVisible}
-        title="🔌 You are offline"
-        message="You can keep using the app! Your changes will be saved locally and synced when you are back online."
-        type="info"
-        onClose={() => setOfflineAlertVisible(false)}
-      />
+     
     </>
   );
 }
