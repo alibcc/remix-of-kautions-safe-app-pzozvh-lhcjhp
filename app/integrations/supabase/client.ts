@@ -2,7 +2,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Database } from './types';
 import { createClient } from '@supabase/supabase-js';
-import 'react-native-url-polyfill/auto';
 
 // CRITICAL FIX: Wait for environment variables to load before exporting client
 const SUPABASE_URL = "https://uxcqlvlealowlsmrxmrn.supabase.co";
