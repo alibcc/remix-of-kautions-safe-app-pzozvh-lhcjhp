@@ -1,0 +1,73 @@
+{
+  "expo": {
+    "name": "MoveProof",
+    "slug": "moveproof",
+    "version": "3.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/moveproof_icon.png",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/moveproof_icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.alibcc.moveproof",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "MoveProof m\u00f6chte auf Ihre Kamera zugreifen, um Fotos f\u00fcr das Protokoll zu machen.",
+        "NSPhotoLibraryUsageDescription": "MoveProof m\u00f6chte auf Ihre Fotos zugreifen, um Bilder f\u00fcr das Protokoll auszuw\u00e4hlen.",
+        "NSLocationWhenInUseUsageDescription": "MoveProof uses your location to help identify your property address."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/moveproof_icon.png",
+        "backgroundColor": "#000000"
+      },
+      "edgeToEdgeEnabled": true,
+      "package": "com.moveproof.app",
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "ACCESS_FINE_LOCATION"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/images/final_quest_240x240.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-font",
+      "expo-router",
+      "expo-web-browser",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "MoveProof m\u00f6chte auf Ihre Kamera zugreifen, um Fotos f\u00fcr das Protokoll zu machen."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "MoveProof m\u00f6chte auf Ihre Fotos zugreifen, um Bilder f\u00fcr das Protokoll auszuw\u00e4hlen.",
+          "cameraPermission": "MoveProof m\u00f6chte auf Ihre Kamera zugreifen, um Fotos f\u00fcr das Protokoll zu machen."
+        }
+      ]
+    ],
+    "scheme": "moveproof",
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "337b624f-623f-466e-8af7-02c936c77785"
+      },
+      "router": {},
+      "backendUrl": "https://9wen3y4u7gjd6gmgfzwb88k7e85v8cac.app.specular.dev"
+    }
+  }
+}
