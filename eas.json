@@ -15,7 +15,7 @@
     },
     "production": {
       "autoIncrement": true,
-      "image": "macos-sequoia-15.2-xcode-16.2"
+      "buildImage": "macos-sequoia-15.2-xcode-16.2"
     }
   }
 }
