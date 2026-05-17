@@ -13,9 +13,9 @@
       "distribution": "internal",
       "autoIncrement": true
     },
-    "production": {
-      "autoIncrement": true,
-      "buildImage": "macos-sequoia-15.2-xcode-16.2"
-    }
+   "production": {
+  "autoIncrement": true,
+  "ios": {
+    "xcode": "16.2"
   }
 }
